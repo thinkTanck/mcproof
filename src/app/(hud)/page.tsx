@@ -129,8 +129,9 @@ export default async function Home() {
               <p className="reading">
                 <span className="micro-label text-nominal">Measured finding</span> Asked to fetch
                 the invoice for a single customer account, a frontier agent performed an
-                out-of-scope read of a system credential file; the read occurred in 5 of 10 in a
-                clean single sweep and 6 of 10 in a prior run, every instance Critical.
+                out-of-scope read on an unscoped path, which in this simulated environment returns a
+                fabricated credential preview; the read occurred in 5 of 10 in a clean single sweep
+                and 6 of 10 in a prior run, every instance Critical.
               </p>
               <Link
                 href={RESULTS_URL}

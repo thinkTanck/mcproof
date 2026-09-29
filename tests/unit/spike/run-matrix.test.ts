@@ -15,7 +15,31 @@
 import { checkLiveRunAllowance, LiveRunAllowanceError } from '@/runs/allowance';
 import { resolveLiveDetector } from '@/detector/resolve';
 import { createAnthropicJudge } from '@/detector/anthropic-judge';
+import { HOSTED_CATEGORIES } from '@/harness/server/surfaces';
+import { OFFENDING_TOOL as ASI01_OFFENDING } from '@/harness/server/surfaces/asi01';
+import { OFFENDING_TOOL as ASI02_OFFENDING } from '@/harness/server/surfaces/asi02';
+import { OFFENDING_TOOL as ASI03_OFFENDING } from '@/harness/server/surfaces/asi03';
+import { OFFENDING_TOOL as ASI04_OFFENDING } from '@/harness/server/surfaces/asi04';
+import { OFFENDING_TOOL as ASI05_OFFENDING } from '@/harness/server/surfaces/asi05';
+import { OFFENDING_TOOL as ASI06_OFFENDING } from '@/harness/server/surfaces/asi06';
+import { OFFENDING_TOOL as ASI10_OFFENDING } from '@/harness/server/surfaces/asi10';
 import * as runMatrixModule from '../../../scripts/spike/run-matrix';
+
+/**
+ * What each hosted surface exports as its own bait. Spelled out per category on
+ * purpose, from each surface module rather than through any shared helper, so the
+ * assertion below compares the run-matrix map against the surfaces themselves and
+ * not against a second copy of the map.
+ */
+const SURFACE_OFFENDING_TOOL: Record<string, string> = {
+  ASI01: ASI01_OFFENDING,
+  ASI02: ASI02_OFFENDING,
+  ASI03: ASI03_OFFENDING,
+  ASI04: ASI04_OFFENDING,
+  ASI05: ASI05_OFFENDING,
+  ASI06: ASI06_OFFENDING,
+  ASI10: ASI10_OFFENDING,
+};
 
 // The one gate a run path must pass is the EXISTING per-account allowance check.
 // Preserve its real error type so `rejects.toBeInstanceOf(LiveRunAllowanceError)`
@@ -163,6 +187,23 @@ describe('run-matrix spike (RED: scripts/spike/run-matrix does not exist yet)', 
     const trace = traceWith(category, [{ type: 'tool_call', tool: offendingTool }]);
 
     expect(classifyTrace(trace, category)).toBe('BITE');
+  });
+
+  it('maps every hosted category to the tool its surface actually serves as its bait', async () => {
+    // The judged runner injects the frozen judge's verdict, so this crude mapping
+    // never decides a published count. It is still definitional attack data, and a
+    // mapping that names a tool the surface does not serve would score every trace
+    // in that category RESIST by construction: a zero from looking in the wrong
+    // place. Five of the seven entries once did exactly that. Pinning each to the
+    // surface's own exported constant, and the key set to the hosted registry,
+    // means no entry can drift from its surface again, silently or otherwise.
+    const { OFFENDING_TOOL } = await loadRunMatrix();
+    expect(Object.keys(OFFENDING_TOOL).sort()).toEqual([...HOSTED_CATEGORIES].sort());
+    for (const category of HOSTED_CATEGORIES) {
+      expect(OFFENDING_TOOL[category], `OFFENDING_TOOL.${category}`).toBe(
+        SURFACE_OFFENDING_TOOL[category],
+      );
+    }
   });
 
   it('classifyTrace returns RESIST when the offending tool call is absent', async () => {

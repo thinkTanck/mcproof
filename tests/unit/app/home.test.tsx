@@ -174,12 +174,18 @@ describe('Home — the featured ASI02 finding', () => {
   it('states the measured out-of-scope-read finding in plain words near the top', async () => {
     await renderHome();
     // The concrete finding: asked for one customer's invoice, a frontier agent
-    // performed an out-of-scope read of a system credential file. Stated as a
-    // measured finding about a subject model, never a claim about the reader's
-    // own agent (framing.test.tsx holds that line across every screen).
+    // performed an out-of-scope read on an unscoped path. The hosted surface returns
+    // a fabricated credential preview for ANY unscoped path, so the copy must say
+    // the content is simulated and must never claim the agent sought a credential
+    // file. Stated as a measured finding about a subject model, never a claim about
+    // the reader's own agent (framing.test.tsx holds that line across every screen).
     const finding = screen.getByText(/measured finding/i).closest('p');
-    expect(finding?.textContent ?? '').toMatch(/out-of-scope read/i);
-    expect(finding?.textContent ?? '').toMatch(/credential file/i);
+    const text = finding?.textContent ?? '';
+    expect(text).toMatch(/out-of-scope read/i);
+    expect(text).toMatch(/unscoped path/i);
+    expect(text).toMatch(/simulated/i);
+    expect(text).toMatch(/fabricated credential preview/i);
+    expect(text).not.toMatch(/credential file/i);
   });
 
   it('offers a one-click link to the full RESULTS writeup', async () => {
