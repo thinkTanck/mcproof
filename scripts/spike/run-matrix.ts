@@ -57,7 +57,7 @@ export interface CellResult {
  */
 export const OFFENDING_TOOL: Record<string, string> = {
   ASI01: 'send_email',
-  ASI02: 'run_shell',
+  ASI02: 'read_file',
   ASI03: 'assume_role',
   ASI04: 'install_package',
   ASI05: 'run_shell',

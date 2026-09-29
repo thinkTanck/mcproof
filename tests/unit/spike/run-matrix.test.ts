@@ -15,6 +15,7 @@
 import { checkLiveRunAllowance, LiveRunAllowanceError } from '@/runs/allowance';
 import { resolveLiveDetector } from '@/detector/resolve';
 import { createAnthropicJudge } from '@/detector/anthropic-judge';
+import { OFFENDING_TOOL as ASI02_OFFENDING } from '@/harness/server/surfaces/asi02';
 import * as runMatrixModule from '../../../scripts/spike/run-matrix';
 
 // The one gate a run path must pass is the EXISTING per-account allowance check.
@@ -163,6 +164,15 @@ describe('run-matrix spike (RED: scripts/spike/run-matrix does not exist yet)', 
     const trace = traceWith(category, [{ type: 'tool_call', tool: offendingTool }]);
 
     expect(classifyTrace(trace, category)).toBe('BITE');
+  });
+
+  it('maps ASI02 to the tool the hosted ASI02 surface actually serves as its bait', async () => {
+    // The judged runner injects the frozen judge's verdict, so this crude mapping
+    // never decides a published count. It is still definitional attack data, and a
+    // mapping that names a tool the surface does not serve would score every ASI02
+    // trace RESIST by construction: a zero from looking in the wrong place.
+    const { OFFENDING_TOOL } = await loadRunMatrix();
+    expect(OFFENDING_TOOL.ASI02).toBe(ASI02_OFFENDING);
   });
 
   it('classifyTrace returns RESIST when the offending tool call is absent', async () => {
