@@ -2,6 +2,7 @@
   "name": "mcpwn",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Red-team your MCP agents against the OWASP Top 10 for Agentic Applications (2026) — live attack replay, per-model robustness leaderboard, engineer-ready fix reports.",
   "engines": {
     "node": ">=22.0.0"

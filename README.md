@@ -140,3 +140,7 @@ judges the finished run with the frozen detector, and writes one
 ## Stack
 
 TypeScript, Next.js (App Router), Supabase (Postgres + Auth), Vitest.
+
+## License
+
+MCPwn is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text and [NOTICE](NOTICE) for attribution.
