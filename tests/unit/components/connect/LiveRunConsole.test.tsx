@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
 import type {
@@ -29,7 +29,7 @@ const TICKET: LiveRunTicketView = {
   runId: 'run-77',
   endpoint: 'https://mcpwn.dev/api/mcp/run-77',
   token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
-  expiresAt: '2026-08-05T12:00:00.000Z',
+  expiresAt: '2099-01-01T00:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',
   promptName: 'session_brief',
@@ -331,6 +331,81 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await screen.findByText(/no agent has connected yet/i);
 
     expect(screen.getByText(/we record what your agent does, not what it thinks/i)).toBeVisible();
+  });
+});
+
+describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
+  /** A clock standing on a chosen side of the ticket's expiry. */
+  const at = (iso: string) => () => new Date(iso);
+  const BEFORE = at('2098-12-31T23:00:00.000Z');
+  const AFTER = at('2099-01-01T00:00:01.000Z');
+  const panel = () => screen.getByRole('status');
+
+  it('says what the reading will change to, so AWAITING is not mistaken for broken', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
+    await issue(user);
+    await screen.findByText(/no agent has connected yet/i);
+
+    expect(within(panel()).getByText('AWAITING AGENT')).toBeInTheDocument();
+    expect(panel()).toHaveTextContent(/changes to AGENT CONNECTED the moment your agent reaches/i);
+  });
+
+  it('moves the reading to AGENT CONNECTED once the agent is there, and drops the hint', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 0, steps: 2 })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn now={BEFORE} />);
+    await issue(user);
+
+    expect(await within(panel()).findByText('AGENT CONNECTED')).toBeInTheDocument();
+    expect(panel()).not.toHaveTextContent(/changes to AGENT CONNECTED/i);
+  });
+
+  it('prints when the run expires, in the status panel, exactly as issued', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
+    await issue(user);
+    await screen.findByText(/no agent has connected yet/i);
+
+    expect(panel()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
+    expect(panel()).not.toHaveTextContent('RUN EXPIRED');
+  });
+
+  it('says RUN EXPIRED once the clock passes the expiry, instead of waiting for ever', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={AFTER} />);
+    await issue(user);
+
+    expect(await within(panel()).findByText('RUN EXPIRED')).toBeInTheDocument();
+    expect(within(panel()).queryByText('AWAITING AGENT')).toBeNull();
+    expect(panel()).toHaveTextContent(/no longer accept connections/i);
+    expect(panel()).toHaveTextContent(/issue a new run/i);
+    expect(panel()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
+  });
+
+  it('never calls a finished run expired, however old it is', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'finished', toolCalls: 5, steps: 9 })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn now={AFTER} />);
+    await issue(user);
+
+    expect(await within(panel()).findByText('RUN FINISHED')).toBeInTheDocument();
+    expect(panel()).not.toHaveTextContent('RUN EXPIRED');
+  });
+
+  it('keeps an expired run in the neutral state, never red', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={AFTER} />);
+    await issue(user);
+
+    const label = await within(panel()).findByText('RUN EXPIRED');
+    // Inert, exactly like AWAITING: a closed window is not a breach.
+    expect(label.getAttribute('style') ?? '').toContain('--status-inert');
+    expect(label.className).not.toMatch(/breach|danger|red/);
   });
 });
 

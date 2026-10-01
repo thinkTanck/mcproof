@@ -94,6 +94,9 @@ const RETRYABLE: readonly LiveRunRefusalCode[] = [
   'REFUSED',
 ];
 
+/** The production clock for the expiry check. See the `now` prop. */
+const systemNow = (): Date => new Date();
+
 /** What each observed phase means, in the words a person would use. */
 const PHASE_LABELS: Record<LiveRunPhase, string> = {
   waiting: 'AWAITING AGENT',
@@ -126,6 +129,7 @@ export function LiveRunConsole({
   kind = 'malicious',
   signedIn,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+  now = systemNow,
 }: {
   port?: ConnectLiveRunPort;
   category: Category;
@@ -137,8 +141,17 @@ export function LiveRunConsole({
   kind?: VariantKind;
   signedIn: boolean;
   pollIntervalMs?: number;
+  /**
+   * The clock the expiry check reads. Injected so a test can stand on either
+   * side of a ticket's expiry without waiting for it; production reads the real
+   * one. It is only ever called from the poll, never during render.
+   */
+  now?: () => Date;
 }) {
   const [ticket, setTicket] = useState<LiveRunTicketView | null>(null);
+  // Whether the wall clock has passed the ticket's expiry, as of the last poll.
+  // Without this a run that quietly timed out reads AWAITING AGENT for ever.
+  const [expired, setExpired] = useState(false);
   const [refusal, setRefusal] = useState<LiveRunRefusal | null>(null);
   const [status, setStatus] = useState<LiveRunStatusView | null>(null);
   const [statusRefusal, setStatusRefusal] = useState<LiveRunRefusal | null>(null);
@@ -160,6 +173,7 @@ export function LiveRunConsole({
   }, [port, category, kind]);
 
   const runId = ticket?.runId ?? null;
+  const expiresAt = ticket?.expiresAt ?? null;
   const done = summary !== null || status?.phase === 'finished';
 
   const finish = useCallback(async () => {
@@ -187,6 +201,9 @@ export function LiveRunConsole({
     const read = async () => {
       const answer = await port.readState({ runId });
       if (!live) return;
+      // An unparseable expiry compares false, so a malformed value can never
+      // declare a live run dead.
+      if (expiresAt !== null) setExpired(now().getTime() >= Date.parse(expiresAt));
       if (answer.ok) {
         setStatus(answer.value);
         setStatusRefusal(null);
@@ -200,7 +217,7 @@ export function LiveRunConsole({
       live = false;
       clearInterval(timer);
     };
-  }, [port, runId, done, pollIntervalMs]);
+  }, [port, runId, done, pollIntervalMs, now, expiresAt]);
 
   if (!signedIn) return <SignInGate />;
   if (refusal !== null) return <Refusal refusal={refusal} onRetry={issue} />;
@@ -219,6 +236,8 @@ export function LiveRunConsole({
       <ClientSetup ticket={ticket} />
       <TaskGoal ticket={ticket} />
       <Connection
+        expiresAt={ticket.expiresAt}
+        expired={expired}
         status={status}
         statusRefusal={statusRefusal}
         summary={summary}
@@ -371,6 +390,8 @@ function TaskGoal({ ticket }: { ticket: LiveRunTicketView }) {
 // ── Real connection state ──
 
 function Connection({
+  expiresAt,
+  expired,
   status,
   statusRefusal,
   summary,
@@ -378,6 +399,10 @@ function Connection({
   finishing,
   onFinish,
 }: {
+  /** The ticket's expiry, printed as issued. Evidence, never reformatted. */
+  expiresAt: string;
+  /** Whether the clock had passed that expiry at the last poll. */
+  expired: boolean;
   status: LiveRunStatusView | null;
   statusRefusal: LiveRunRefusal | null;
   summary: LiveRunSummaryView | null;
@@ -388,7 +413,11 @@ function Connection({
   const phase: LiveRunPhase | null = summary !== null ? 'finished' : (status?.phase ?? null);
   // AWAITING is the neutral fourth state, not a warning and never a breach: we
   // have observed something real, and what we observed is "nothing has happened".
-  const live = phase === 'connected' || phase === 'finished';
+  // A run that passed its expiry before finishing is dead, and says so. It is
+  // the same neutral fourth state as AWAITING, never red: nothing was breached,
+  // the window simply closed. A FINISHED run stays finished however old it is.
+  const lapsed = expired && phase !== 'finished';
+  const live = !lapsed && (phase === 'connected' || phase === 'finished');
   // The run can only be ended once the agent has actually turned up. Ending a run
   // nobody connected to would spend a judge call on a trace with no agent in it.
   const canFinish = phase === 'connected' && summary === null;
@@ -412,7 +441,7 @@ function Connection({
             className="font-mono text-[13px] tracking-[0.08em]"
             style={live ? undefined : { color: 'var(--status-inert)' }}
           >
-            {phase === null ? 'READING RUN STATE' : PHASE_LABELS[phase]}
+            {lapsed ? 'RUN EXPIRED' : phase === null ? 'READING RUN STATE' : PHASE_LABELS[phase]}
           </span>
           {status !== null && (
             <span className="ml-auto flex items-baseline gap-2">
@@ -425,10 +454,20 @@ function Connection({
           )}
         </div>
         <p className="reading mt-3 max-w-[68ch]">
-          {status === null
-            ? 'We are reading the state of this run from the server.'
-            : phaseLine(status)}
+          {lapsed
+            ? 'This run passed its expiry before it finished, so its endpoint and token no longer ' +
+              'accept connections. Issue a new run to try again.'
+            : status === null
+              ? 'We are reading the state of this run from the server.'
+              : phaseLine(status)}
         </p>
+        {!lapsed && phase === 'waiting' && (
+          <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+            This reading changes to AGENT CONNECTED the moment your agent reaches the endpoint. If
+            it is still AWAITING AGENT after you have started your client, the connection did not
+            take.
+          </p>
+        )}
         {status !== null && (
           <p className="reading mt-2 max-w-[68ch] text-ink-muted">
             The trace holds {status.steps} steps in total, which counts the task goal we sent and
@@ -438,11 +477,19 @@ function Connection({
         {statusRefusal !== null && (
           <p className="reading mt-2 max-w-[68ch] text-ink-muted">{statusRefusal.message}</p>
         )}
-        {status !== null && (
-          <p className="instrument-faint mt-3">
-            LAST SEEN <span className="readout">{status.lastSeenAt ?? 'never'}</span>
+        {/* When the run stops accepting connections, beside when we last saw the
+            agent: the two readings that tell a quiet run from a dead one. Both
+            are evidence, printed as issued and never counted down or animated. */}
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+          {status !== null && (
+            <p className="instrument-faint">
+              LAST SEEN <span className="readout">{status.lastSeenAt ?? 'never'}</span>
+            </p>
+          )}
+          <p className="instrument-faint">
+            {lapsed ? 'EXPIRED' : 'EXPIRES'} <span className="readout">{expiresAt}</span>
           </p>
-        )}
+        </div>
         {finishRefusal !== null && (
           <div className="mt-4 flex flex-col gap-2 rounded-md border border-caution/40 bg-caution/5 px-4 py-3">
             <p className="micro-label text-caution">{REFUSAL_HEADINGS[finishRefusal.code]}</p>
