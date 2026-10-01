@@ -14,7 +14,10 @@
  *    as JSON by default, or as one SSE frame when the client accepts only SSE.
  *  - **Session handling.** `initialize` mints a session and returns it in the
  *    `Mcp-Session-Id` response header; every later request MUST carry it. A
- *    missing id is 400, an unknown/expired id is 404 (spec).
+ *    missing id is 400, an unknown/expired id is 404 (spec). That strict form is
+ *    the DEFAULT. The hosted pipeline opts into `adoptUnknownSessions`, because
+ *    there the session map is one serverless instance's memory and the id an
+ *    agent carries may have been minted by another instance: see the option.
  *  - **JSON-RPC-only bodies with a request that has no response owed** (a lone
  *    notification such as `notifications/initialized`) get `202 Accepted`, no body.
  *
@@ -55,6 +58,40 @@ export interface StreamableHttpHandler {
   /** Drop a session (as a client DELETE does), returning whether it existed. */
   endSession(id: string): boolean;
 }
+
+export interface StreamableHttpOptions {
+  /**
+   * Bind a session id this handler did not mint to its server, instead of
+   * answering 404. OFF by default.
+   *
+   * WHY IT EXISTS. The session map below is process memory. On a serverless
+   * platform nothing pins an agent's second request to the instance that served
+   * its `initialize`, and an instance that rebuilds a run from the durable row
+   * starts with an empty map. Strict handling there answered 404 "Unknown or
+   * expired session" to the very next request, and a real client (Claude Code,
+   * 2026-10-01) initialized, failed, retried three times and gave up. The run
+   * was durable; the session was not.
+   *
+   * WHY IT IS SAFE WHERE IT IS ENABLED, AND ONLY THERE. The hosted pipeline
+   * (`src/runs/live-run.ts`) reaches this handler only after it has matched the
+   * URL to one run and verified that run's bearer token, on every request, and
+   * it builds one server per run. So in that path the session id selects nothing
+   * and authorizes nothing: there is exactly one server it could mean. A caller
+   * who mounts this handler WITHOUT that authentication in front (the loopback
+   * script does) must leave this off, or any id would open the server.
+   *
+   * Two guards stay on regardless: only an id shaped like the ones we mint is
+   * adopted, and the map is bounded, so a token holder cannot grow it without
+   * limit by inventing ids.
+   */
+  readonly adoptUnknownSessions?: boolean;
+}
+
+/** The most session ids one handler will remember. Oldest goes first. */
+export const MAX_SESSIONS_PER_HANDLER = 64;
+
+/** The shape of an id `newSessionId` mints: a canonical UUID. */
+const MINTED_SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Mint a session id. Opaque and unguessable — never encodes anything about the run. */
 function newSessionId(): string {
@@ -111,8 +148,35 @@ function renderOutbound(
  * Build a Streamable-HTTP handler over a session registry. `newServer` creates a
  * fresh `HostedMcpServer` — one surface, one run — for each `initialize`.
  */
-export function createStreamableHttpHandler(newServer: ServerFactory): StreamableHttpHandler {
+export function createStreamableHttpHandler(
+  newServer: ServerFactory,
+  options: StreamableHttpOptions = {},
+): StreamableHttpHandler {
   const sessions = new Map<string, HostedMcpServer>();
+  const adopt = options.adoptUnknownSessions === true;
+
+  /** Remember a session, evicting the oldest once the map is full. */
+  function remember(id: string, server: HostedMcpServer): void {
+    if (!sessions.has(id) && sessions.size >= MAX_SESSIONS_PER_HANDLER) {
+      const oldest = sessions.keys().next().value;
+      if (oldest !== undefined) sessions.delete(oldest);
+    }
+    sessions.set(id, server);
+  }
+
+  /**
+   * The server for a presented session id. A known id is served as always. An
+   * unknown one is adopted only when the caller opted in and the id is shaped
+   * like one we mint; otherwise it stays unknown and the caller answers 404.
+   */
+  function serverFor(id: string): HostedMcpServer | undefined {
+    const known = sessions.get(id);
+    if (known !== undefined) return known;
+    if (!adopt || !MINTED_SESSION_ID.test(id)) return undefined;
+    const server = newServer();
+    remember(id, server);
+    return server;
+  }
 
   async function handlePost(request: Request): Promise<Response> {
     const contentType = (request.headers.get('content-type') ?? '').toLowerCase();
@@ -149,7 +213,7 @@ export function createStreamableHttpHandler(newServer: ServerFactory): Streamabl
     if (isInitialize) {
       const id = newSessionId();
       const server = newServer();
-      sessions.set(id, server);
+      remember(id, server);
       const response = server.handle(raw);
       // initialize always owes a response.
       return renderOutbound(
@@ -172,7 +236,7 @@ export function createStreamableHttpHandler(newServer: ServerFactory): Streamabl
         400,
       );
     }
-    const server = sessions.get(sessionId);
+    const server = serverFor(sessionId);
     if (server === undefined) {
       return jsonResponse(
         jsonRpcError(
@@ -196,7 +260,11 @@ export function createStreamableHttpHandler(newServer: ServerFactory): Streamabl
       return jsonResponse(jsonRpcError(null, RPC_INVALID_REQUEST, 'Missing Mcp-Session-Id.'), 400);
     }
     const existed = sessions.delete(sessionId);
-    return new Response(null, { status: existed ? 204 : 404 });
+    // Ending is idempotent across instances: with adoption on, a session this
+    // instance never saw was opened by another one, and the client closing it
+    // here has closed it. The strict path still reports an unknown id as 404.
+    const ended = existed || (adopt && MINTED_SESSION_ID.test(sessionId));
+    return new Response(null, { status: ended ? 204 : 404 });
   }
 
   return {

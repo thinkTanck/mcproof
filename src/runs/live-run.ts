@@ -118,6 +118,19 @@ import { InMemoryLiveRunSessionStore, type LiveRunSessionStore } from '@/runs/li
 export const LIVE_RUN_ENDPOINT_PREFIX = '/api/mcp';
 
 /**
+ * How this pipeline mounts the transport, at BOTH places it builds a handler.
+ *
+ * A session id an agent carries may have been minted by a different instance,
+ * so the handler binds an unknown id to the run's one server instead of
+ * answering 404. That is safe here and only here: `handle()` below has already
+ * matched the URL to this run and verified its bearer token before the handler
+ * sees the request, on every request, and there is one server per run. The
+ * loopback script (`scripts/server/serve.ts`) has no such gate and keeps the
+ * strict default.
+ */
+const HOSTED_TRANSPORT = { adoptUnknownSessions: true } as const;
+
+/**
  * How long a session row outlives the token that reaches it, before the sweep
  * may delete it.
  *
@@ -422,20 +435,56 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
   }
 
   /**
-   * The run, whichever instance started it.
+   * The run, whichever instance started it, and AS IT STANDS NOW.
    *
-   * A cache hit is served straight from memory. A miss goes to the durable
-   * registry and REBUILDS the hosted server from the row: the framing decides the
-   * tool surface, and the persisted events restore everything the agent already
-   * did, so the rebuilt run is the same run and not a fresh one wearing its id.
+   * The durable row is the truth and the in-memory copy is a cache of it, so the
+   * row is read on every call and the cache is kept only while it is current. A
+   * miss, or a cached copy the row has moved past, REBUILDS the hosted server
+   * from the row: the framing decides the tool surface, and the persisted events
+   * restore everything the agent already did, so the rebuilt run is the same run
+   * and not a fresh one wearing its id.
+   *
+   * WHY THE CACHE IS CHECKED AND NOT TRUSTED. It used to be returned as found.
+   * That was only ever safe while one instance served a whole session, which is
+   * exactly what the session fix above this pipeline removes: a session can now
+   * move between instances mid-run. An instance that served the run earlier then
+   * holds a copy missing the steps another instance recorded, and because
+   * appends are positional its next write would land on their slots and
+   * overwrite them. The step lost that way can be the compromise itself.
    */
   async function resolve(runId: string): Promise<LiveRunSession | undefined> {
     const cached = live.get(runId);
-    if (cached !== undefined) return cached;
 
-    const row = await registry.find(runId);
-    if (row === null) return undefined;
+    let row: Awaited<ReturnType<typeof registry.find>>;
+    try {
+      row = await registry.find(runId);
+    } catch (error) {
+      // The registry could not be read. An instance already holding the run goes
+      // on serving what it has rather than refusing an agent mid-run; one that
+      // holds nothing has nothing to serve, exactly as before.
+      if (cached === undefined) throw error;
+      logger?.error('live run registry could not be read; serving the cached run', { runId });
+      return cached;
+    }
+    if (row === null) return cached;
 
+    // Current means no other instance has recorded anything this one has not
+    // seen: no further steps, and no client name it has not learned.
+    if (
+      cached !== undefined &&
+      row.events.length <= cached.flushed &&
+      (row.client === null || row.client === cached.client)
+    ) {
+      return cached;
+    }
+
+    // Did a client already complete `initialize` on another instance? The row
+    // records the client name at exactly that moment, and it is the only durable
+    // trace of the handshake: the row has no field for the notification that
+    // follows it. So this is the first half of the handshake standing in for the
+    // whole, which is right for every client that sends the two back to back and
+    // errs only toward NOT annotating a call as out of order.
+    const handshakeSeen = row.client !== null;
     const server = new HostedMcpServer({
       category: row.category,
       kind: row.kind,
@@ -443,6 +492,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       target: row.target,
       events: row.events,
       client: row.client,
+      initialized: handshakeSeen,
       ...(row.model === null ? {} : { model: row.model }),
     });
     const session: LiveRunSession = {
@@ -452,12 +502,15 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       kind: row.kind,
       taskGoal: server.taskGoal,
       server,
-      handler: createStreamableHttpHandler(() => server),
+      handler: createStreamableHttpHandler(() => server, HOSTED_TRANSPORT),
       flushed: row.events.length,
       client: row.client,
     };
     live.set(runId, session);
-    logger?.info('live run rehydrated', { runId, steps: row.events.length });
+    logger?.info(
+      cached === undefined ? 'live run rehydrated' : 'live run refreshed from the durable row',
+      { runId, steps: row.events.length, handshakeSeen },
+    );
     return session;
   }
 
@@ -573,7 +626,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       });
       // ONE server per RUN, not per session: every reconnect an agent makes lands
       // on the same recorder, so a run is one trace even if the transport blinks.
-      const handler = createStreamableHttpHandler(() => server);
+      const handler = createStreamableHttpHandler(() => server, HOSTED_TRANSPORT);
       // Durable FIRST. A run recorded nowhere is a run the next instance refuses,
       // and the principal instruction is already an observed event here, so even
       // a restart before the agent connects rebuilds a valid run.

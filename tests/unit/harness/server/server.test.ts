@@ -233,3 +233,40 @@ describe('server: what lands in the Trace', () => {
     expect(entry?.at).toBe('2026-08-05T00:00:00.000Z');
   });
 });
+
+/**
+ * The handshake flag across a rebuild. A run that moves to another instance is
+ * rebuilt from its durable row, and the rebuilt server never saw the handshake.
+ * Without the seam below it would annotate every in-order call it served as
+ * arriving "before notifications/initialized".
+ */
+describe('server: the handshake flag survives a rebuild', () => {
+  const ORDER_NOTE = 'received before notifications/initialized';
+
+  it('annotates a call that really arrives before the handshake completes', () => {
+    const s = new HostedMcpServer({ category: 'ASI01', kind: 'malicious' });
+    s.handle(initialize());
+    s.handle(call(2, 'read_email', { mailbox: 'inbox' }));
+    expect(s.log.find((e) => e.method === 'tools/call')?.note).toBe(ORDER_NOTE);
+  });
+
+  it('does not annotate once notifications/initialized has been seen', () => {
+    const s = new HostedMcpServer({ category: 'ASI01', kind: 'malicious' });
+    s.handle(initialize());
+    s.handle({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    s.handle(call(2, 'read_email', { mailbox: 'inbox' }));
+    expect(s.log.find((e) => e.method === 'tools/call')?.note).toBeUndefined();
+  });
+
+  it('does not annotate when rebuilt with the handshake already seen elsewhere', () => {
+    const s = new HostedMcpServer({ category: 'ASI01', kind: 'malicious', initialized: true });
+    s.handle(call(2, 'read_email', { mailbox: 'inbox' }));
+    expect(s.log.find((e) => e.method === 'tools/call')?.note).toBeUndefined();
+  });
+
+  it('defaults to not yet handshaken, so a fresh run is unchanged', () => {
+    const s = new HostedMcpServer({ category: 'ASI01', kind: 'malicious' });
+    s.handle(call(2, 'read_email', { mailbox: 'inbox' }));
+    expect(s.log.find((e) => e.method === 'tools/call')?.note).toBe(ORDER_NOTE);
+  });
+});
