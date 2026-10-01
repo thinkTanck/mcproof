@@ -127,8 +127,15 @@ export const LIVE_RUN_ENDPOINT_PREFIX = '/api/mcp';
  * sees the request, on every request, and there is one server per run. The
  * loopback script (`scripts/server/serve.ts`) has no such gate and keeps the
  * strict default.
+ *
+ * And the handler never answers with a null body outside 204. On the platform
+ * this pipeline is deployed to, such a response has its headers sent and its
+ * body never terminated, and the 202 that acknowledges
+ * `notifications/initialized` is exactly that shape. A client that waits for
+ * the response to finish, Claude Code among them, timed out there on its second
+ * request. See `neverBodiless` on the transport for the measurements.
  */
-const HOSTED_TRANSPORT = { adoptUnknownSessions: true } as const;
+const HOSTED_TRANSPORT = { adoptUnknownSessions: true, neverBodiless: true } as const;
 
 /**
  * How long a session row outlives the token that reaches it, before the sweep
