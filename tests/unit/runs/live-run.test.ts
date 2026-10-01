@@ -743,14 +743,18 @@ describe('live run: the open-run registry is durable, not process-local', () => 
   });
 
   /**
-   * THE PRODUCTION BUG (2026-10-01). Every test above re-initializes on the
-   * second host, which is the one thing a real client never does: it carries the
-   * `Mcp-Session-Id` it was given. On a serverless platform nothing pins an
-   * agent's second request to the instance that served its first, the rebuilt
-   * instance had an empty session map, and it answered 404 "Unknown or expired
-   * session." Claude Code initialized, died on the very next request, retried
-   * three times and reported the server as failed. The run was durable. The
-   * session was not.
+   * A SESSION CARRIED TO ANOTHER INSTANCE. Every test above re-initializes on
+   * the second host, which is the one thing a real client never does: it carries
+   * the `Mcp-Session-Id` it was given. On a serverless platform nothing pins an
+   * agent's second request to the instance that served its first, a rebuilt
+   * instance has an empty session map, and strict handling answers 404 "Unknown
+   * or expired session." The run is durable. The session is not.
+   *
+   * This was first written up as THE production bug of 2026-10-01. It was not.
+   * The deployed endpoint, once actually probed, carried sessions fine and
+   * failed on the bodiless 202 acknowledgement instead (see `neverBodiless` on
+   * the transport, and the route test). This defect is real and worth the test;
+   * it is recorded here as what it is.
    */
   it('keeps serving a session another instance opened, without a second initialize', async () => {
     const sessions = new InMemoryLiveRunSessionStore();

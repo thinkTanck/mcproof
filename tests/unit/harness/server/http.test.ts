@@ -288,3 +288,69 @@ describe('server/http: GET and DELETE', () => {
     expect(h.endSession(id)).toBe(false);
   });
 });
+
+/**
+ * NO NULL BODY BUT 204, on the hosted path. Measured against the deployed
+ * endpoint on 2026-10-01: a response from the hosted route with a null body and
+ * any status other than 204 has its headers sent and its body never terminated,
+ * so it never completes. The MCP acknowledgement of a notification is `202` with
+ * no body, so a client that waits for that response to finish stalls on its
+ * second request. With `neverBodiless` the handler gives those answers a body;
+ * without it the transport stays exactly as the spec words it.
+ */
+describe('server/http: no null body but 204 (hosted path only)', () => {
+  const ELSEWHERE = '3f0c9a1e-5b7d-4c21-9a55-0d8a6b1e2f73';
+  const note = { jsonrpc: '2.0', method: 'notifications/initialized' };
+
+  function hosted(): StreamableHttpHandler {
+    const server = new HostedMcpServer({ category: 'ASI01', kind: 'malicious' });
+    return createStreamableHttpHandler(() => server, {
+      adoptUnknownSessions: true,
+      neverBodiless: true,
+    });
+  }
+
+  it('acknowledges a notification with 202 and a body', async () => {
+    const res = await post(hosted(), note, { sessionId: ELSEWHERE });
+    expect(res.status).toBe(202);
+    expect(res.body).not.toBeNull();
+    expect((await res.text()).length).toBeGreaterThan(0);
+  });
+
+  it('gives the acknowledgement a body no client could mistake for a JSON-RPC message', async () => {
+    const res = await post(hosted(), note, { sessionId: ELSEWHERE });
+    // Not JSON and not an event stream: a client that parses those has nothing
+    // here to parse, and one that follows the spec ignores a 202 body anyway.
+    const type = res.headers.get('content-type') ?? '';
+    expect(type).toContain('text/plain');
+    expect(type).not.toContain('json');
+    expect(type).not.toContain('event-stream');
+  });
+
+  it('answers DELETE for a malformed session id with a 404 that carries a body', async () => {
+    const res = await hosted().handle(
+      new Request(ENDPOINT, { method: 'DELETE', headers: { [SESSION_HEADER]: 'nope' } }),
+    );
+    expect(res.status).toBe(404);
+    expect(res.body).not.toBeNull();
+    expect((await res.json()).error.message).toMatch(/unknown or expired session/i);
+  });
+
+  it('still answers a real session end with a bare 204', async () => {
+    const h = hosted();
+    const id = await openSession(h);
+    const res = await h.handle(
+      new Request(ENDPOINT, { method: 'DELETE', headers: { [SESSION_HEADER]: id } }),
+    );
+    expect(res.status).toBe(204);
+    expect(res.body).toBeNull();
+  });
+
+  it('leaves the default transport exactly as the spec words it: 202 with no body', async () => {
+    const h = handler();
+    const id = await openSession(h);
+    const res = await post(h, note, { sessionId: id });
+    expect(res.status).toBe(202);
+    expect(res.body).toBeNull();
+  });
+});

@@ -67,10 +67,16 @@ export interface StreamableHttpOptions {
    * WHY IT EXISTS. The session map below is process memory. On a serverless
    * platform nothing pins an agent's second request to the instance that served
    * its `initialize`, and an instance that rebuilds a run from the durable row
-   * starts with an empty map. Strict handling there answered 404 "Unknown or
-   * expired session" to the very next request, and a real client (Claude Code,
-   * 2026-10-01) initialized, failed, retried three times and gave up. The run
-   * was durable; the session was not.
+   * starts with an empty map. Strict handling there answers 404 "Unknown or
+   * expired session" to a session another instance opened. The run is durable;
+   * the session is not.
+   *
+   * A CORRECTION KEPT ON RECORD. This option shipped on 2026-10-01 as the fix
+   * for a production failure in which Claude Code initialized and then failed.
+   * That diagnosis was wrong. It was reasoned from the code and a simulation and
+   * never checked against the deployed endpoint, where the session carried fine
+   * and the real cause was `neverBodiless`, below. The defect this option closes
+   * is real and is reproduced by a test, but it was not what broke production.
    *
    * WHY IT IS SAFE WHERE IT IS ENABLED, AND ONLY THERE. The hosted pipeline
    * (`src/runs/live-run.ts`) reaches this handler only after it has matched the
@@ -85,7 +91,47 @@ export interface StreamableHttpOptions {
    * limit by inventing ids.
    */
   readonly adoptUnknownSessions?: boolean;
+
+  /**
+   * Never answer with a null body unless the status is 204. OFF by default.
+   *
+   * WHAT WAS MEASURED (deployed endpoint, 2026-10-01). On the platform the
+   * hosted route runs on, a response from that route with a NULL body and a
+   * status other than 204 has its headers sent, with chunked transfer encoding,
+   * and its body NEVER TERMINATED. The status line arrives in about 250 ms and
+   * the response then never completes. Controlled on one route and one status:
+   * a 404 with a JSON body completed in 614 ms; the same 404 with a null body
+   * never completed. A 204 with a null body completed normally. The same code
+   * completes every one of these instantly under `next start`, so nothing
+   * local and nothing in CI showed it.
+   *
+   * WHY IT MATTERED. The spec's acknowledgement of a notification is exactly
+   * that shape: `202 Accepted` with no body. `notifications/initialized` is the
+   * second request every real client sends. A client that waits for the
+   * response to finish never gets past it: Claude Code 2.1.287 logged
+   * CONNECT_TIMEOUT after 30 s, three times, and reported the server as failed.
+   * A client that discards a 202 body without waiting is unaffected, which is
+   * why the bare MCP SDK client connected to the same deployment and why this
+   * was hard to see. Both were reproduced against a local stand-in that does
+   * to a response what production was measured doing: old transport, timeout;
+   * this option on, "Successfully connected" in 279 ms.
+   *
+   * WHAT IT CHANGES. The two null-body answers this handler can give outside
+   * 204 get a body: the 202 acknowledgement carries a short plain-text body,
+   * and a DELETE for an unknown session carries the JSON-RPC error its POST
+   * twin already does. The 202 body is a deliberate departure from the letter
+   * of the spec ("with no body") for the hosted path only. It is `text/plain`,
+   * so a client that parses JSON or an event stream has nothing to parse, and
+   * clients that follow the spec discard a 202 body unread. The default
+   * transport is untouched and stays bodiless, as the spec words it.
+   *
+   * The cause inside the platform is not established: only the behaviour is.
+   */
+  readonly neverBodiless?: boolean;
 }
+
+/** What the hosted path sends as the body of a 202 acknowledgement. */
+export const ACKNOWLEDGEMENT_BODY = 'Accepted';
 
 /** The most session ids one handler will remember. Oldest goes first. */
 export const MAX_SESSIONS_PER_HANDLER = 64;
@@ -154,6 +200,7 @@ export function createStreamableHttpHandler(
 ): StreamableHttpHandler {
   const sessions = new Map<string, HostedMcpServer>();
   const adopt = options.adoptUnknownSessions === true;
+  const bodied = options.neverBodiless === true;
 
   /** Remember a session, evicting the oldest once the map is full. */
   function remember(id: string, server: HostedMcpServer): void {
@@ -250,8 +297,21 @@ export function createStreamableHttpHandler(
 
     const response = server.handle(raw);
     // A notification (or any message owing no response) is acknowledged with 202.
-    if (response === null) return new Response(null, { status: 202 });
+    if (response === null) return acknowledged();
     return renderOutbound(response, want, {});
+  }
+
+  /**
+   * The 202 acknowledgement. Bodiless by default, exactly as the spec words it;
+   * with `neverBodiless` it carries a short plain-text body, because on the
+   * hosted platform a null-body 202 never completes (see the option).
+   */
+  function acknowledged(): Response {
+    if (!bodied) return new Response(null, { status: 202 });
+    return new Response(ACKNOWLEDGEMENT_BODY, {
+      status: 202,
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
+    });
   }
 
   function handleDelete(request: Request): Response {
@@ -264,7 +324,14 @@ export function createStreamableHttpHandler(
     // instance never saw was opened by another one, and the client closing it
     // here has closed it. The strict path still reports an unknown id as 404.
     const ended = existed || (adopt && MINTED_SESSION_ID.test(sessionId));
-    return new Response(null, { status: ended ? 204 : 404 });
+    if (ended) return new Response(null, { status: 204 });
+    // An unknown session. Bodiless by default; with `neverBodiless` it says so
+    // in the same JSON-RPC error a POST on an unknown session already returns.
+    if (!bodied) return new Response(null, { status: 404 });
+    return jsonResponse(
+      jsonRpcError(null, RPC_INVALID_REQUEST, 'Unknown or expired session.'),
+      404,
+    );
   }
 
   return {

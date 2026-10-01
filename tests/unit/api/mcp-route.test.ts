@@ -121,7 +121,19 @@ describe('POST /api/mcp/[runId] — the agent connects, calls and is recorded', 
     expect(activity?.requests).toBe(1);
   });
 
-  it('acknowledges a lone notification with 202 and no body', async () => {
+  /**
+   * THE PRODUCTION BUG (2026-10-01), measured against the deployed endpoint.
+   * This test used to assert "202 and no body". On the platform we deploy to, a
+   * response from this route with a NULL body and any status but 204 has its
+   * headers sent and its body never terminated: the response never completes.
+   * The same 404 from the same route completed in 614 ms with a body and never
+   * completed without one. `notifications/initialized` is the second request
+   * every real client sends, and Claude Code 2.1.287 waits for its answer to
+   * finish, so it timed out there (CONNECT_TIMEOUT, 30 s), retried three times
+   * and reported the server as failed. Nothing local showed it: the same code
+   * completes instantly under `next start`.
+   */
+  it('acknowledges a lone notification with 202 and a body, so the response actually completes', async () => {
     const ticket = await start();
     const session = await openSession(ticket);
     const res = await POST(
@@ -133,7 +145,8 @@ describe('POST /api/mcp/[runId] — the agent connects, calls and is recorded', 
       ),
     );
     expect(res.status).toBe(202);
-    expect(await res.text()).toBe('');
+    expect(res.body).not.toBeNull();
+    expect((await res.text()).length).toBeGreaterThan(0);
   });
 
   it('records the tool call the agent chose to make', async () => {
@@ -416,6 +429,81 @@ describe('GET and DELETE /api/mcp/[runId]', () => {
     const ticket = await start();
     const res = await DELETE(new Request(ticket.endpoint, { method: 'DELETE' }));
     expect(res.status).toBe(401);
+  });
+
+  it('answers a DELETE for a malformed session id with a 404 that carries a body', async () => {
+    const ticket = await start();
+    const res = await DELETE(
+      new Request(ticket.endpoint, {
+        method: 'DELETE',
+        headers: new Headers({ authorization: `Bearer ${ticket.token}`, [SESSION_HEADER]: 'nope' }),
+      }),
+    );
+    // Measured in production: this exact response, with a null body, hung.
+    expect(res.status).toBe(404);
+    expect(res.body).not.toBeNull();
+    expect((await res.text()).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * THE INVARIANT, over every kind of answer this route gives. A null body is
+   * only ever sent with 204. Any other status with a null body is a request the
+   * platform never answers, so a new code path that returns one fails here
+   * rather than in a client three retries later.
+   */
+  it('never answers with a null body unless the status is 204', async () => {
+    const ticket = await start();
+    const session = await openSession(ticket);
+    const auth = new Headers({ authorization: `Bearer ${ticket.token}` });
+    const withSession = (id: string) =>
+      new Headers({ authorization: `Bearer ${ticket.token}`, [SESSION_HEADER]: id });
+    const list = { jsonrpc: '2.0', id: 2, method: 'tools/list' };
+    const note = { jsonrpc: '2.0', method: 'notifications/initialized' };
+    const initialize = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18', clientInfo: { name: 'sweep', version: '1.0' } },
+    };
+
+    const answers: [string, Response][] = [
+      ['initialize', await POST(mcpRequest(ticket, ticket.token, initialize))],
+      ['notification', await POST(mcpRequest(ticket, ticket.token, note, session))],
+      ['a second notification', await POST(mcpRequest(ticket, ticket.token, note, session))],
+      ['tools/list', await POST(mcpRequest(ticket, ticket.token, list, session))],
+      [
+        'unknown method',
+        await POST(
+          mcpRequest(ticket, ticket.token, { jsonrpc: '2.0', id: 3, method: 'nope/nope' }, session),
+        ),
+      ],
+      ['no session id', await POST(mcpRequest(ticket, ticket.token, list))],
+      ['malformed session id', await POST(mcpRequest(ticket, ticket.token, list, 'nope'))],
+      ['bad token', await POST(mcpRequest(ticket, `${ticket.token}x`, list, session))],
+      ['no token', await POST(mcpRequest(ticket, null, list, session))],
+      ['GET', await GET(new Request(ticket.endpoint, { method: 'GET', headers: auth }))],
+      [
+        'DELETE, malformed id',
+        await DELETE(
+          new Request(ticket.endpoint, { method: 'DELETE', headers: withSession('nope') }),
+        ),
+      ],
+      [
+        'DELETE, no session id',
+        await DELETE(new Request(ticket.endpoint, { method: 'DELETE', headers: auth })),
+      ],
+      [
+        'DELETE, live session',
+        await DELETE(
+          new Request(ticket.endpoint, { method: 'DELETE', headers: withSession(session) }),
+        ),
+      ],
+    ];
+
+    const bodiless = answers
+      .filter(([, res]) => res.body === null && res.status !== 204)
+      .map(([label, res]) => `${label} -> ${res.status}`);
+    expect(bodiless).toEqual([]);
   });
 
   it('refuses a run id outside the grammar on every method, identically', async () => {
