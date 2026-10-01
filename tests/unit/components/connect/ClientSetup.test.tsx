@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ISOLATED_CONFIG_FILE, ISOLATED_LAUNCH_COMMAND } from '@/components/connect/ClientSetup';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
 import { MCP_SERVER_NAME } from '@/lib/mcp/config';
 import type { ConnectLiveRunPort, LiveRunTicketView } from '@/components/connect/live-run-port';
@@ -18,17 +19,20 @@ import type { ConnectLiveRunPort, LiveRunTicketView } from '@/components/connect
  *
  *   1. THERE IS A REAL COMMAND, per client, built from the issued ticket, with
  *      the actual endpoint in it. Not a description of a command.
- *   2. CONFIDENCE IS NOT UNIFORM AND THE COPY DOES NOT PRETEND IT IS. Claude
- *      Code has two forms, a newer and an older, so both are given and the
- *      reader is told to check which build they have.
+ *   2. THE COMMAND SURVIVES THE READER'S SHELL. Claude Code registers a server
+ *      two ways in the same build. `add-json` breaks in Windows PowerShell, which
+ *      strips the quotes inside its JSON, so both are given, labelled by shell,
+ *      and the PowerShell reader is told which one to use.
  *   3. THE TOKEN STAYS A SECRET WHILE THE COMMAND STAYS USABLE. Every snippet
  *      copies the real credential and renders a mask, so a screen-shared Connect
  *      page spills nothing and a single click still works.
- *   4. ISOLATION, WITHOUT AN INVENTED FLAG. The tools we serve are hostile by
+ *   4. ISOLATION, WITH THE REAL COMMAND. The tools we serve are hostile by
  *      design, so an agent holding real connectors must not be the one that
- *      connects. There is no CLI flag that loads one server, and the screen must
- *      not invent one: the honest answers are the in-session toggle and a
- *      separate client profile.
+ *      connects. Claude Code has a flag that loads only the servers in one file
+ *      (`--strict-mcp-config` with `--mcp-config`, read off its own help), so the
+ *      screen shows that exact launch, says why, keeps the fallbacks for other
+ *      clients, and admits the one thing no flag covers: tools built into the
+ *      client itself. It still invents nothing.
  *   5. THE READER CAN TELL IT WORKED before wondering why nothing happens.
  */
 
@@ -36,7 +40,7 @@ const TICKET: LiveRunTicketView = {
   runId: 'run-77',
   endpoint: 'https://mcpwn.dev/api/mcp/run-77',
   token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
-  expiresAt: '2026-08-05T12:00:00.000Z',
+  expiresAt: '2099-01-01T00:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',
   promptName: 'session_brief',
@@ -111,17 +115,74 @@ describe('ClientSetup · there is a real command, per client', () => {
     expect(command).toHaveTextContent(MCP_SERVER_NAME);
   });
 
-  it('gives the older Claude Code form as well, rather than asserting one universal command', async () => {
+  it('labels the two registration commands by shell, and tells PowerShell which to use', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
     await pick(user, /^claude code$/i);
 
-    const command = within(setup()).getByRole('group', { name: /Claude Code transport command/i });
-    expect(command).toHaveTextContent('claude mcp add --transport http');
-    expect(command).toHaveTextContent(TICKET.endpoint);
-    // The reader is told how to find out which build they have, not guessed at.
-    expect(within(setup()).getByText(/claude --version/)).toBeInTheDocument();
+    // The form with no JSON in it is the one that survives Windows PowerShell,
+    // which strips the double quotes inside a single-quoted JSON argument.
+    const transport = within(setup()).getByRole('group', {
+      name: /Claude Code transport command/i,
+    });
+    expect(transport).toHaveTextContent('claude mcp add --transport http');
+    expect(transport).toHaveTextContent(TICKET.endpoint);
+    expect(transport).toHaveTextContent('--header "Authorization: Bearer');
+
+    const text = setup().textContent ?? '';
+    expect(text).toContain('WINDOWS / POWERSHELL: USE THIS ONE');
+    expect(text).toContain('MACOS / LINUX / BASH');
+    expect(text).toMatch(/powershell strips the quotes/i);
+    // Both forms exist in one build, so the old "newer builds / older builds"
+    // framing was wrong and must not come back.
+    expect(text).not.toMatch(/newer builds|older builds|claude --version/i);
+  });
+
+  it('copies the PowerShell-safe command with the real endpoint and token in it', async () => {
+    const user = userEvent.setup();
+    const writeText = stubClipboard();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+    await pick(user, /^claude code$/i);
+
+    await user.click(
+      within(setup()).getByRole('button', { name: /copy Claude Code transport command/i }),
+    );
+
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(
+      `claude mcp add --transport http ${MCP_SERVER_NAME} ${TICKET.endpoint} ` +
+        `--header "Authorization: Bearer ${TICKET.token}"`,
+    );
+  });
+
+  it('gives Claude Code the config file the isolated launch reads, before any registration', async () => {
+    const user = userEvent.setup();
+    const writeText = stubClipboard();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+    await pick(user, /^claude code$/i);
+
+    const file = within(setup()).getByRole('group', { name: /Claude Code config file/i });
+    expect(file).toHaveTextContent('mcpServers');
+    expect(file).toHaveTextContent(TICKET.endpoint);
+    expect(setup().textContent ?? '').toContain(`SAVE AS ${ISOLATED_CONFIG_FILE}`);
+    // The isolated path comes first in the example: the file, then registration.
+    const register = within(setup()).getByRole('group', { name: /Claude Code add-json command/i });
+    expect(file.compareDocumentPosition(register) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(
+      within(setup()).getByRole('button', { name: /copy Claude Code config file/i }),
+    );
+    expect(JSON.parse(writeText.mock.calls.at(-1)?.[0] ?? '')).toEqual({
+      mcpServers: {
+        [MCP_SERVER_NAME]: {
+          url: TICKET.endpoint,
+          type: 'http',
+          headers: { Authorization: `Bearer ${TICKET.token}` },
+        },
+      },
+    });
   });
 
   it('gives Claude Desktop its config block, and says no bridge is needed', async () => {
@@ -181,8 +242,14 @@ describe('ClientSetup · there is a real command, per client', () => {
       'CURSOR / VS CODE',
     ]);
     for (const button of buttons) expect(button).toHaveAttribute('aria-pressed', 'false');
-    // No vendor command is on screen until the reader asks for one.
-    expect(within(setup()).queryByRole('group', { name: /command|configuration/i })).toBeNull();
+    // No registration command or config block is on screen until the reader
+    // asks for one. (The isolated launch command in the caution callout is the
+    // one command that IS always shown, and it carries no credential.)
+    expect(
+      within(setup()).queryByRole('group', {
+        name: /add-json command|transport command|configuration|config file/i,
+      }),
+    ).toBeNull();
   });
 
   it('gives Cursor and VS Code the same server entry, and says where each reads it', async () => {
@@ -293,18 +360,61 @@ describe('ClientSetup · connect an agent with nothing else attached', () => {
     expect(within(setup()).getByText(/reach the real thing/i)).toBeInTheDocument();
   });
 
-  it('gives the real way to do it and invents no flag that does not exist', async () => {
+  it('gives the isolated launch command, prominently, with the reason in one line', async () => {
+    const user = userEvent.setup();
+    const writeText = stubClipboard();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+
+    // On screen with no client picked: it lives in the caution callout, above
+    // the generic path and above every example.
+    const launch = within(setup()).getByRole('group', { name: /isolated launch command/i });
+    expect(launch).toHaveTextContent(
+      `claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`,
+    );
+    const header = within(setup()).getByRole('group', { name: /authorization header/i });
+    expect(launch.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const text = setup().textContent ?? '';
+    expect(text).toContain('RUN IT ISOLATED');
+    expect(text).toMatch(/can only reach this trap, nothing else in your setup/i);
+    // What goes wrong otherwise, stated rather than implied.
+    expect(text).toMatch(/loads every other server you have/i);
+
+    // It is copied exactly as shown, and it carries no credential.
+    await user.click(
+      within(setup()).getByRole('button', { name: /copy isolated launch command/i }),
+    );
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(ISOLATED_LAUNCH_COMMAND);
+    expect(ISOLATED_LAUNCH_COMMAND).not.toContain(TICKET.token);
+  });
+
+  it('offers only flags the client really has, and keeps the fallbacks', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
 
     const text = setup().textContent ?? '';
-    // The two honest options.
+    // `--strict-mcp-config` and `--mcp-config` were read off `claude --help`
+    // (2.1.286). An earlier version of this test FORBADE the first one as an
+    // invented flag; it is real. These two are still not flags of any client.
+    expect(text).not.toMatch(/--only-mcp|--single-server/);
+    // The fallbacks for any other client stay.
     expect(text).toMatch(/\/mcp/);
-    expect(text).toMatch(/separate .*profile/i);
-    // The flag a reasonable person would guess at does not exist, so it is not
-    // offered. Inventing one would send the reader to a dead end.
-    expect(text).not.toMatch(/--strict-mcp-config|--only-mcp|--single-server/);
+    expect(text).toMatch(/separate profile/i);
+    // And the false sentence is gone.
+    expect(text).not.toMatch(/no command-line flag/i);
+  });
+
+  it('says what no flag covers: tools built into the client itself', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+
+    const text = setup().textContent ?? '';
+    expect(text).toMatch(/built into the client/i);
+    expect(text).toMatch(/browser extension/i);
+    expect(text).toMatch(/disable those yourself/i);
   });
 });
 

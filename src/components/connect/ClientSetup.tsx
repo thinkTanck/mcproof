@@ -24,11 +24,14 @@ import type { LiveRunTicketView } from './live-run-port';
  *    issued ticket, so it is the command for THIS run and not a template with
  *    placeholders to fill in.
  *
- * 2. CONFIDENCE IS NOT UNIFORM, AND THE COPY DOES NOT PRETEND IT IS. Claude Code
- *    has two forms: `add-json` in newer builds and `--transport http` in older
- *    ones. We cannot see which build the reader has, so we give both and say how
- *    to find out, rather than asserting one universal command that fails for half
- *    the readers.
+ * 2. THE COMMAND HAS TO SURVIVE THE READER'S SHELL. Claude Code registers a
+ *    server two ways, and both exist in the same build (verified against 2.1.286;
+ *    an earlier version of this section called them "newer" and "older" builds,
+ *    which was wrong). What differs is the shell: `add-json` passes JSON in single
+ *    quotes, and Windows PowerShell strips the double quotes inside it before the
+ *    program sees them, so the command fails there. `--transport http` with a
+ *    `--header` carries no JSON and works everywhere. So the two are labelled by
+ *    shell, and the PowerShell reader is told which one to use.
  *
  * 3. THE TOKEN IS COPYABLE WITHOUT BEING VISIBLE. A working command has to carry
  *    the credential, and a credential rendered inside a code block undoes the
@@ -39,13 +42,19 @@ import type { LiveRunTicketView } from './live-run-port';
  *    over the real command: a replace that misses prints the credential, and a
  *    string built from a mask has never held it.
  *
- * 4. ISOLATION IS STATED FIRST, AND NO FLAG IS INVENTED. The tools this endpoint
+ * 4. ISOLATION IS STATED FIRST, WITH THE REAL COMMAND. The tools this endpoint
  *    serves are hostile by design, so an agent that also holds live connectors
  *    for mail, files or a cloud account can carry an injected instruction out to
- *    a real system. There is no client flag that loads a single MCP server, so we
- *    do not offer one: the honest answers are the in-session `/mcp` toggle and a
- *    separate client profile. That is the highest-value sentence on the page and
- *    it sits above the commands, where it is read before anything is run.
+ *    a real system. A reader who registers the server and then launches the
+ *    client plainly loads every other server they have alongside it. Claude Code
+ *    has a flag for exactly this, `--strict-mcp-config` with `--mcp-config`
+ *    (verified against 2.1.286: "Only use MCP servers from --mcp-config, ignoring
+ *    all other MCP configurations"). An earlier version of this section told the
+ *    reader no such flag existed, and a test forbade the string; both were wrong.
+ *    The command sits in the caution callout above everything else, and no flag
+ *    is offered that was not read off the client's own help. What no MCP flag
+ *    covers is tooling built into the client itself (a browser extension, for
+ *    one), and the copy says so rather than implying the isolation is total.
  *
  * 5. THE GENERIC PATH LEADS, THE CLIENTS ARE EXAMPLES. The endpoint is a standard
  *    remote MCP server over Streamable HTTP with a bearer header; any MCP client
@@ -63,7 +72,8 @@ import type { LiveRunTicketView } from './live-run-port';
 const TOKEN_MASK = '•'.repeat(16);
 
 /**
- * `claude mcp add --transport http` — the older Claude Code form. The `add-json`
+ * `claude mcp add --transport http`: the Claude Code form that carries no JSON,
+ * so it survives every shell, Windows PowerShell included. The `add-json`
  * command and the Claude Desktop entry are built by the shared config module
  * (`@/lib/mcp/config`), which owns the server name and the config shape; this form
  * builds no server config of its own, so it stays here, named from the same
@@ -75,6 +85,21 @@ export function addTransportCommand(endpoint: string, token: string): string {
     `--header "Authorization: Bearer ${token}"`
   );
 }
+
+/**
+ * The file the isolated launch reads. A neutral name for the same reason the
+ * server name is neutral: nothing the agent could see should say what this is.
+ */
+export const ISOLATED_CONFIG_FILE = 'run-mcp.json';
+
+/**
+ * Launch Claude Code with ONLY the servers in the named file. Both flags were
+ * read off `claude --help` (2.1.286): `--mcp-config` loads servers from a JSON
+ * file and `--strict-mcp-config` ignores every other MCP configuration. It
+ * carries no credential (the token lives in the file), so it is rendered and
+ * copied as is.
+ */
+export const ISOLATED_LAUNCH_COMMAND = `claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`;
 
 /** What every other client needs on every request. */
 export function authorizationHeader(_endpoint: string, token: string): string {
@@ -161,10 +186,29 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
           connector for mail, files, a browser or a cloud account, an instruction it takes on this
           endpoint can reach the real thing.
         </p>
+        <p className="micro-label mt-3 text-caution">RUN IT ISOLATED</p>
+        <p className="reading mt-2 max-w-[68ch]">
+          Launch your client with only this server loaded, so the attack run can only reach this
+          trap, nothing else in your setup. Registering the server and then starting the client the
+          usual way loads every other server you have alongside it. In Claude Code the isolated
+          launch is one command, using the config file from the Claude Code example below.
+        </p>
+        <div className="mt-2">
+          <CopyOut
+            label="ISOLATED LAUNCH"
+            name="isolated launch command"
+            tone="code"
+            value={ISOLATED_LAUNCH_COMMAND}
+          />
+        </div>
         <p className="reading mt-2 max-w-[68ch] text-ink-muted">
-          There is no command-line flag that loads one server on its own. Switch the others off with{' '}
-          <span className="readout">/mcp</span> inside the session, or connect from a separate
-          client profile that holds only this endpoint.
+          In any other client, connect from a separate profile that holds only this endpoint, or
+          switch the other servers off before you start (in Claude Code,{' '}
+          <span className="readout">/mcp</span> inside a session does it).
+        </p>
+        <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+          One thing no flag covers: tools built into the client itself, a browser extension for
+          example, can still load. Disable those yourself for a clean run.
         </p>
       </div>
 
@@ -237,32 +281,45 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
   );
 }
 
-// ── Claude Code: two forms, because there are two forms ──
+// ── Claude Code: the isolated launch first, then registration by shell ──
 
 function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="reading max-w-[68ch]">
-        Run <span className="readout">claude --version</span> first, because the command changed.{' '}
-        <span className="readout">add-json</span> is the newer form and{' '}
-        <span className="readout">--transport http</span> is the older one. If your build rejects
-        one of them as an unknown command, use the other.
+        The isolated launch needs no registration. Save this as{' '}
+        <span className="readout">{ISOLATED_CONFIG_FILE}</span> in the folder you start from, then
+        run the isolated launch command above. It works the same in every shell, because nothing is
+        quoted on the command line.
       </p>
       <Snippet
-        label="NEWER BUILDS"
+        label={`SAVE AS ${ISOLATED_CONFIG_FILE}`}
+        name="Claude Code config file"
+        build={desktopConfig}
+        ticket={ticket}
+      />
+      <p className="reading max-w-[68ch]">
+        If you would rather register the server, the command depends on your shell. Windows
+        PowerShell strips the quotes inside the JSON before Claude Code sees them, so{' '}
+        <span className="readout">add-json</span> fails there and the{' '}
+        <span className="readout">--transport http</span> form is the one to use.
+      </p>
+      <Snippet
+        label="MACOS / LINUX / BASH"
         name="Claude Code add-json command"
         build={addJsonCommand}
         ticket={ticket}
       />
       <Snippet
-        label="OLDER BUILDS"
+        label="WINDOWS / POWERSHELL: USE THIS ONE"
         name="Claude Code transport command"
         build={addTransportCommand}
         ticket={ticket}
       />
       <p className="reading max-w-[68ch] text-ink-muted">
         The header form echoes the token back in the confirmation your shell prints, so keep that
-        output off a shared terminal and out of an issue report.
+        output off a shared terminal and out of an issue report. Once registered, still start Claude
+        Code with the isolated launch, not a plain <span className="readout">claude</span>.
       </p>
     </div>
   );
