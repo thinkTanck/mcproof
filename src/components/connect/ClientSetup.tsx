@@ -46,6 +46,14 @@ import type { LiveRunTicketView } from './live-run-port';
  *    do not offer one: the honest answers are the in-session `/mcp` toggle and a
  *    separate client profile. That is the highest-value sentence on the page and
  *    it sits above the commands, where it is read before anything is run.
+ *
+ * 5. THE GENERIC PATH LEADS, THE CLIENTS ARE EXAMPLES. The endpoint is a standard
+ *    remote MCP server over Streamable HTTP with a bearer header; any MCP client
+ *    can register it. An earlier version defaulted the picker to Claude Code and
+ *    opened the verify footer with `claude mcp list`, which read as Claude-only.
+ *    Now the protocol facts and the header snippet come first and are always on
+ *    screen, no client is selected until the reader picks one, and the universal
+ *    check (the connection panel) is stated before any client's own command.
  */
 
 /**
@@ -76,12 +84,12 @@ export function authorizationHeader(_endpoint: string, token: string): string {
 /** The swapped panel, named so each picker button can point at it. */
 const PANEL_ID = 'connect-client-panel';
 
-type ClientId = 'claude-code' | 'claude-desktop' | 'other';
+type ClientId = 'claude-code' | 'claude-desktop' | 'cursor';
 
 const CLIENTS: [ClientId, string][] = [
   ['claude-code', 'CLAUDE CODE'],
   ['claude-desktop', 'CLAUDE DESKTOP'],
-  ['other', 'ANY OTHER MCP CLIENT'],
+  ['cursor', 'CURSOR / VS CODE'],
 ];
 
 const WarningIcon = () => (
@@ -125,7 +133,10 @@ function Snippet({
 }
 
 export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
-  const [client, setClient] = useState<ClientId>('claude-code');
+  // No client is selected until the reader picks one: the generic path above
+  // the picker is complete on its own, and a preselected tab would again make
+  // one vendor's command read as the way in.
+  const [client, setClient] = useState<ClientId | null>(null);
 
   return (
     <section
@@ -157,19 +168,42 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
         </p>
       </div>
 
+      {/* THE GENERIC PATH, always on screen and above every client. These are
+          the protocol facts any MCP client needs, and nothing here names a
+          vendor. */}
       <p className="reading max-w-[68ch]">
-        Each snippet below is built from the run you just issued and names the server{' '}
+        This is a standard remote MCP server over Streamable HTTP, so any MCP client can register
+        it. Point the client at the run endpoint above, send this header on every request, and read
+        the task goal from the prompt the server publishes. There is no stdio command to run and no
+        local process involved.
+      </p>
+      <Snippet
+        label="REQUEST HEADER"
+        name="authorization header"
+        build={authorizationHeader}
+        ticket={ticket}
+      />
+      <p className="reading max-w-[68ch] text-ink-muted">
+        One thing to expect: the server opens no server-to-client stream, so a GET on the endpoint
+        answers 405 and only POST and DELETE are served. A client that follows the specification
+        treats that as normal and carries on over POST.
+      </p>
+
+      <p className="reading max-w-[68ch]">
+        Each example below is built from the run you just issued and names the server{' '}
         <span className="readout">{MCP_SERVER_NAME}</span>. Keep that name neutral: your client
         namespaces the tools with it and your agent reads the name when it connects, so an id like
         mcpwn or red-team tells the agent it is being tested.
       </p>
 
+      <p className="micro-label">CLIENT EXAMPLES</p>
+
       {/* A pressed-button group, not a tablist: it is the same control the MODE
           picker on this screen already uses, and one component vocabulary beats a
           roving-tabindex tablist for three buttons. `aria-controls` still names
           what each one changes, so a screen reader is told where the panel it
-          just swapped actually is. */}
-      <div className="flex flex-wrap gap-2.5" role="group" aria-label="MCP client">
+          just swapped actually is. Nothing is pressed until the reader chooses. */}
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="MCP client example">
         {CLIENTS.map(([id, label]) => {
           const active = client === id;
           return (
@@ -195,7 +229,7 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
       <div id={PANEL_ID}>
         {client === 'claude-code' && <ClaudeCode ticket={ticket} />}
         {client === 'claude-desktop' && <ClaudeDesktop ticket={ticket} />}
-        {client === 'other' && <OtherClient ticket={ticket} />}
+        {client === 'cursor' && <CursorOrVsCode ticket={ticket} />}
       </div>
 
       <Verify />
@@ -255,20 +289,23 @@ function ClaudeDesktop({ ticket }: { ticket: LiveRunTicketView }) {
   );
 }
 
-// ── Everything else: the protocol facts, stated plainly ──
+// ── Cursor and VS Code: the same server entry, in a project config file ──
 
-function OtherClient({ ticket }: { ticket: LiveRunTicketView }) {
+function CursorOrVsCode({ ticket }: { ticket: LiveRunTicketView }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="reading max-w-[68ch]">
-        Register a remote MCP server over Streamable HTTP at the run endpoint above, and send this
-        header on every request it makes. There is no stdio command to run and no local process
-        involved.
+        Cursor reads <span className="readout">.cursor/mcp.json</span> in the project, or{' '}
+        <span className="readout">~/.cursor/mcp.json</span> for every project, in this shape. VS
+        Code reads <span className="readout">.vscode/mcp.json</span> with the same server entry
+        placed under a <span className="readout">servers</span> key instead of{' '}
+        <span className="readout">mcpServers</span>. Both speak to a remote HTTP server natively, so
+        there is nothing to install and nothing to run on your own machine.
       </p>
       <Snippet
-        label="REQUEST HEADER"
-        name="authorization header"
-        build={authorizationHeader}
+        label="CONFIG FILE ENTRY"
+        name="Cursor configuration"
+        build={desktopConfig}
         ticket={ticket}
       />
     </div>
@@ -289,14 +326,15 @@ function Verify() {
     <div className="mt-1">
       <p className="micro-label">CHECK IT TOOK</p>
       <p className="reading mt-2 max-w-[68ch]">
-        In Claude Code, <span className="readout">claude mcp list</span> should show{' '}
-        <span className="readout">{MCP_SERVER_NAME}</span> as connected. When it does not,{' '}
-        <span className="readout">claude mcp get {MCP_SERVER_NAME}</span> prints the reason it gave.
-      </p>
-      <p className="reading mt-2 max-w-[68ch] text-ink-muted">
         In any client, the reading that settles it is the connection panel below. It stays on
         AWAITING AGENT until your agent really reaches this endpoint, and it moves to AGENT
         CONNECTED the first time it does.
+      </p>
+      <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+        Clients have their own checks as well. In Claude Code, for example,{' '}
+        <span className="readout">claude mcp list</span> should show{' '}
+        <span className="readout">{MCP_SERVER_NAME}</span> as connected, and when it does not,{' '}
+        <span className="readout">claude mcp get {MCP_SERVER_NAME}</span> prints the reason it gave.
       </p>
     </div>
   );

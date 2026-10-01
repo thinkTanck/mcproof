@@ -182,6 +182,24 @@ describe('LiveRunAllowanceError — copy the UI can state plainly', () => {
     expect(new LiveRunAllowanceError(3, 3).message.toLowerCase()).toContain('sample');
   });
 
+  it('never asserts a usage number, because the number it has is the ceiling', () => {
+    // The sentence used to read "You have used 20 free live runs", where 20 was
+    // the configured allowance, not the count. On the one production account
+    // that number was 192, so the sentence was false whenever usage exceeded the
+    // limit. The refusal states the limit it enforces and nothing about usage.
+    const message = new LiveRunAllowanceError(20, 192).message;
+    expect(message).not.toMatch(/you have used/i);
+    expect(message).not.toContain('192');
+    expect(message).toMatch(/reached/i);
+    expect(message).toContain('20 free live runs');
+  });
+
+  it('states the zero case as a switched-off allowance, not a reached limit of nothing', () => {
+    const message = new LiveRunAllowanceError(0, 0).message;
+    expect(message).toContain('no free live runs');
+    expect(message).not.toMatch(/limit of no/i);
+  });
+
   /** UI copy rule: no em dashes. */
   it('carries no em dash', () => {
     expect(new LiveRunAllowanceError(3, 3).message).not.toContain('—');

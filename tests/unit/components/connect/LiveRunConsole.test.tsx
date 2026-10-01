@@ -418,7 +418,7 @@ describe('LiveRunConsole · refusals fail closed and say so calmly', () => {
   it('states an exhausted allowance in the words the server derived from config', async () => {
     const user = userEvent.setup();
     const sentence =
-      'You have used 3 free live runs on this account. Sample playback stays open to everyone.';
+      'This account has reached its limit of 3 free live runs. Sample playback stays open to everyone.';
     render(
       <LiveRunConsole
         port={refusingPort('ALLOWANCE_EXHAUSTED', sentence)}

@@ -143,7 +143,8 @@ describe('the adapter · starting a run', () => {
         start: vi.fn(async () => ({
           ok: false as const,
           code: 'ALLOWANCE_EXHAUSTED' as const,
-          message: 'You have used 3 free live runs on this account. Sample playback stays open.',
+          message:
+            'This account has reached its limit of 3 free live runs. Sample playback stays open.',
         })),
       }),
     );

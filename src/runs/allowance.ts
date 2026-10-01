@@ -52,7 +52,13 @@ export function describeLiveRunAllowance(allowance?: number, env: Env = process.
 /**
  * The refusal an exhausted account meets. Its `message` is user-facing copy, so
  * it names the path that still works instead of dead-ending, and it derives the
- * count from the configured allowance rather than stating a numeral of its own.
+ * number from the configured allowance rather than stating a numeral of its own.
+ *
+ * It states the LIMIT, never a usage figure. An earlier wording, "You have used
+ * N free live runs", printed the allowance in the grammatical slot of a count,
+ * which was false whenever usage ran past the ceiling (the production account
+ * read "used 20" with 192 counted runs). The real count travels on `used` for
+ * callers that want it; the sentence makes no claim about it.
  */
 export class LiveRunAllowanceError extends Error {
   /** Stable discriminator for callers that map outcomes to UI states. */
@@ -62,7 +68,9 @@ export class LiveRunAllowanceError extends Error {
 
   constructor(allowance: number, used: number) {
     super(
-      `You have used ${describeLiveRunAllowance(allowance)} on this account. ` +
+      (allowance === 0
+        ? `This account has ${describeLiveRunAllowance(allowance)} to use. `
+        : `This account has reached its limit of ${describeLiveRunAllowance(allowance)}. `) +
         `Sample playback stays open to everyone.`,
     );
     this.name = 'LiveRunAllowanceError';

@@ -158,13 +158,16 @@ describe('startLiveRun', () => {
   it('states the allowance refusal the gate returned, and issues no token', async () => {
     preflight = async () => ({
       allowed: false,
-      refusal: { code: 'ALLOWANCE_EXHAUSTED', message: 'You have used your free live runs.' },
+      refusal: {
+        code: 'ALLOWANCE_EXHAUSTED',
+        message: 'This account has reached its free live run limit.',
+      },
     });
     const result = await startLiveRun({ category: 'ASI01' });
     expect(result).toEqual({
       ok: false,
       code: 'ALLOWANCE_EXHAUSTED',
-      message: 'You have used your free live runs.',
+      message: 'This account has reached its free live run limit.',
     });
   });
 
