@@ -80,6 +80,15 @@ export interface HostedServerOptions extends HostedRecorderOptions {
   readonly kind: VariantKind;
   /** Injectable clock, so the log is deterministic under test. */
   readonly now?: () => string;
+  /**
+   * Whether the handshake is already known to have happened, for a server that
+   * is REBUILT on another instance. Part of the same rehydration seam as
+   * `events` and `client`: the rebuilt server never saw the handshake, and
+   * without this it would annotate every in-order call it serves as "received
+   * before notifications/initialized". Defaults to false, so a fresh run is
+   * unchanged.
+   */
+  readonly initialized?: boolean;
 }
 
 export class HostedMcpServer {
@@ -87,16 +96,17 @@ export class HostedMcpServer {
   private readonly recorder: HostedTraceRecorder;
   private readonly entries: HostedLogEntry[] = [];
   private readonly now: () => string;
-  private initialized = false;
+  private initialized: boolean;
 
   constructor(options: HostedServerOptions) {
     // `recorderOptions` deliberately carries the rehydration seam (`events`,
     // `client`) straight through, so rebuilding a run after a restart is a
     // constructor argument rather than a second code path.
-    const { category, kind, now, ...recorderOptions } = options;
+    const { category, kind, now, initialized, ...recorderOptions } = options;
     this.surface = buildHostedSurface(category, kind);
     this.recorder = new HostedTraceRecorder(this.surface, recorderOptions);
     this.now = now ?? (() => new Date().toISOString());
+    this.initialized = initialized ?? false;
   }
 
   /** The append-only run log, in arrival order. */

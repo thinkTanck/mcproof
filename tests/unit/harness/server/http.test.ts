@@ -114,6 +114,113 @@ describe('server/http: session guards', () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it('stays strict by default even for a well-formed id it did not mint (404)', async () => {
+    // The standalone loopback script builds its handler with no options, and it
+    // must keep refusing a session it never opened.
+    const res = await post(
+      handler(),
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      { sessionId: '3f0c9a1e-5b7d-4c21-9a55-0d8a6b1e2f73' },
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.message).toMatch(/unknown or expired session/i);
+  });
+});
+
+/**
+ * THE HOSTED PATH. One run, one server, and possibly many instances: a session
+ * id minted by `initialize` on one instance arrives at another that has never
+ * heard of it. The hosted pipeline has already matched the URL to a run and
+ * verified the per-run token before this handler is reached, and there is one
+ * server per run, so the session id carries no authority of its own. With
+ * `adoptUnknownSessions` the handler binds such an id to the run's one server
+ * instead of answering 404.
+ */
+describe('server/http: a session another instance opened (hosted path only)', () => {
+  const ELSEWHERE = '3f0c9a1e-5b7d-4c21-9a55-0d8a6b1e2f73';
+
+  function hosted(): { h: StreamableHttpHandler; server: HostedMcpServer } {
+    const server = new HostedMcpServer({ category: 'ASI01', kind: 'malicious' });
+    const h = createStreamableHttpHandler(() => server, { adoptUnknownSessions: true });
+    return { h, server };
+  }
+
+  it('acknowledges a notification on a session id it did not mint', async () => {
+    const { h } = hosted();
+    const res = await post(
+      h,
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { sessionId: ELSEWHERE },
+    );
+    expect(res.status).toBe(202);
+  });
+
+  it('answers a request on a session id it did not mint', async () => {
+    const { h } = hosted();
+    const res = await post(
+      h,
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      { sessionId: ELSEWHERE },
+    );
+    expect(res.status).toBe(200);
+    expect(Array.isArray((await res.json()).result.tools)).toBe(true);
+  });
+
+  it('binds the adopted session to the run one server, so it is one trace', async () => {
+    const { h, server } = hosted();
+    await post(
+      h,
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'read_email', arguments: {} },
+      },
+      { sessionId: ELSEWHERE },
+    );
+    expect(h.getSession(ELSEWHERE)).toBe(server);
+    const trace = await server.buildTrace();
+    expect(trace.steps.some((s) => s.type === 'tool_call')).toBe(true);
+  });
+
+  it('still requires a session id: no header is a 400, exactly as before', async () => {
+    const { h } = hosted();
+    const res = await post(h, { jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    expect(res.status).toBe(400);
+  });
+
+  it('still refuses an id that is not shaped like one we mint (404)', async () => {
+    const { h } = hosted();
+    for (const sessionId of ['nope', 'x'.repeat(4000), '../../etc/passwd', '']) {
+      const res = await post(h, { jsonrpc: '2.0', id: 2, method: 'tools/list' }, { sessionId });
+      // An empty header reads as absent (400); every other malformed id is 404.
+      expect([400, 404]).toContain(res.status);
+      expect(res.status).not.toBe(200);
+    }
+    expect(h.sessionIds()).toEqual([]);
+  });
+
+  it('bounds how many session ids one run can make an instance remember', async () => {
+    const { h } = hosted();
+    for (let i = 0; i < 200; i += 1) {
+      const sessionId = `3f0c9a1e-5b7d-4c21-9a55-${String(i).padStart(12, '0')}`;
+      await post(h, { jsonrpc: '2.0', id: i, method: 'tools/list' }, { sessionId });
+    }
+    // A caller holding a valid token must not be able to grow the map without
+    // limit by inventing ids.
+    expect(h.sessionIds().length).toBeLessThanOrEqual(64);
+  });
+
+  it('answers DELETE for a session it never saw with 204, since ending is idempotent', async () => {
+    const { h } = hosted();
+    const res = await h.handle(
+      new Request(ENDPOINT, { method: 'DELETE', headers: { [SESSION_HEADER]: ELSEWHERE } }),
+    );
+    // The client closes against whichever instance answers. A 404 there would
+    // make a clean shutdown look like an error.
+    expect(res.status).toBe(204);
+  });
 });
 
 describe('server/http: content negotiation', () => {
