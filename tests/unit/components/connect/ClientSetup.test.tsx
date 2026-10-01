@@ -134,9 +134,17 @@ describe('ClientSetup · there is a real command, per client', () => {
     expect(text).toContain('WINDOWS / POWERSHELL: USE THIS ONE');
     expect(text).toContain('MACOS / LINUX / BASH');
     expect(text).toMatch(/powershell strips the quotes/i);
+    // The cause is named, with the error the reader actually sees, and it is
+    // stated to be the shell and not the build.
+    expect(text).toMatch(/Invalid input/);
+    expect(text).toMatch(/depends on your shell, not on which build/i);
+    expect(text).toMatch(/on every build/i);
+    expect(text).toMatch(/in powershell, use the --transport http form/i);
     // Both forms exist in one build, so the old "newer builds / older builds"
-    // framing was wrong and must not come back.
+    // framing was wrong and must not come back. Nor may a PowerShell reader be
+    // told to switch only if their build rejects the command.
     expect(text).not.toMatch(/newer builds|older builds|claude --version/i);
+    expect(text).not.toMatch(/if your build rejects/i);
   });
 
   it('copies the PowerShell-safe command with the real endpoint and token in it', async () => {

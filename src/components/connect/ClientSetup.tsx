@@ -299,10 +299,11 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
         ticket={ticket}
       />
       <p className="reading max-w-[68ch]">
-        If you would rather register the server, the command depends on your shell. Windows
-        PowerShell strips the quotes inside the JSON before Claude Code sees them, so{' '}
-        <span className="readout">add-json</span> fails there and the{' '}
-        <span className="readout">--transport http</span> form is the one to use.
+        If you would rather register the server, the command depends on your shell, not on which
+        build of Claude Code you have. Windows PowerShell strips the quotes inside the JSON before
+        Claude Code sees them, so <span className="readout">add-json</span> fails there with an{' '}
+        <span className="readout">Invalid input</span> error on every build. In PowerShell, use the{' '}
+        <span className="readout">--transport http</span> form.
       </p>
       <Snippet
         label="MACOS / LINUX / BASH"
