@@ -103,6 +103,7 @@ describe('ClientSetup · there is a real command, per client', () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
+    await pick(user, /^claude code$/i);
 
     const command = within(setup()).getByRole('group', { name: /Claude Code add-json command/i });
     expect(command).toHaveTextContent('claude mcp add-json');
@@ -114,6 +115,7 @@ describe('ClientSetup · there is a real command, per client', () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
+    await pick(user, /^claude code$/i);
 
     const command = within(setup()).getByRole('group', { name: /Claude Code transport command/i });
     expect(command).toHaveTextContent('claude mcp add --transport http');
@@ -135,17 +137,70 @@ describe('ClientSetup · there is a real command, per client', () => {
     expect(within(setup()).getByText(/no bridge/i)).toBeInTheDocument();
   });
 
-  it('states the transport plainly for any other MCP client', async () => {
+  it('leads with the generic path, on screen before any client is picked', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
-    await pick(user, /^any other/i);
 
+    // Nothing picked, and the protocol facts plus the header snippet are
+    // already there: a remote Streamable HTTP server, a bearer header, the goal
+    // as a published prompt.
     const region = setup();
     expect(within(region).getByText(/streamable http/i)).toBeInTheDocument();
-    expect(within(region).getByRole('group', { name: /authorization header/i })).toHaveTextContent(
-      'Authorization: Bearer',
-    );
+    expect(within(region).getByText(/any mcp client/i)).toBeInTheDocument();
+    expect(within(region).getByText(/prompt the server publishes/i)).toBeInTheDocument();
+    const header = within(region).getByRole('group', { name: /authorization header/i });
+    expect(header).toHaveTextContent('Authorization: Bearer');
+
+    // And it sits ABOVE the client examples, not behind one of them.
+    const picker = within(region).getByRole('group', { name: /mcp client example/i });
+    expect(header.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('states the one honest caveat: no server-to-client stream, GET answers 405', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+
+    const text = setup().textContent ?? '';
+    expect(text).toMatch(/no server-to-client stream/i);
+    expect(text).toMatch(/\b405\b/);
+    expect(text).toMatch(/only POST and DELETE/);
+  });
+
+  it('selects no client example by default', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+
+    const picker = within(setup()).getByRole('group', { name: /mcp client example/i });
+    const buttons = within(picker).getAllByRole('button');
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      'CLAUDE CODE',
+      'CLAUDE DESKTOP',
+      'CURSOR / VS CODE',
+    ]);
+    for (const button of buttons) expect(button).toHaveAttribute('aria-pressed', 'false');
+    // No vendor command is on screen until the reader asks for one.
+    expect(within(setup()).queryByRole('group', { name: /command|configuration/i })).toBeNull();
+  });
+
+  it('gives Cursor and VS Code the same server entry, and says where each reads it', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issued(user);
+    await pick(user, /^cursor/i);
+
+    const config = within(setup()).getByRole('group', { name: /Cursor configuration/i });
+    expect(config).toHaveTextContent('mcpServers');
+    expect(config).toHaveTextContent(TICKET.endpoint);
+    expect(config).toHaveTextContent('"type": "http"');
+    const text = setup().textContent ?? '';
+    expect(text).toContain('.cursor/mcp.json');
+    expect(text).toContain('.vscode/mcp.json');
+    // VS Code's file differs by one key, and the copy says so rather than
+    // pretending one JSON drops into both.
+    expect(text).toMatch(/servers.*instead of.*mcpServers/);
   });
 
   it('names the server neutrally everywhere, and says why in one clause', async () => {
@@ -156,6 +211,7 @@ describe('ClientSetup · there is a real command, per client', () => {
     // A project-naming id would be read by the agent at connect time.
     expect(MCP_SERVER_NAME).not.toMatch(/mcpwn|red.?team|attack|test/i);
     expect(within(setup()).getByText(/namespaces/i)).toBeInTheDocument();
+    await pick(user, /^claude code$/i);
     expect(
       within(setup()).getByRole('group', { name: /Claude Code add-json command/i }),
     ).toHaveTextContent(MCP_SERVER_NAME);
@@ -168,7 +224,10 @@ describe('ClientSetup · the token is copyable and never in plain sight', () => 
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
 
-    for (const tab of [/^claude code$/i, /^claude desktop$/i, /^any other/i]) {
+    // Before any pick (the generic header snippet is already on screen) and
+    // after each one.
+    expect(document.body.textContent ?? '').not.toContain(TICKET.token);
+    for (const tab of [/^claude code$/i, /^claude desktop$/i, /^cursor/i]) {
       await pick(user, tab);
       expect(document.body.textContent ?? '').not.toContain(TICKET.token);
     }
@@ -179,6 +238,7 @@ describe('ClientSetup · the token is copyable and never in plain sight', () => 
     const writeText = stubClipboard();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
+    await pick(user, /^claude code$/i);
 
     await user.click(
       within(setup()).getByRole('button', { name: /copy Claude Code add-json command/i }),
@@ -217,6 +277,7 @@ describe('ClientSetup · the token is copyable and never in plain sight', () => 
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
+    await pick(user, /^claude code$/i);
 
     expect(within(setup()).getByText(/echoes the token/i)).toBeInTheDocument();
   });
@@ -248,7 +309,7 @@ describe('ClientSetup · connect an agent with nothing else attached', () => {
 });
 
 describe('ClientSetup · the reader can tell it worked', () => {
-  it('gives the check command and the command that explains a failure', async () => {
+  it('gives the check command and the command that explains a failure, as one client example', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issued(user);
@@ -256,6 +317,10 @@ describe('ClientSetup · the reader can tell it worked', () => {
     const text = setup().textContent ?? '';
     expect(text).toContain('claude mcp list');
     expect(text).toContain(`claude mcp get ${MCP_SERVER_NAME}`);
+    // The universal check (the connection panel) is stated first; the Claude
+    // Code command follows as an example, so the footer never reads Claude-only.
+    expect(text.indexOf('AWAITING AGENT')).toBeLessThan(text.indexOf('claude mcp list'));
+    expect(text).toMatch(/for example/i);
   });
 
   it('ties the check to the connection panel already on this screen', async () => {
