@@ -31,7 +31,7 @@ export function StatusBar({
 }) {
   const sevBreach = runContext ? /^(critical|high)$/i.test(runContext.severity) : false;
   return (
-    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-[18px] backdrop-blur-[6px]">
+    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-2.5 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-3 backdrop-blur-[6px] min-[360px]:gap-4 min-[360px]:px-[18px]">
       <MobileDrawer pathname={pathname} />
       <Link
         href="/"

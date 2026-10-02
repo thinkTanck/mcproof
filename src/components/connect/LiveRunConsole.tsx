@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
@@ -120,6 +120,27 @@ const fromReattach = (view: LiveRunReattachView): ActiveRun => ({
   promptName: view.promptName,
 });
 
+/**
+ * What this page knows about a finished run's saved result.
+ *
+ * `saved`    there is a stored result, and a replay to open.
+ * `judging`  THIS page pressed END RUN and the answer has not come back.
+ * `pending`  the run is ended and nothing is saved YET. Finishing stamps the run
+ *            ended before the gate and the judge have answered, so every run
+ *            passes through this state on its way to `saved`.
+ * `none`     the run ended long enough ago that no result is coming.
+ * `unknown`  nothing has been read, or the read failed. Nothing is claimed.
+ */
+type RunResultState = 'saved' | 'judging' | 'pending' | 'none' | 'unknown';
+
+/**
+ * How long after a run ended its result can still arrive. The pipeline allows
+ * the judge two attempts of a minute each, with a backoff between them, before
+ * it saves; this is that with room to spare. Inside it, "nothing saved" means
+ * "not yet". Only after it does the screen say the run has no replay.
+ */
+export const RESULT_PENDING_WINDOW_MS = 3 * 60_000;
+
 /** The production clock for the expiry check. See the `now` prop. */
 const systemNow = (): Date => new Date();
 
@@ -137,21 +158,31 @@ const PHASE_LABELS: Record<LiveRunPhase, string> = {
  * report: "your agent is here" and "your agent has done something" are different
  * facts, and the second one is a real counter, not an invented phase.
  */
-function phaseLine(status: LiveRunStatusView, saved: boolean | null): string {
+function phaseLine(status: LiveRunStatusView, result: RunResultState): string {
   if (status.phase === 'waiting') {
     return 'No agent has connected yet. Nothing is recorded until one does.';
   }
   if (status.phase === 'finished') {
-    // `saved` is what we actually know about the result. A run can be ended with
-    // nothing saved (it was closed unjudged, or the judge did not answer after
-    // the run was claimed), and telling that reader "the replay has the whole
-    // trace" would point them at a page that does not exist.
-    if (saved === false) {
-      return 'This run is ended. It was closed without a saved result, so it has no replay.';
+    // ENDED IS NOT SAVED. A run reads finished from the moment it is claimed,
+    // which is before the judge has answered, and it can also end with nothing
+    // saved at all (closed unjudged, or refused after the claim). Each of those
+    // gets its own sentence, because "the replay has the whole trace" is false
+    // for two of them and "it has no replay" is false for a third.
+    switch (result) {
+      case 'saved':
+        return 'This run is ended, judged and saved. The replay has the whole trace.';
+      case 'judging':
+        return 'This run is ended and is being judged. The result is saved when the judge answers.';
+      case 'pending':
+        return (
+          'This run is ended, and its result is not saved yet. If it is still being judged, ' +
+          'the replay link appears here when the result is saved.'
+        );
+      case 'none':
+        return 'This run is ended. It was closed without a saved result, so it has no replay.';
+      default:
+        return 'This run is ended.';
     }
-    return saved === true
-      ? 'This run is ended, judged and saved. The replay has the whole trace.'
-      : 'This run is ended.';
   }
   return status.toolCalls === 0
     ? 'Your agent has reached the endpoint but has not called a tool yet.'
@@ -205,12 +236,17 @@ export function LiveRunConsole({
   } | null>(null);
   // A run the user let go of (ISSUE A FRESH RUN). It is not reopened again.
   const [releasedRunId, setReleasedRunId] = useState<string | null>(null);
-  // Where the finished run's saved result lives. `undefined` is "not looked up",
-  // `null` is "looked up, and nothing was saved".
-  const [storedRunId, setStoredRunId] = useState<string | null | undefined>(undefined);
-  // Whether that lookup has been made for this run. A lookup that FAILED leaves
-  // the answer unknown, and unknown must not be drawn as "nothing was saved".
-  const [resultAsked, setResultAsked] = useState(false);
+  // Where the finished run's saved result lives, once a lookup has found it.
+  const [storedRunId, setStoredRunId] = useState<string | undefined>(undefined);
+  // What the lookups have established so far when they have NOT found one. A
+  // lookup that failed leaves this `unknown`, and unknown is never drawn as
+  // "nothing was saved".
+  // `unreadable` is where it stops when every look FAILED for the whole window:
+  // the asking ends, and still nothing is claimed about the result.
+  const [lookup, setLookup] = useState<'unknown' | 'pending' | 'none' | 'unreadable'>('unknown');
+  // When this page first saw the run ended, for a run whose own finish time
+  // could not be read. The pending window is measured from the earlier of the two.
+  const firstSeenEnded = useRef<number | null>(null);
   // Whether the wall clock has passed the ticket's expiry, as of the last poll.
   // Without this a run that quietly timed out reads AWAITING AGENT for ever.
   const [expired, setExpired] = useState(false);
@@ -256,7 +292,7 @@ export function LiveRunConsole({
       if (!live) return;
       if (answer.ok) {
         setRun(fromReattach(answer.value));
-        if (answer.value.finishedAt !== null) setStoredRunId(answer.value.storedRunId);
+        if (answer.value.storedRunId !== null) setStoredRunId(answer.value.storedRunId);
         setReattachOutcome({ runId: reattachRunId, refusal: null });
         return;
       }
@@ -268,22 +304,57 @@ export function LiveRunConsole({
   }, [port, wantsReattach, reattachRunId]);
 
   // A run that turns out to be finished, with no summary in hand (it was ended
-  // elsewhere, or before this page was opened), is asked once where its saved
+  // elsewhere, or before this page was opened), is asked where its saved
   // result lives. That is the only way a reopened screen can link to the replay.
   const finishedElsewhere = status?.phase === 'finished' && summary === null;
   useEffect(() => {
-    if (runId === null || !finishedElsewhere || storedRunId !== undefined || resultAsked) return;
+    // ASKED AGAIN UNTIL IT IS SETTLED, NOT ONCE. The run is stamped ended before
+    // the judge answers, so the first look on the ordinary path finds nothing
+    // saved. It keeps looking on the poll interval until a result turns up or
+    // the window in which one could still arrive has closed. While this page's
+    // own finish call is in flight it does not look at all: the answer is on
+    // its way.
+    if (
+      runId === null ||
+      !finishedElsewhere ||
+      finishing ||
+      storedRunId !== undefined ||
+      lookup === 'none' ||
+      lookup === 'unreadable'
+    ) {
+      return;
+    }
     let live = true;
-    void (async () => {
+    const ask = async () => {
       const answer = await port.reattach({ runId });
       if (!live) return;
-      setResultAsked(true);
-      if (answer.ok) setStoredRunId(answer.value.storedRunId);
-    })();
+      firstSeenEnded.current ??= now().getTime();
+      if (!answer.ok) {
+        // A failed look settles nothing, so it is tried again. But not for
+        // ever: a timer that can never stop is a leak, and after the window no
+        // result is coming that a retry would find.
+        if (now().getTime() - firstSeenEnded.current >= RESULT_PENDING_WINDOW_MS) {
+          setLookup('unreadable');
+        }
+        return;
+      }
+      if (answer.value.storedRunId !== null) {
+        setStoredRunId(answer.value.storedRunId);
+        return;
+      }
+      const endedAt = Date.parse(answer.value.finishedAt ?? '');
+      const since = Number.isNaN(endedAt)
+        ? firstSeenEnded.current
+        : Math.min(endedAt, firstSeenEnded.current);
+      setLookup(now().getTime() - since < RESULT_PENDING_WINDOW_MS ? 'pending' : 'none');
+    };
+    void ask();
+    const timer = setInterval(() => void ask(), pollIntervalMs);
     return () => {
       live = false;
+      clearInterval(timer);
     };
-  }, [port, runId, finishedElsewhere, storedRunId, resultAsked]);
+  }, [port, runId, finishedElsewhere, finishing, storedRunId, lookup, now, pollIntervalMs]);
 
   /** Let this run go and return to the issue control. Nothing is ended. */
   const release = useCallback(() => {
@@ -294,7 +365,8 @@ export function LiveRunConsole({
     setSummary(null);
     setFinishRefusal(null);
     setStoredRunId(undefined);
-    setResultAsked(false);
+    setLookup('unknown');
+    firstSeenEnded.current = null;
     setExpired(false);
     onRunChange?.(null);
   }, [runId, onRunChange]);
@@ -362,12 +434,25 @@ export function LiveRunConsole({
   // What we know about the saved result: the finish answer if this page got it,
   // otherwise what the lookup found.
   const replayRunId = summary !== null ? summary.storedRunId : storedRunId;
+  const result: RunResultState =
+    replayRunId !== undefined
+      ? 'saved'
+      : finishing
+        ? 'judging'
+        : lookup === 'unreadable'
+          ? 'unknown'
+          : lookup;
 
   // The one piece of motion on this screen: the issued run eases in, once,
   // because the user just asked for it. Transform and opacity only, and
   // `prefers-reduced-motion` resolves it to the resting state (globals.css).
   return (
-    <div className="panel-in flex flex-col gap-6">
+    // The scroll margin is the other half of pinning the bar. A control focused
+    // by keyboard while the page is scrolled is brought to the top edge, which
+    // is exactly where the header and the bar sit, so without it the focused
+    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 14rem clears
+    // the header plus the bar at its tallest ordinary height.
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-56">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
@@ -379,6 +464,7 @@ export function LiveRunConsole({
         expired={expired}
         reattached={reattached}
         replayRunId={replayRunId}
+        result={result}
         onRelease={release}
         status={status}
         statusRefusal={statusRefusal}
@@ -470,7 +556,7 @@ function BeforeIssue({
 
 function Reopening() {
   return (
-    <div className="rounded-lg border border-line bg-panel/60 px-5 py-4">
+    <div role="status" className="rounded-lg border border-line bg-panel/60 px-5 py-4">
       <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
         REOPENING RUN
       </p>
@@ -590,6 +676,7 @@ function Connection({
   expired,
   reattached,
   replayRunId,
+  result,
   onRelease,
   status,
   statusRefusal,
@@ -605,10 +692,12 @@ function Connection({
   /** Whether this run was reopened by id, and so has no token on this page. */
   reattached: boolean;
   /**
-   * The saved result's row id. `undefined` is "not known yet", `null` is "the
-   * run ended with nothing saved".
+   * The saved result's row id, once one is known. What is known when there is
+   * none is carried by `result`.
    */
-  replayRunId: string | null | undefined;
+  replayRunId: string | undefined;
+  /** What this page knows about the finished run's saved result. */
+  result: RunResultState;
   /** Let this run go and return to the issue control. */
   onRelease: () => void;
   status: LiveRunStatusView | null;
@@ -633,7 +722,6 @@ function Connection({
   // the token it needs was shown once and is gone. Say so and offer the one
   // thing that works. A connected run is never offered this, it is still live.
   const stranded = reattached && phase === 'waiting';
-  const saved = replayRunId === undefined ? null : replayRunId !== null;
 
   return (
     <>
@@ -691,7 +779,7 @@ function Connection({
               {finishing ? 'JUDGING' : 'END RUN AND JUDGE'}
             </button>
           )}
-          {typeof replayRunId === 'string' && (
+          {replayRunId !== undefined && (
             <Link
               href={`/runs/${replayRunId}`}
               className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 leading-6"
@@ -721,7 +809,7 @@ function Connection({
               'accept connections. Issue a new run to try again.'
             : status === null
               ? 'We are reading the state of this run from the server.'
-              : phaseLine(status, saved)}
+              : phaseLine(status, result)}
         </p>
         {!lapsed && phase === 'waiting' && !reattached && (
           <p className="reading max-w-[68ch] text-ink-muted">

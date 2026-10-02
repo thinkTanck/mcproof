@@ -790,7 +790,15 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
         statusOf({ phase: 'finished', finishedAt: '2026-10-02T10:00:00.000Z' }),
       ),
     });
-    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={() => new Date('2026-10-02T11:00:00.000Z')}
+      />,
+    );
 
     expect(await screen.findByText('RUN FINISHED')).toBeVisible();
     expect(await screen.findByText(/closed without a saved result/i)).toBeVisible();
@@ -958,5 +966,175 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
 
     const button = await screen.findByRole('button', { name: /end run and judge/i });
     expect(dock()).toContainElement(button);
+  });
+});
+
+/**
+ * ENDED IS NOT THE SAME AS SAVED. Finishing a run stamps it ended FIRST and
+ * saves the result only after the gate and the judge have answered, which can
+ * take minutes. For that whole window a run reads "finished" and has no saved
+ * result. A page opened in it (a reload while judging, a second tab) used to
+ * look once, find nothing, and say the run had no replay, on the ordinary path
+ * of a run that was about to get one.
+ */
+describe('LiveRunConsole · a run that is ended but whose result is not saved yet', () => {
+  const ENDED = '2026-10-02T10:00:00.000Z';
+  const at = (iso: string) => () => new Date(iso);
+  const SOON_AFTER = at('2026-10-02T10:00:30.000Z');
+  const LONG_AFTER = at('2026-10-02T10:30:00.000Z');
+  const ended = (storedRunId: string | null) => ({
+    ok: true as const,
+    value: { ...REATTACH, finishedAt: ENDED, storedRunId },
+  });
+  const finishedState = vi.fn(async () => statusOf({ phase: 'finished', finishedAt: ENDED }));
+
+  it('does not say a run still being judged has no replay', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ended(null)),
+      readState: finishedState,
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={SOON_AFTER}
+      />,
+    );
+
+    expect(await screen.findByText(/its result is not saved yet/i)).toBeVisible();
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
+  });
+
+  it('picks the replay up when the result is saved a moment later', async () => {
+    const reattach = vi
+      .fn<ConnectLiveRunPort['reattach']>()
+      .mockResolvedValueOnce(ended(null))
+      .mockResolvedValueOnce(ended(null))
+      .mockResolvedValue(ended('stored-77'));
+    const port = portWith({ reattach, readState: finishedState });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={SOON_AFTER}
+        pollIntervalMs={10}
+      />,
+    );
+
+    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
+      'href',
+      '/runs/stored-77',
+    );
+  });
+
+  it('says the run has no replay only once the judging window has passed', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ended(null)),
+      readState: finishedState,
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={LONG_AFTER}
+      />,
+    );
+
+    expect(await screen.findByText(/closed without a saved result/i)).toBeVisible();
+    expect(screen.queryByText(/not saved yet/i)).not.toBeInTheDocument();
+  });
+
+  it('says the run is being judged while this page is the one judging it', async () => {
+    const user = userEvent.setup();
+    let pressed = false;
+    const port = portWith({
+      // The run reads finished as soon as it is claimed, long before the judge
+      // answers. The finish call itself is left in flight.
+      readState: vi.fn(async () =>
+        pressed
+          ? statusOf({ phase: 'finished', toolCalls: 2, finishedAt: ENDED })
+          : statusOf({ phase: 'connected', toolCalls: 2 }),
+      ),
+      finish: vi.fn(() => new Promise<never>(() => {})),
+      reattach: vi.fn(async () => ended(null)),
+    });
+    render(
+      <LiveRunConsole port={port} category="ASI01" signedIn now={LONG_AFTER} pollIntervalMs={10} />,
+    );
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    pressed = true;
+
+    expect(await screen.findByText(/is being judged/i)).toBeVisible();
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * AUDIT FIXES (the /impeccable audit run before PR #167 merged).
+ *
+ * The pinned run bar introduced a WCAG 2.2 failure of its own: a control
+ * focused by keyboard while the page was scrolled could land entirely
+ * underneath it (2.4.11 Focus Not Obscured). Measured in Chromium, five of the
+ * eleven controls in the run column were hidden that way. The fix is a scroll
+ * margin on every focusable in the column, so a focus scroll stops short of the
+ * bar. A layout engine is needed to see the effect; this pins the cause.
+ */
+describe('LiveRunConsole · audit fixes', () => {
+  it('gives every focusable under the pinned bar room to scroll clear of it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByRole('status');
+
+    expect(container.firstElementChild?.className).toMatch(
+      /\[&_:is\(a,button,\[tabindex\]\)\]:scroll-mt-/,
+    );
+  });
+
+  it('announces that a run is being reopened', () => {
+    const port = portWith({ reattach: vi.fn(() => new Promise<never>(() => {})) });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('REOPENING RUN');
+  });
+
+  it('stops asking for a saved result once the window has passed, even if every ask fails', async () => {
+    let clock = Date.parse('2026-10-02T10:00:00.000Z');
+    const reattach = vi.fn(async () => ({
+      ok: false as const,
+      refusal: { code: 'REFUSED' as const, message: 'We could not read this run just now.' },
+    }));
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'finished', toolCalls: 2 })),
+      reattach,
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        now={() => new Date(clock)}
+        pollIntervalMs={10}
+      />,
+    );
+    await issue(user);
+    await waitFor(() => expect(reattach.mock.calls.length).toBeGreaterThan(1));
+
+    // Past the window: the asking stops, and nothing is claimed about the result.
+    clock += 10 * 60_000;
+    await waitFor(async () => {
+      const seen = reattach.mock.calls.length;
+      await new Promise((r) => setTimeout(r, 60));
+      expect(reattach.mock.calls.length).toBe(seen);
+    });
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
   });
 });

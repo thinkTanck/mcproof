@@ -133,7 +133,10 @@ export function FindingsReport({
       {finding && step ? (
         <>
           {/* Offending step (telemetry) + summary (prose), side by side on desktop */}
-          <div className="mt-8 grid gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          {/* `grid-cols-1` is not decoration: an implicit single column is sized
+              `auto`, so one unbreakable token in the payload (a long path) set
+              the column wider than a phone screen and the page clipped it. */}
+          <div className="mt-8 grid grid-cols-1 gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <section aria-label="Offending step">
               <SectionHeading>Offending step</SectionHeading>
               <p className="readout mt-2 text-breach-text">
@@ -143,7 +146,9 @@ export function FindingsReport({
                 {stepPayload(step).map((row) => (
                   <div key={row.k} className="instrument flex gap-2">
                     <dt className="text-ink-faint">{row.k}</dt>
-                    <dd className="min-w-0 break-words text-readout">{row.v}</dd>
+                    <dd className="min-w-0 break-words text-readout [overflow-wrap:anywhere]">
+                      {row.v}
+                    </dd>
                   </div>
                 ))}
               </dl>
