@@ -3,6 +3,7 @@ import type {
   LiveRunActionCode,
   LiveRunActionResult,
   LiveRunPhase,
+  LiveRunReattachView,
   LiveRunStatusView,
   LiveRunSummaryView,
   LiveRunTicketView,
@@ -14,15 +15,21 @@ import type {
  *
  * Under [ADR-0006](../../../docs/adr/0006-mcpwn-is-the-mcp-server.md) a live run
  * is: we issue an endpoint and a token, the user's agent connects to US, and the
- * server records what it does. The screen therefore needs exactly three answers:
+ * server records what it does. The screen therefore needs exactly four answers:
  *
  *   1. START — issue this run, or refuse it.
  *   2. READ STATE — what has the server actually observed since?
  *   3. FINISH — end it, judge it, and say where the result lives.
+ *   4. REATTACH: hand a run back by its id, after a reload lost the page.
  *
- * That is the whole port. Anything the screen draws, it draws from those three
+ * That is the whole port. Anything the screen draws, it draws from those four
  * answers, which is what makes "show real connection state" enforceable rather
- * than aspirational: there is no fourth channel a fake state could come in on.
+ * than aspirational: there is no further channel a fake state could come in on.
+ *
+ * REATTACH RETURNS NO TOKEN, AND THE ADAPTER MAKES SURE OF IT. The token is shown
+ * once, when START answers. A reattached run is rebuilt field by field from the
+ * view the server sent, so a token could not ride along even if an answer ever
+ * carried one.
  *
  * FINISH IS HERE BECAUSE THE RUN CANNOT END WITHOUT IT. An earlier draft of this
  * port had two methods, on the reading that `task_complete` is inferred from
@@ -54,7 +61,13 @@ import type {
  * numeral at all; both arrive as finished copy and are printed as sent.
  */
 
-export type { LiveRunPhase, LiveRunStatusView, LiveRunSummaryView, LiveRunTicketView };
+export type {
+  LiveRunPhase,
+  LiveRunReattachView,
+  LiveRunStatusView,
+  LiveRunSummaryView,
+  LiveRunTicketView,
+};
 
 /**
  * Why a live run did not proceed.
@@ -129,6 +142,11 @@ export interface ConnectLiveRunPort {
   readState(input: { runId: string }): Promise<LiveRunAnswer<LiveRunStatusView>>;
   /** End it, judge it, persist it, and say where the result lives. */
   finish(input: { runId: string }): Promise<LiveRunAnswer<LiveRunSummaryView>>;
+  /**
+   * Hand a run back by its id: everything the ticket carried EXCEPT the token,
+   * plus whether the run has finished and where its saved result lives.
+   */
+  reattach(input: { runId: string }): Promise<LiveRunAnswer<LiveRunReattachView>>;
 }
 
 // ── The boundary: the three server actions, declared structurally ──
@@ -155,11 +173,16 @@ export type FinishLiveRunAction = (
   input: unknown,
 ) => Promise<LiveRunActionResult<LiveRunSummaryView>>;
 
-/** The three actions, as one injectable bundle. */
+export type ReattachLiveRunAction = (
+  input: unknown,
+) => Promise<LiveRunActionResult<LiveRunReattachView>>;
+
+/** The four actions, as one injectable bundle. */
 export interface ConnectLiveRunActions {
   readonly start: StartLiveRunAction;
   readonly status: ReadLiveRunStatusAction;
   readonly finish: FinishLiveRunAction;
+  readonly reattach: ReattachLiveRunAction;
 }
 
 /** Nothing was issued because this build has no server action behind the screen. */
@@ -219,6 +242,29 @@ function readSummary(value: LiveRunSummaryView): LiveRunSummaryView | null {
 }
 
 /**
+ * A reattached run is only drawable if it says which run it is and where the
+ * agent connects. It is REBUILT here rather than passed through, so the result
+ * holds exactly the fields below and nothing an answer might have carried
+ * besides them. There is no token among them.
+ */
+function readReattach(value: LiveRunReattachView): LiveRunReattachView | null {
+  if (!isId(value.runId) || !isId(value.endpoint)) return null;
+  if (typeof value.taskGoal !== 'string' || typeof value.promptName !== 'string') return null;
+  if (typeof value.expiresAt !== 'string') return null;
+  return {
+    runId: value.runId,
+    endpoint: value.endpoint,
+    expiresAt: value.expiresAt,
+    category: value.category,
+    kind: value.kind,
+    taskGoal: value.taskGoal,
+    promptName: value.promptName,
+    finishedAt: typeof value.finishedAt === 'string' ? value.finishedAt : null,
+    storedRunId: isId(value.storedRunId) ? value.storedRunId : null,
+  };
+}
+
+/**
  * THE ONE ADAPTER. Everything the screen knows about the server passes through
  * these three calls, so reconciling with the real actions is a change to this
  * file and nowhere else.
@@ -273,6 +319,19 @@ export function createConnectLiveRunPort(actions: ConnectLiveRunActions): Connec
       if (summary === null) return refuse('REFUSED', LIVE_RUN_UNREADABLE_STATE_MESSAGE);
       return { ok: true, value: summary };
     },
+
+    async reattach(input) {
+      let answer: Awaited<ReturnType<ReattachLiveRunAction>>;
+      try {
+        answer = await actions.reattach({ runId: input.runId });
+      } catch {
+        return refuse('REFUSED', LIVE_RUN_UNREADABLE_STATE_MESSAGE);
+      }
+      if (!answer.ok) return refuse(readCode(answer.code), answer.message);
+      const view = readReattach(answer.value);
+      if (view === null) return refuse('REFUSED', LIVE_RUN_UNREADABLE_STATE_MESSAGE);
+      return { ok: true, value: view };
+    },
   };
 }
 
@@ -292,6 +351,9 @@ export const notWiredLiveRunPort: ConnectLiveRunPort = {
     return refuse('NOT_WIRED', LIVE_RUN_NOT_WIRED_MESSAGE);
   },
   async finish() {
+    return refuse('NOT_WIRED', LIVE_RUN_NOT_WIRED_MESSAGE);
+  },
+  async reattach() {
     return refuse('NOT_WIRED', LIVE_RUN_NOT_WIRED_MESSAGE);
   },
 };

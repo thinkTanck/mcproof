@@ -1,5 +1,10 @@
 import type { Metadata } from 'next';
-import { finishLiveRun, getLiveRunStatus, startLiveRun } from '@/app/actions/live-run';
+import {
+  finishLiveRun,
+  getLiveRunReattach,
+  getLiveRunStatus,
+  startLiveRun,
+} from '@/app/actions/live-run';
 import { ConnectScreen, type SampleRunIds } from '@/components/connect/ConnectScreen';
 import { CategorySchema } from '@/contract';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
@@ -28,7 +33,7 @@ export const metadata: Metadata = {
  *
  * The screen is coded against `ConnectLiveRunPort`
  * (`src/components/connect/live-run-port.ts`), and this route is the ONE place
- * the real server actions are attached to it. The three actions go down as
+ * the real server actions are attached to it. The four actions go down as
  * props; `ConnectScreen` adapts them through `createConnectLiveRunPort` and the
  * console never learns the server's shape.
  *
@@ -38,9 +43,24 @@ export const metadata: Metadata = {
  * as a prop is how Next intends the boundary to be crossed. None of them takes a
  * `userId` — the account is read from the session on the server, so the browser
  * cannot name an account at all.
+ *
+ * ── THE ACTIVE RUN IS ADDRESSED BY THE URL ──
+ *
+ * `/connect?run=<runId>` names a run to reopen. The endpoint and token used to
+ * live only in page memory, so a reload lost the run; the id in the URL is what
+ * lets the console read it back from its durable row. Only the ID travels here.
+ * The token is never in a URL, and the reattach read cannot produce it. The id is
+ * passed down as given and validated by the action that uses it, which also
+ * checks that the run belongs to the signed-in account.
  */
-export default async function ConnectPage() {
+export default async function ConnectPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ run?: string | string[] }>;
+} = {}) {
   const user = await getUser();
+  const { run } = (await searchParams) ?? {};
+  const runId = typeof run === 'string' && run.trim().length > 0 ? run.trim() : undefined;
 
   const sampleRunIds: SampleRunIds = Object.fromEntries(
     CategorySchema.options.map((category) => [category, sampleRun(category).runId]),
@@ -49,12 +69,14 @@ export default async function ConnectPage() {
   return (
     <ConnectScreen
       signedIn={user !== null}
+      initialRunId={runId}
       sampleRunIds={sampleRunIds}
       sampleProvenance={SAMPLE_VERDICT_PROVENANCE}
       liveActions={{
         start: startLiveRun,
         status: getLiveRunStatus,
         finish: finishLiveRun,
+        reattach: getLiveRunReattach,
       }}
     />
   );

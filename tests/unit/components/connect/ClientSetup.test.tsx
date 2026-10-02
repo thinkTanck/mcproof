@@ -74,6 +74,10 @@ function portWith(): ConnectLiveRunPort {
         steps: 4,
       },
     })),
+    reattach: vi.fn(async () => ({
+      ok: false as const,
+      refusal: { code: 'RUN_NOT_FOUND' as const, message: 'That run was not found.' },
+    })),
   };
 }
 

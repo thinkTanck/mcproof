@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
@@ -246,6 +246,11 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
       code: 'RUN_NOT_FOUND' as const,
       message: 'That run was not found.',
     })),
+    reattach: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
   });
 
   const issueLive = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -344,5 +349,89 @@ describe('ConnectScreen · the retired outbound model is gone', () => {
     expect(container.querySelector('input[type="password"]')).toBeNull();
     expect(container.textContent).not.toMatch(/never stored/i);
     expect(container.textContent).not.toMatch(/coming soon/i);
+  });
+});
+
+/**
+ * THE RUN LIVES IN THE URL. The endpoint and token used to exist only in page
+ * memory, so a reload or a trip to another screen lost the run. The run id now
+ * rides in `?run=`, and a screen opened with one goes straight to the live
+ * console and reopens that run. The token is never part of the URL.
+ */
+describe('ConnectScreen · the active run is addressed by the URL', () => {
+  const VIEW = {
+    runId: 'run-1',
+    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    category: 'ASI06' as const,
+    kind: 'malicious' as const,
+    taskGoal: 'Do the thing.',
+    promptName: 'session_brief',
+    finishedAt: null,
+    storedRunId: null,
+  };
+
+  const actions = () => ({
+    start: vi.fn(async () => ({
+      ok: true as const,
+      value: { ...VIEW, token: 'mcpwn_rt_secret' },
+    })),
+    status: vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        runId: 'run-1',
+        phase: 'connected' as const,
+        connectedAt: null,
+        lastSeenAt: null,
+        steps: 5,
+        toolCalls: 2,
+        finishedAt: null,
+      },
+    })),
+    finish: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+    reattach: vi.fn(async () => ({ ok: true as const, value: VIEW })),
+  });
+
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('opens in live mode and reopens the run named in the URL', async () => {
+    const live = actions();
+    render(<ConnectScreen signedIn liveActions={live} initialRunId="run-1" />);
+
+    expect(screen.getByRole('button', { name: /live/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText('AGENT CONNECTED')).toBeVisible();
+    expect(screen.getByRole('button', { name: /end run and judge/i })).toBeVisible();
+    expect(live.reattach).toHaveBeenCalledWith({ runId: 'run-1' });
+    expect(live.start).not.toHaveBeenCalled();
+  });
+
+  it('puts the run id, and never the token, in the URL once a run is issued', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+
+    await waitFor(() => expect(window.location.search).toBe('?run=run-1'));
+    expect(window.location.href).not.toContain('mcpwn_rt_secret');
+  });
+
+  it('keeps the run across a switch to SAMPLE and back', async () => {
+    const user = userEvent.setup();
+    const live = actions();
+    render(<ConnectScreen signedIn liveActions={live} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await screen.findByText('AGENT CONNECTED');
+
+    await user.click(screen.getByRole('button', { name: /sample/i }));
+    await goLive(user);
+
+    expect(await screen.findByText('AGENT CONNECTED')).toBeVisible();
+    expect(live.reattach).toHaveBeenCalledWith({ runId: 'run-1' });
+    expect(live.start).toHaveBeenCalledTimes(1);
   });
 });

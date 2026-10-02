@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ConnectPage from '@/app/(hud)/connect/page';
-import { startLiveRun } from '@/app/actions/live-run';
+import { getLiveRunReattach, startLiveRun } from '@/app/actions/live-run';
 import { getUser } from '@/lib/auth/user';
 
 vi.mock('@/lib/auth/user', () => ({ getUser: vi.fn() }));
@@ -17,6 +17,7 @@ vi.mock('@/app/actions/live-run', () => ({
   startLiveRun: vi.fn(async () => ({ ok: false, code: 'INVALID_REQUEST', message: 'no' })),
   getLiveRunStatus: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
   finishLiveRun: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
+  getLiveRunReattach: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
 }));
 
 /**
@@ -125,5 +126,42 @@ describe('Connect page — the live-run actions are really bound', () => {
 
     expect(await screen.findByText('LIVE RUNS PAUSED')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /copy run token/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * THE RUN-SCOPED URL. `/connect?run=<id>` reopens a run after a reload. The
+ * route reads the id and binds the reattach action; the account is still read
+ * from the session on the server, so the URL names a run and never a user.
+ */
+describe('Connect page: a run named in the URL is reopened', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('asks the real reattach action for that run, in live mode, with no account', async () => {
+    vi.mocked(getUser).mockResolvedValue({ id: 'u1', email: 'a@b.com' } as never);
+
+    render(await ConnectPage({ searchParams: Promise.resolve({ run: 'run-9' }) }));
+
+    expect(screen.getByRole('button', { name: /live/i })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(getLiveRunReattach).toHaveBeenCalledWith({ runId: 'run-9' }));
+    expect(JSON.stringify(vi.mocked(getLiveRunReattach).mock.calls[0])).not.toContain('userId');
+  });
+
+  it('ignores a run parameter that is not one plain id', async () => {
+    vi.mocked(getUser).mockResolvedValue({ id: 'u1', email: 'a@b.com' } as never);
+
+    render(await ConnectPage({ searchParams: Promise.resolve({ run: ['a', 'b'] }) }));
+
+    expect(screen.getByRole('button', { name: /sample/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(getLiveRunReattach).not.toHaveBeenCalled();
+  });
+
+  it('asks for nothing when the visitor is signed out', async () => {
+    vi.mocked(getUser).mockResolvedValue(null as never);
+
+    render(await ConnectPage({ searchParams: Promise.resolve({ run: 'run-9' }) }));
+
+    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
+    expect(getLiveRunReattach).not.toHaveBeenCalled();
   });
 });

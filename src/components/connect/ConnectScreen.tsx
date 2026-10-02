@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
@@ -162,14 +162,21 @@ export function ConnectScreen({
   sampleProvenance,
   liveActions,
   livePort,
+  initialRunId,
 }: {
   signedIn?: boolean;
+  /**
+   * A run named in the URL (`?run=<id>`), to reopen. Present means the visitor
+   * came back to a run they had already issued, so the screen opens on the live
+   * console instead of the sample.
+   */
+  initialRunId?: string;
   /** Category to recorded-run id. Absent entries fall back to the canonical sample. */
   sampleRunIds?: SampleRunIds;
   /** What the sample IS, in the sample library's own words. */
   sampleProvenance?: string;
   /**
-   * The three live-run server actions, bound by the route. They are adapted into
+   * The live-run server actions, bound by the route. They are adapted into
    * the screen's port HERE and nowhere else, so the screen itself never learns
    * the server's shape. Absent means nothing is bound, and the console refuses
    * plainly rather than pretending.
@@ -178,7 +185,22 @@ export function ConnectScreen({
   /** A ready-made port. Tests inject one; the route passes actions instead. */
   livePort?: ConnectLiveRunPort;
 }) {
-  const [mode, setMode] = useState<Mode>('sample');
+  const [mode, setMode] = useState<Mode>(initialRunId === undefined ? 'sample' : 'live');
+  // THE ACTIVE RUN, BY ID. It is held here, above the console, for two reasons.
+  // The console unmounts when the mode switches to SAMPLE, and a run that lived
+  // only inside it was lost on the way back. And it is mirrored into the URL, so
+  // a reload or a visit to another screen comes back to the same run. Only the
+  // id is kept: the token stays in the console's memory and nowhere else.
+  const [activeRunId, setActiveRunId] = useState<string | null>(initialRunId ?? null);
+  const onRunChange = useCallback((runId: string | null) => {
+    setActiveRunId(runId);
+    const { pathname } = window.location;
+    window.history.replaceState(
+      null,
+      '',
+      runId === null ? pathname : `${pathname}?run=${encodeURIComponent(runId)}`,
+    );
+  }, []);
   const [category, setCategory] = useState<Category>(DEFAULT_CATEGORY);
   // The attack, unless the user says otherwise: the same default the pipeline
   // already applies, so the existing one-click path is unchanged.
@@ -357,7 +379,14 @@ export function ConnectScreen({
           label={live ? 'YOUR RUN ENDPOINT' : 'RECORDED PLAYBACK'}
         />
         {live ? (
-          <LiveRunConsole port={port} category={category} kind={kind} signedIn={signedIn} />
+          <LiveRunConsole
+            port={port}
+            category={category}
+            kind={kind}
+            signedIn={signedIn}
+            reattachRunId={activeRunId ?? undefined}
+            onRunChange={onRunChange}
+          />
         ) : (
           <div className="flex flex-col gap-4">
             <p className="reading max-w-[68ch]">
