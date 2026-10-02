@@ -88,8 +88,12 @@ export function VerdictRail({
       className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6]"
       style={{ height: 'clamp(280px, 40vh, 460px)', background: 'var(--terminal-bg)', color: CYAN }}
     >
+      {/* The ROUTE id here too, for the same reason as the link. `verdict.runId`
+          on a saved live run is the session's id: it is in no URL, it opens
+          nothing, and beside a different id in the address bar it read as
+          another run's verdict. */}
       <div>
-        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$</span> verdict --run {verdict.runId}
+        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$</span> verdict --run {routeId}
       </div>
       <Row
         k="outcome"

@@ -199,3 +199,47 @@ describe('Replay — verdict terminal', () => {
     expect(within(verdict).getByText(/^>\s*ok$/)).toBeInTheDocument();
   });
 });
+
+/**
+ * THE VERDICT PANEL NAMES THE RUN BEING VIEWED. A saved live run has two ids:
+ * the row id it is stored and opened under (the one in the URL), and the id of
+ * the live session it was recorded in, which rides on its verdict. The panel
+ * used to print the second, so the `--run` line showed an id that appeared
+ * nowhere else on the page and opened nothing when pasted into `/runs/`.
+ */
+describe('Replay · the verdict panel is about the run in the URL', () => {
+  it('prints the id the run was opened under, never the live session id', async () => {
+    const sample = await sampleRun();
+    const run: RunResult = {
+      ...sample,
+      runId: 'session-d15f376e',
+      verdict: { ...sample.verdict, runId: 'session-d15f376e' },
+    };
+    render(<Replay run={run} routeId="row-3bf49c2a" />);
+
+    const panel = screen.getByRole('complementary', { name: /detector verdict/i });
+    expect(within(panel).getByText(/verdict --run row-3bf49c2a/)).toBeInTheDocument();
+    expect(panel.textContent).not.toContain('session-d15f376e');
+  });
+
+  it('shows the outcome, category and severity of that same run', async () => {
+    const sample = await sampleRun();
+    const run: RunResult = {
+      ...sample,
+      verdict: {
+        runId: sample.verdict.runId,
+        compromised: false,
+        score: 0,
+        severity: 'None',
+        category: 'ASI05',
+        rationale: 'The agent did the task and nothing else.',
+      },
+    };
+    render(<Replay run={run} routeId="row-3bf49c2a" />);
+
+    const panel = screen.getByRole('complementary', { name: /detector verdict/i });
+    expect(panel.textContent).toMatch(/outcome\s+NOT COMPROMISED/);
+    expect(panel.textContent).toMatch(/category\s+ASI05/);
+    expect(panel.textContent).toMatch(/severity\s+NONE/);
+  });
+});
