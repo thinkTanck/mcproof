@@ -27,6 +27,16 @@ export interface RunRepository {
   saveRun(userId: string, run: RunResult): Promise<StoredRun>;
   /** Fetch one of the user's runs by row id, or null (also null if owned by another user). */
   getRun(userId: string, id: string): Promise<StoredRun | null>;
+  /**
+   * The user's saved run whose OWN `runId` is the one given, or null.
+   *
+   * A live run is hosted under one id and saved under another: the row `id` is
+   * minted on insert, while `run.runId` keeps the id the MCP endpoint was served
+   * at. A screen that only knows the hosted id (it lost the finish response to a
+   * reload) finds its saved result through this. Null is also the honest answer
+   * for a run that was closed without a result: abandoned, or never judged.
+   */
+  findByRunId(userId: string, runId: string): Promise<StoredRun | null>;
   /** All of the user's runs, newest first. */
   listRuns(userId: string): Promise<StoredRun[]>;
   /** How many runs the user has created at or after `since` (per-account cap accounting). */
@@ -54,6 +64,13 @@ export class InMemoryRunRepository implements RunRepository {
 
   async getRun(userId: string, id: string): Promise<StoredRun | null> {
     return this.rows.find((r) => r.id === id && r.userId === userId) ?? null;
+  }
+
+  async findByRunId(userId: string, runId: string): Promise<StoredRun | null> {
+    const hits = this.rows
+      .filter((r) => r.userId === userId && r.run.runId === runId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return hits[0] ?? null;
   }
 
   async listRuns(userId: string): Promise<StoredRun[]> {

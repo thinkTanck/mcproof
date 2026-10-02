@@ -157,6 +157,11 @@ export function liveRunDeps(): LiveRunHostDeps {
         const repository = await getRunRepository();
         return repository.saveRun(userId, run);
       },
+      async findByRunId(userId: string, runId: string) {
+        const { getRunRepository } = await import('@/data/run-repository.factory');
+        const repository = await getRunRepository();
+        return repository.findByRunId(userId, runId);
+      },
     },
     resolveDetector: () => resolveLiveDetector(),
     logger,

@@ -53,6 +53,21 @@ export class SupabaseRunRepository implements RunRepository {
     return data ? toStored(data as RunRow) : null;
   }
 
+  async findByRunId(userId: string, runId: string): Promise<StoredRun | null> {
+    // `run->>runId` reads the hosted run id out of the stored result. Newest
+    // first and one row, so a read can never fail on an unexpected duplicate.
+    const { data, error } = await this.client
+      .from('runs')
+      .select(COLS)
+      .eq('user_id', userId)
+      .eq('run->>runId', runId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`findByRunId failed: ${error.message}`);
+    return data ? toStored(data as RunRow) : null;
+  }
+
   async listRuns(userId: string): Promise<StoredRun[]> {
     const { data, error } = await this.client
       .from('runs')

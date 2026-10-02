@@ -68,6 +68,7 @@ function repoFor(rows: StoredRun[]) {
     saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
+    findByRunId: vi.fn(),
     getRun: vi.fn(async (userId: string, id: string) => {
       return rows.find((r) => r.id === id && r.userId === userId) ?? null;
     }),

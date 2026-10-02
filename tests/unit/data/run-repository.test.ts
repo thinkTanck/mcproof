@@ -61,3 +61,22 @@ describe('InMemoryRunRepository', () => {
     expect(await repo.countRunsSince('u', new Date(Date.now() + 60_000))).toBe(0);
   });
 });
+
+describe('InMemoryRunRepository: finding a saved run by the run id it was hosted under', () => {
+  it('finds the saved run of its owner by the run id inside the result', async () => {
+    const repo = new InMemoryRunRepository();
+    const run = await sampleRun();
+    const stored = await repo.saveRun('owner', run);
+
+    expect(await repo.findByRunId('owner', run.runId)).toEqual(stored);
+  });
+
+  it('returns null for another user and for a run id nothing was saved under', async () => {
+    const repo = new InMemoryRunRepository();
+    const run = await sampleRun();
+    await repo.saveRun('owner', run);
+
+    expect(await repo.findByRunId('intruder', run.runId)).toBeNull();
+    expect(await repo.findByRunId('owner', 'no-such-run')).toBeNull();
+  });
+});

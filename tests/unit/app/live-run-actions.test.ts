@@ -22,7 +22,12 @@ import {
 import { InMemoryLiveRunSessionStore } from '@/runs/live-run-store';
 import { InMemoryRunTokenStore } from '@/runs/run-token';
 import { noteAgentRequest, resetLiveRunRegistry } from '@/app/api/mcp/host';
-import { finishLiveRun, getLiveRunStatus, startLiveRun } from '@/app/actions/live-run';
+import {
+  finishLiveRun,
+  getLiveRunReattach,
+  getLiveRunStatus,
+  startLiveRun,
+} from '@/app/actions/live-run';
 import { NOT_SIGNED_IN_MESSAGE } from '@/app/actions/live-run-contract';
 
 const USER = 'user-actions';
@@ -444,5 +449,69 @@ describe('finishLiveRun', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe('GATE_UNAVAILABLE');
+  });
+});
+
+/**
+ * REATTACH. A screen that lost its page memory asks for a run back by id. It
+ * gets everything the ticket carried except the token, which no read can
+ * produce: storage holds a digest of it and nothing else.
+ */
+describe('getLiveRunReattach', () => {
+  it('refuses a caller who is not signed in', async () => {
+    vi.mocked(getUser).mockResolvedValue(null);
+    const result = await getLiveRunReattach({ runId: 'anything' });
+    expect(result).toEqual({ ok: false, code: 'NOT_SIGNED_IN', message: NOT_SIGNED_IN_MESSAGE });
+  });
+
+  it('hands back the run without its token', async () => {
+    const ticket = await startOk();
+
+    const result = await getLiveRunReattach({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual({
+      runId: ticket.runId,
+      endpoint: ticket.endpoint,
+      expiresAt: ticket.expiresAt,
+      category: ticket.category,
+      kind: ticket.kind,
+      taskGoal: ticket.taskGoal,
+      promptName: ticket.promptName,
+      finishedAt: null,
+      storedRunId: null,
+    });
+    expect(JSON.stringify(result.value)).not.toContain(ticket.token);
+  });
+
+  it('carries the saved row id once the run has been finished', async () => {
+    const ticket = await startOk();
+    const finished = await finishLiveRun({ runId: ticket.runId });
+    expect(finished.ok).toBe(true);
+    if (!finished.ok) return;
+
+    const result = await getLiveRunReattach({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.finishedAt).not.toBeNull();
+    expect(result.value.storedRunId).toBe(finished.value.storedRunId);
+  });
+
+  it('refuses another account the same way it refuses an unknown run', async () => {
+    const ticket = await startOk();
+    signedIn('someone-else');
+    const other = await getLiveRunReattach({ runId: ticket.runId });
+    const unknown = await getLiveRunReattach({ runId: 'no-such-run' });
+    expect(other).toEqual(unknown);
+    expect(other.ok).toBe(false);
+    if (other.ok) return;
+    expect(other.code).toBe('RUN_NOT_FOUND');
+  });
+
+  it('refuses a run id that is not a run id', async () => {
+    const result = await getLiveRunReattach({ runId: '   ' });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('INVALID_REQUEST');
   });
 });

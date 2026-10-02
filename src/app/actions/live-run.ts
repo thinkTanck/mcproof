@@ -43,6 +43,7 @@ import {
   StartLiveRunRequestSchema,
   type LiveRunActionResult,
   type LiveRunPhase,
+  type LiveRunReattachView,
   type LiveRunStatusView,
   type LiveRunSummaryView,
   type LiveRunTicketView,
@@ -153,6 +154,34 @@ export async function getLiveRunStatus(
       finishedAt,
     },
   };
+}
+
+/**
+ * Hand a run back to a screen that lost it, by id: the ticket without its
+ * token, restated from the durable row.
+ *
+ * This is what makes a reload survivable. The token is NOT here and cannot be:
+ * it existed in full once, in the answer to `startLiveRun`. What comes back is
+ * enough to watch the run and to end it, because both need only the run id and
+ * the signed-in account.
+ */
+export async function getLiveRunReattach(
+  input: unknown,
+): Promise<LiveRunActionResult<LiveRunReattachView>> {
+  const userId = await currentUserId();
+  if (userId === null) return notSignedIn();
+
+  const parsed = LiveRunRefSchema.safeParse(input);
+  if (!parsed.success) return invalidRequest();
+  const { runId } = parsed.data;
+
+  // Owner-scoped inside the pipeline, exactly like the status read.
+  const decision: LiveRunDecision<LiveRunReattachView> = await getLiveRunHost().getReattach({
+    runId,
+    userId,
+  });
+  if (!decision.ok) return relay(decision.error);
+  return { ok: true, value: decision.value };
 }
 
 /**
