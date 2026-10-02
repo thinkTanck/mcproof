@@ -97,6 +97,12 @@ function refusingPort(code: string, message: string): ConnectLiveRunPort {
   };
 }
 
+/**
+ * The sentences that explain a reading. They sit under the pinned run bar and
+ * scroll with the page, so the bar itself can stay short enough to pin.
+ */
+const detail = () => screen.getByTestId('run-state-detail');
+
 const issue = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
@@ -351,7 +357,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     const panel = await screen.findByRole('status');
     expect(await within(panel).findByText('AGENT CONNECTED')).toBeInTheDocument();
     expect(panel).not.toHaveTextContent(/never/i);
-    expect(panel).not.toHaveTextContent('LAST SEEN');
+    expect(detail()).not.toHaveTextContent('LAST SEEN');
   });
 
   it('omits LAST SEEN while waiting too, since no time is recorded either way', async () => {
@@ -360,7 +366,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await issue(user);
     await screen.findByText(/no agent has connected yet/i);
 
-    expect(screen.getByRole('status')).not.toHaveTextContent('LAST SEEN');
+    expect(detail()).not.toHaveTextContent('LAST SEEN');
   });
 
   it('prints LAST SEEN when the server does report a time', async () => {
@@ -374,7 +380,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await issue(user);
 
     expect(await screen.findByText('AGENT CONNECTED')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('LAST SEEN 2026-08-05T11:31:00Z');
+    expect(detail()).toHaveTextContent('LAST SEEN 2026-08-05T11:31:00Z');
   });
 
   it('separates "the agent is here" from "the agent has done something"', async () => {
@@ -412,7 +418,7 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
     await screen.findByText(/no agent has connected yet/i);
 
     expect(within(panel()).getByText('AWAITING AGENT')).toBeInTheDocument();
-    expect(panel()).toHaveTextContent(/changes to AGENT CONNECTED the moment your agent reaches/i);
+    expect(detail()).toHaveTextContent(/changes to AGENT CONNECTED the moment your agent reaches/i);
   });
 
   it('moves the reading to AGENT CONNECTED once the agent is there, and drops the hint', async () => {
@@ -424,16 +430,16 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
     await issue(user);
 
     expect(await within(panel()).findByText('AGENT CONNECTED')).toBeInTheDocument();
-    expect(panel()).not.toHaveTextContent(/changes to AGENT CONNECTED/i);
+    expect(detail()).not.toHaveTextContent(/changes to AGENT CONNECTED/i);
   });
 
-  it('prints when the run expires, in the status panel, exactly as issued', async () => {
+  it('prints when the run expires, beside the state, exactly as issued', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
     await issue(user);
     await screen.findByText(/no agent has connected yet/i);
 
-    expect(panel()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
     expect(panel()).not.toHaveTextContent('RUN EXPIRED');
   });
 
@@ -444,9 +450,9 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
 
     expect(await within(panel()).findByText('RUN EXPIRED')).toBeInTheDocument();
     expect(within(panel()).queryByText('AWAITING AGENT')).toBeNull();
-    expect(panel()).toHaveTextContent(/no longer accept connections/i);
-    expect(panel()).toHaveTextContent(/issue a new run/i);
-    expect(panel()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(/no longer accept connections/i);
+    expect(detail()).toHaveTextContent(/issue a new run/i);
+    expect(detail()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
   });
 
   it('never calls a finished run expired, however old it is', async () => {
@@ -862,5 +868,95 @@ describe('LiveRunConsole · a run that was ended somewhere else', () => {
     await waitFor(() => expect(port.reattach).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /open the replay/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * THE RUN DOCK. Once a run is active, what we have seen and the control that
+ * ends the run are the two things the reader needs most, and they used to sit
+ * under three long sections of setup. They now lead the run and stay pinned
+ * while the setup below is read. Layout cannot be measured here (there is no
+ * layout engine), so this holds down the structure that produces it: the dock
+ * comes first, it is a direct child of the run column so it can stay pinned for
+ * the whole of it, and the state and the END RUN control are both inside it.
+ */
+describe('LiveRunConsole · status and END RUN lead the active run', () => {
+  const connected = () =>
+    portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3, steps: 8 })),
+    });
+
+  const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+
+  it('puts the run state before the endpoint and the setup', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+
+    const state = await screen.findByRole('status');
+    const endpoint = screen.getByRole('heading', { name: /point your agent here/i });
+    const setup = screen.getByRole('region', { name: /register .* client/i });
+    const following = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(state.compareDocumentPosition(endpoint) & following).toBeTruthy();
+    expect(state.compareDocumentPosition(setup) & following).toBeTruthy();
+  });
+
+  it('keeps the state and the END RUN control together in one pinned dock', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+
+    const button = await screen.findByRole('button', { name: /end run and judge/i });
+    expect(dock()).toContainElement(screen.getByRole('status'));
+    expect(dock()).toContainElement(button);
+    // Pinned below the 72px header at EVERY width, by class: sticky with a top
+    // offset, and no breakpoint prefix that would switch it off on a phone.
+    expect(dock().className).toMatch(/(^|\s)sticky(\s|$)/);
+    expect(dock().className).toMatch(/(^|\s)top-\[/);
+    // Short enough to pin: the explanatory sentences are NOT inside it.
+    expect(dock()).not.toContainElement(detail());
+    expect(dock().querySelectorAll('p.reading')).toHaveLength(0);
+  });
+
+  it('makes the dock a direct child of the run column, so it stays pinned for all of it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByRole('status');
+
+    // A sticky element only travels as far as its parent does. Nested inside its
+    // own section it would un-pin the moment that section scrolled away.
+    expect(dock().parentElement).toBe(container.firstElementChild);
+    expect(container.firstElementChild).toContainElement(
+      screen.getByRole('heading', { name: /give your agent its task/i }),
+    );
+  });
+
+  it('draws the state once and the END RUN control once', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText('AGENT CONNECTED');
+
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /end run and judge/i })).toHaveLength(1);
+    expect(screen.getAllByText('AGENT CONNECTED', { selector: 'span' })).toHaveLength(1);
+  });
+
+  it('hands off to the replay from the same dock once the run is judged', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    const link = await screen.findByRole('link', { name: /open the replay/i });
+    expect(dock()).toContainElement(link);
+  });
+
+  it('leads a reopened run with the same dock', async () => {
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    const button = await screen.findByRole('button', { name: /end run and judge/i });
+    expect(dock()).toContainElement(button);
   });
 });

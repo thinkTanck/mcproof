@@ -368,16 +368,12 @@ export function LiveRunConsole({
   // `prefers-reduced-motion` resolves it to the resting state (globals.css).
   return (
     <div className="panel-in flex flex-col gap-6">
-      <Endpoint run={run} />
-      {/* THE HOW. The three sections around it say what the run is, what the
-          agent's job is and what we have seen; this one is the only place that
-          says what the reader has to DO, so it sits immediately after the values
-          it is built from and before the goal that depends on the connection. */}
-      {/* The setup commands embed the token, so a reopened run has none to
-          show. Drawing them with a placeholder would be a command that cannot
-          work, which is worse than no command. */}
-      {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
-      <TaskGoal run={run} />
+      {/* THE DOCK LEADS. What we have seen and the control that ends the run are
+          what the reader needs for as long as the run is open, and they used to
+          sit under three long sections of setup. `Connection` returns the dock
+          as a DIRECT child of this column on purpose: a sticky element only
+          travels as far as its parent does, so nested in a section of its own
+          it would un-pin as soon as that section scrolled away. */}
       <Connection
         expiresAt={run.expiresAt}
         expired={expired}
@@ -391,6 +387,16 @@ export function LiveRunConsole({
         finishing={finishing}
         onFinish={finish}
       />
+      <Endpoint run={run} />
+      {/* THE HOW. The three sections around it say what the run is, what the
+          agent's job is and what we have seen; this one is the only place that
+          says what the reader has to DO, so it sits immediately after the values
+          it is built from and before the goal that depends on the connection. */}
+      {/* The setup commands embed the token, so a reopened run has none to
+          show. Drawing them with a placeholder would be a command that cannot
+          work, which is worse than no command. */}
+      {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
+      <TaskGoal run={run} />
     </div>
   );
 }
@@ -490,7 +496,10 @@ function ReattachRefused({ refusal }: { refusal: LiveRunRefusal }) {
 
 function Endpoint({ run }: { run: ActiveRun }) {
   return (
-    <section aria-labelledby="connect-endpoint" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="connect-endpoint"
+      className="flex flex-col gap-3 border-t border-line pt-6"
+    >
       <h3 id="connect-endpoint" className="reading-h3">
         Point your agent here.
       </h3>
@@ -627,37 +636,86 @@ function Connection({
   const saved = replayRunId === undefined ? null : replayRunId !== null;
 
   return (
-    <section
-      aria-labelledby="connect-state"
-      className="flex flex-col gap-3 border-t border-line pt-6"
-    >
+    <>
       <h3 id="connect-state" className="reading-h3">
         What we have actually seen.
       </h3>
-      <div className="rounded-lg border border-line bg-panel/60 px-5 py-4" role="status">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span
-            aria-hidden="true"
-            className={cn('h-2.5 w-2.5 rounded-full', live && 'bg-nominal shadow-glow-nominal')}
-            style={live ? undefined : { background: 'var(--status-inert)' }}
-          />
-          <span
-            className="font-mono text-[13px] tracking-[0.08em]"
-            style={live ? undefined : { color: 'var(--status-inert)' }}
-          >
-            {lapsed ? 'RUN EXPIRED' : phase === null ? 'READING RUN STATE' : PHASE_LABELS[phase]}
-          </span>
-          {status !== null && (
-            <span className="ml-auto flex items-baseline gap-2">
-              {/* Evidence, and the RIGHT evidence. This is what the agent chose
-                  to do, not the size of the trace. Printed as read, never
-                  counted up or animated. */}
-              <span className="display-md">{status.toolCalls}</span>
-              <span className="instrument-faint">tool calls</span>
+      {/* THE RUN BAR. One compact strip: the state, the count, and the control
+          that ends the run. It is pinned under the 72px header at every width,
+          so all three stay in view while the setup below is read. It is kept
+          SHORT on purpose: the sentences that explain a reading live in the
+          block underneath and scroll with the page, because a pinned panel tall
+          enough to hold them covered close to half of a phone screen.
+
+          It is fully opaque where the old panel was translucent, because content now
+          scrolls underneath it. `z-40` keeps it under the header (`z-[45]`).
+          Sticky, never fixed: the column eases in on a transform, and a
+          transformed ancestor re-anchors `position: fixed`. */}
+      <section
+        aria-labelledby="connect-state"
+        className="sticky top-[80px] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
+      >
+        <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3">
+          <div role="status" className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+            <span
+              aria-hidden="true"
+              className={cn('h-2.5 w-2.5 rounded-full', live && 'bg-nominal shadow-glow-nominal')}
+              style={live ? undefined : { background: 'var(--status-inert)' }}
+            />
+            <span
+              className="font-mono text-[13px] tracking-[0.08em]"
+              style={live ? undefined : { color: 'var(--status-inert)' }}
+            >
+              {lapsed ? 'RUN EXPIRED' : phase === null ? 'READING RUN STATE' : PHASE_LABELS[phase]}
             </span>
+            {status !== null && (
+              <span className="flex items-baseline gap-2">
+                {/* Evidence, and the RIGHT evidence. This is what the agent chose
+                    to do, not the size of the trace. Printed as read, never
+                    counted up or animated. */}
+                <span className="display-md">{status.toolCalls}</span>
+                <span className="instrument-faint">tool calls</span>
+              </span>
+            )}
+          </div>
+          {/* ONE control, in one place. It is drawn only once the agent has
+              connected, and it is guarded while a finish is in flight, never
+              disabled. Once the run is judged the same slot hands off to the
+              replay. */}
+          {canFinish && (
+            <button
+              type="button"
+              onClick={onFinish}
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+            >
+              {finishing ? 'JUDGING' : 'END RUN AND JUDGE'}
+            </button>
+          )}
+          {typeof replayRunId === 'string' && (
+            <Link
+              href={`/runs/${replayRunId}`}
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 leading-6"
+            >
+              OPEN THE REPLAY
+            </Link>
           )}
         </div>
-        <p className="reading mt-3 max-w-[68ch]">
+        {/* A refused finish is shown HERE, beside the control that was pressed.
+            The reader may be scrolled far down the setup when they press it, and
+            a refusal drawn up in the explanation would never be seen. */}
+        {finishRefusal !== null && (
+          <div
+            role="alert"
+            className="flex flex-col gap-2 rounded-md border border-caution/40 bg-caution/5 px-4 py-3"
+          >
+            <p className="micro-label text-caution">{REFUSAL_HEADINGS[finishRefusal.code]}</p>
+            <p className="reading max-w-[68ch]">{finishRefusal.message}</p>
+          </div>
+        )}
+      </section>
+      {/* What the bar's readings mean. Prose, so it scrolls with the page. */}
+      <div data-testid="run-state-detail" className="-mt-3 flex flex-col gap-3">
+        <p className="reading max-w-[68ch]">
           {lapsed
             ? 'This run passed its expiry before it finished, so its endpoint and token no longer ' +
               'accept connections. Issue a new run to try again.'
@@ -666,20 +724,20 @@ function Connection({
               : phaseLine(status, saved)}
         </p>
         {!lapsed && phase === 'waiting' && !reattached && (
-          <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+          <p className="reading max-w-[68ch] text-ink-muted">
             This reading changes to AGENT CONNECTED the moment your agent reaches the endpoint. If
             it is still AWAITING AGENT after you have started your client, the connection did not
             take.
           </p>
         )}
         {status !== null && (
-          <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+          <p className="reading max-w-[68ch] text-ink-muted">
             The trace holds {status.steps} steps in total, which counts the task goal we sent and
             the completion step we infer, as well as your agent{"'"}s own.
           </p>
         )}
         {statusRefusal !== null && (
-          <p className="reading mt-2 max-w-[68ch] text-ink-muted">{statusRefusal.message}</p>
+          <p className="reading max-w-[68ch] text-ink-muted">{statusRefusal.message}</p>
         )}
         {/* When the run stops accepting connections, and, when the server records
             one, when the agent was last seen. Both are evidence, printed as issued
@@ -690,7 +748,7 @@ function Connection({
             tool-call count on a live run and was simply false. No durable
             timestamp exists yet (`last_seen_at` on `live_runs` is deferred to
             v2), so until then the reading is omitted rather than invented. */}
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+        <div className="flex flex-wrap gap-x-5 gap-y-1">
           {status !== null && status.lastSeenAt !== null && (
             <p className="instrument-faint">
               LAST SEEN <span className="readout">{status.lastSeenAt}</span>
@@ -700,66 +758,39 @@ function Connection({
             {lapsed ? 'EXPIRED' : 'EXPIRES'} <span className="readout">{expiresAt}</span>
           </p>
         </div>
-        {finishRefusal !== null && (
-          <div className="mt-4 flex flex-col gap-2 rounded-md border border-caution/40 bg-caution/5 px-4 py-3">
-            <p className="micro-label text-caution">{REFUSAL_HEADINGS[finishRefusal.code]}</p>
-            <p className="reading max-w-[68ch]">{finishRefusal.message}</p>
-          </div>
-        )}
-      </div>
-      <p className="reading max-w-[68ch] text-ink-muted">
-        We record what your agent does, not what it thinks. Reasoning is not observable from this
-        side of the connection and is never invented, so a live trace carries fewer steps than the
-        constructed sample does.
-      </p>
-      {canFinish && (
-        <div className="flex flex-col gap-2.5">
+        <p className="reading max-w-[68ch] text-ink-muted">
+          We record what your agent does, not what it thinks. Reasoning is not observable from this
+          side of the connection and is never invented, so a live trace carries fewer steps than the
+          constructed sample does.
+        </p>
+        {canFinish && (
           <p className="reading max-w-[68ch]">
             When your agent is done, end the run. That revokes the token, asks the fixed judge for a
             verdict on what was recorded, and saves the result. A compromise comes back anchored to
             one step; a clean run comes back as a clean run. Both are saved and both are results.
           </p>
-          <div>
-            <button
-              type="button"
-              onClick={onFinish}
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-            >
-              {finishing ? 'JUDGING' : 'END RUN AND JUDGE'}
-            </button>
+        )}
+        {stranded && (
+          <div className="flex flex-col gap-2.5">
+            <p className="reading max-w-[68ch]">
+              This run was reopened without its token, and no agent has connected to it. If your
+              client was not set up before this page was reloaded, the run cannot be registered with
+              a client now, because we cannot show the token again. Issue a fresh run to get a new
+              endpoint and token. This one is left to expire.
+            </p>
+            <div>
+              <button
+                type="button"
+                onClick={onRelease}
+                className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+              >
+                ISSUE A FRESH RUN
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-      {stranded && (
-        <div className="flex flex-col gap-2.5">
-          <p className="reading max-w-[68ch]">
-            This run was reopened without its token, and no agent has connected to it. If your
-            client was not set up before this page was reloaded, the run cannot be registered with a
-            client now, because we cannot show the token again. Issue a fresh run to get a new
-            endpoint and token. This one is left to expire.
-          </p>
-          <div>
-            <button
-              type="button"
-              onClick={onRelease}
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
-            >
-              ISSUE A FRESH RUN
-            </button>
-          </div>
-        </div>
-      )}
-      {typeof replayRunId === 'string' && (
-        <div>
-          <Link
-            href={`/runs/${replayRunId}`}
-            className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-          >
-            OPEN THE REPLAY
-          </Link>
-        </div>
-      )}
-    </section>
+        )}
+      </div>
+    </>
   );
 }
 
