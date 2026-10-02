@@ -30,9 +30,17 @@ const CATEGORY_TITLE: Record<string, string> = {
 
 export function Replay({
   run,
+  routeId,
   provenance,
 }: {
   run: RunResult;
+  /**
+   * The id this run was OPENED under (the `/runs/[id]` segment). The report
+   * off-ramp is built from it, because `/findings/[id]` resolves the same id. It
+   * is not `run.runId`: a saved live run is stored under a row id, and the two
+   * only coincide for the sample.
+   */
+  routeId: string;
   /**
    * Where this verdict came from, supplied by the resolver. Optional because a
    * run's provenance is not this component's to invent: when nothing is passed,
@@ -134,6 +142,7 @@ export function Replay({
           <VerdictRail
             key={resetKey}
             verdict={run.verdict}
+            routeId={routeId}
             compromiseStepNumber={compromiseStepNumber}
             offendingLabel={offendingLabel}
           />

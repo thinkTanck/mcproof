@@ -25,6 +25,7 @@ function repoWith(rows: StoredRun[]) {
     saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
+    findByRunId: vi.fn(),
     getRun: vi.fn(
       async (userId: string, id: string) =>
         rows.find((r) => r.id === id && r.userId === userId) ?? null,
@@ -185,6 +186,14 @@ describe('Findings / fix report screen', () => {
     expect(panel.textContent ?? '').not.toMatch(/—/);
   });
 
+  it('offers no replay link when it is not told which route the run lives at', async () => {
+    // The route id is the page's to supply. Guessing it from the report's run id
+    // is the wrong id for every saved live run, so nothing is linked instead.
+    const clean = generateFixReport(customRun(false));
+    render(<FindingsReport report={clean} />);
+    expect(screen.queryByRole('link', { name: /replay/i })).not.toBeInTheDocument();
+  });
+
   it('copy button has an accessible name and shows COPIED feedback after activation', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     // Set up userEvent first (it installs its own clipboard stub), then override
@@ -339,6 +348,26 @@ describe('Findings / fix report screen', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('NOT COMPROMISED')).toBeInTheDocument();
       expect(screen.queryByText(/no report for run/i)).not.toBeInTheDocument();
+    });
+
+    it('links a resisted live run back to its replay, by the row id in the URL', async () => {
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun(false))]));
+
+      await renderPage('row-uuid-4321');
+      // The clean result, never the missing-report state.
+      const panel = screen.getByTestId('clean-result');
+      expect(screen.queryByText(/no report for run/i)).not.toBeInTheDocument();
+      // The replay lives at the STORED ROW id, not the run's own session id.
+      expect(within(panel).getByRole('link', { name: /replay/i })).toHaveAttribute(
+        'href',
+        '/runs/row-uuid-4321',
+      );
+      // The leaderboard off-ramp stays beside it.
+      expect(within(panel).getByRole('link', { name: /leaderboard/i })).toHaveAttribute(
+        'href',
+        '/leaderboard',
+      );
     });
 
     it("shows another account's run as not found", async () => {

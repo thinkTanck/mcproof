@@ -40,12 +40,19 @@ function SectionHeading({
  * `provenance` says where the verdict came from. It is optional because a live
  * run's provenance is not this component's to invent: the DataSource supplies it,
  * and when it cannot, nothing is claimed.
+ *
+ * `routeId` is the id this report was opened under, which is the id the replay
+ * of the same run lives at. It is optional for the same reason: `report.runId` is
+ * NOT that id for a saved live run, so when the page does not supply one, no
+ * replay link is drawn rather than one guessed from the wrong id.
  */
 export function FindingsReport({
   report,
+  routeId,
   provenance,
 }: {
   report: FixReport;
+  routeId?: string;
   provenance?: string | null;
 }) {
   const finding = report.finding;
@@ -245,6 +252,17 @@ export function FindingsReport({
               See it on the robustness leaderboard
             </Link>
           </p>
+          {/* And back to the evidence: the replay of this same run, step by step. */}
+          {routeId ? (
+            <p className="reading mt-3 max-w-[640px]">
+              <Link
+                href={`/runs/${routeId}`}
+                className="text-nominal underline underline-offset-2 hover:text-readout"
+              >
+                Open the replay of this run
+              </Link>
+            </p>
+          ) : null}
         </section>
       )}
     </article>

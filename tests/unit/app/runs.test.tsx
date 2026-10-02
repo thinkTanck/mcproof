@@ -70,6 +70,7 @@ function repoWith(rows: StoredRun[]) {
     saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
+    findByRunId: vi.fn(),
     getRun: vi.fn(
       async (userId: string, id: string) =>
         rows.find((r) => r.id === id && r.userId === userId) ?? null,
@@ -117,10 +118,12 @@ describe('Live Attack Replay — a persisted live run', () => {
     // The trace on screen is this run's: one line per step, its own model prompt.
     const timeline = screen.getByRole('list', { name: /step timeline/i });
     expect(within(timeline).getAllByRole('button')).toHaveLength(3);
-    // And the fix-report off-ramp points at THIS run.
+    // And the fix-report off-ramp points at THIS run, by the STORED ROW id in the
+    // URL. `/findings/[id]` resolves a row id, and the live session run id on the
+    // verdict is a different string that resolves to nothing there.
     expect(screen.getByRole('link', { name: /export fix report/i })).toHaveAttribute(
       'href',
-      '/findings/live-run-0002',
+      '/findings/row-uuid-9876',
     );
   });
 
@@ -156,6 +159,17 @@ describe('Live Attack Replay — a persisted live run', () => {
     expect(screen.queryByRole('button', { name: /compromise step/i })).not.toBeInTheDocument();
     // And it is NOT the not-found state.
     expect(screen.queryByText(/no run to replay/i)).not.toBeInTheDocument();
+  });
+
+  it('points a resisted run at its own run result, by the row id in the URL', async () => {
+    signedInWith(liveRun(false));
+    await renderPage('row-uuid-9876');
+    // The session run id would land a clean run on the missing-report state,
+    // which reads as something going wrong for a run that went right.
+    expect(screen.getByRole('link', { name: /export run result/i })).toHaveAttribute(
+      'href',
+      '/findings/row-uuid-9876',
+    );
   });
 });
 

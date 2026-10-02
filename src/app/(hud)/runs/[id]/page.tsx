@@ -19,10 +19,14 @@ export const metadata: Metadata = {
  * that is neither renders a labelled empty state. It used to fall back to the
  * sample, which would show a stranger a constructed demonstration under their own
  * run id.
+ *
+ * The route `id` travels into the Replay as well. It is the only id the report
+ * route can resolve: a saved live run is stored under a row id, and the run id on
+ * its verdict is the live session's, a different string.
  */
 export default async function RunReplay({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const view = await resolveRun(id);
   if (!view) return <ReplayEmpty id={id} />;
-  return <Replay run={view.run} provenance={view.provenance} />;
+  return <Replay run={view.run} routeId={id} provenance={view.provenance} />;
 }
