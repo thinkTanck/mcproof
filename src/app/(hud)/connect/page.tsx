@@ -52,6 +52,12 @@ export const metadata: Metadata = {
  * The token is never in a URL, and the reattach read cannot produce it. The id is
  * passed down as given and validated by the action that uses it, which also
  * checks that the run belongs to the signed-in account.
+ *
+ * WHAT IS READ HERE IS ONLY A SEED. This route sees the URL on a full load and
+ * not otherwise: a plain `/connect` link carries no id, and Back restores the
+ * tree this route rendered first, without the param. So the screen also reads
+ * the live URL and a per-tab stored id, and those are what bring a run back
+ * after a visit to another screen.
  */
 export default async function ConnectPage({
   searchParams,
