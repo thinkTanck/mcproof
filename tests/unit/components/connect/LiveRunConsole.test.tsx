@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
 import type {
   ConnectLiveRunPort,
+  LiveRunReattachView,
   LiveRunStatusView,
   LiveRunSummaryView,
   LiveRunTicketView,
@@ -57,6 +58,19 @@ const SUMMARY: LiveRunSummaryView = {
   steps: 11,
 };
 
+/** The same run as TICKET, handed back by id: every field except the token. */
+const REATTACH: LiveRunReattachView = {
+  runId: TICKET.runId,
+  endpoint: TICKET.endpoint,
+  expiresAt: TICKET.expiresAt,
+  category: TICKET.category,
+  kind: TICKET.kind,
+  promptName: TICKET.promptName,
+  taskGoal: TICKET.taskGoal,
+  finishedAt: null,
+  storedRunId: null,
+};
+
 const statusOf = (over: Partial<LiveRunStatusView>) => ({
   ok: true as const,
   value: { ...WAITING, ...over },
@@ -67,6 +81,7 @@ function portWith(overrides: Partial<ConnectLiveRunPort> = {}): ConnectLiveRunPo
     start: vi.fn(async () => ({ ok: true as const, value: TICKET })),
     readState: vi.fn(async () => ({ ok: true as const, value: WAITING })),
     finish: vi.fn(async () => ({ ok: true as const, value: SUMMARY })),
+    reattach: vi.fn(async () => ({ ok: true as const, value: REATTACH })),
     ...overrides,
   };
 }
@@ -78,8 +93,15 @@ function refusingPort(code: string, message: string): ConnectLiveRunPort {
     start: vi.fn(async () => refusal),
     readState: vi.fn(async () => refusal),
     finish: vi.fn(async () => refusal),
+    reattach: vi.fn(async () => refusal),
   };
 }
+
+/**
+ * The sentences that explain a reading. They sit under the pinned run bar and
+ * scroll with the page, so the bar itself can stay short enough to pin.
+ */
+const detail = () => screen.getByTestId('run-state-detail');
 
 const issue = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
@@ -152,6 +174,10 @@ describe('LiveRunConsole · the issued ticket says which run it is serving', () 
     start: vi.fn(async () => ({ ok: true as const, value: { ...TICKET, kind } })),
     readState: vi.fn(async () => ({ ok: true as const, value: WAITING })),
     finish: vi.fn(async () => ({ ok: true as const, value: SUMMARY })),
+    reattach: vi.fn(async () => ({
+      ok: false as const,
+      refusal: { code: 'RUN_NOT_FOUND' as const, message: 'That run was not found.' },
+    })),
   });
 
   it('names an attack run beside the category it is serving', async () => {
@@ -331,7 +357,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     const panel = await screen.findByRole('status');
     expect(await within(panel).findByText('AGENT CONNECTED')).toBeInTheDocument();
     expect(panel).not.toHaveTextContent(/never/i);
-    expect(panel).not.toHaveTextContent('LAST SEEN');
+    expect(detail()).not.toHaveTextContent('LAST SEEN');
   });
 
   it('omits LAST SEEN while waiting too, since no time is recorded either way', async () => {
@@ -340,7 +366,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await issue(user);
     await screen.findByText(/no agent has connected yet/i);
 
-    expect(screen.getByRole('status')).not.toHaveTextContent('LAST SEEN');
+    expect(detail()).not.toHaveTextContent('LAST SEEN');
   });
 
   it('prints LAST SEEN when the server does report a time', async () => {
@@ -354,7 +380,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await issue(user);
 
     expect(await screen.findByText('AGENT CONNECTED')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('LAST SEEN 2026-08-05T11:31:00Z');
+    expect(detail()).toHaveTextContent('LAST SEEN 2026-08-05T11:31:00Z');
   });
 
   it('separates "the agent is here" from "the agent has done something"', async () => {
@@ -392,7 +418,7 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
     await screen.findByText(/no agent has connected yet/i);
 
     expect(within(panel()).getByText('AWAITING AGENT')).toBeInTheDocument();
-    expect(panel()).toHaveTextContent(/changes to AGENT CONNECTED the moment your agent reaches/i);
+    expect(detail()).toHaveTextContent(/changes to AGENT CONNECTED the moment your agent reaches/i);
   });
 
   it('moves the reading to AGENT CONNECTED once the agent is there, and drops the hint', async () => {
@@ -404,16 +430,16 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
     await issue(user);
 
     expect(await within(panel()).findByText('AGENT CONNECTED')).toBeInTheDocument();
-    expect(panel()).not.toHaveTextContent(/changes to AGENT CONNECTED/i);
+    expect(detail()).not.toHaveTextContent(/changes to AGENT CONNECTED/i);
   });
 
-  it('prints when the run expires, in the status panel, exactly as issued', async () => {
+  it('prints when the run expires, beside the state, exactly as issued', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
     await issue(user);
     await screen.findByText(/no agent has connected yet/i);
 
-    expect(panel()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
     expect(panel()).not.toHaveTextContent('RUN EXPIRED');
   });
 
@@ -424,9 +450,9 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
 
     expect(await within(panel()).findByText('RUN EXPIRED')).toBeInTheDocument();
     expect(within(panel()).queryByText('AWAITING AGENT')).toBeNull();
-    expect(panel()).toHaveTextContent(/no longer accept connections/i);
-    expect(panel()).toHaveTextContent(/issue a new run/i);
-    expect(panel()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(/no longer accept connections/i);
+    expect(detail()).toHaveTextContent(/issue a new run/i);
+    expect(detail()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
   });
 
   it('never calls a finished run expired, however old it is', async () => {
@@ -642,5 +668,473 @@ describe('LiveRunConsole · the sign-in gate', () => {
 
     expect(screen.queryByRole('button', { name: /issue run endpoint/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+  });
+});
+
+/**
+ * REATTACH. The run id lives in the URL, so a reload or a navigation away and
+ * back hands this console a run id instead of a ticket. It reopens that run from
+ * its durable row: the state, the trace count and the END RUN control all come
+ * back. The token does not, because it was shown once and only a hash is stored.
+ */
+describe('LiveRunConsole · reattaching to a run by its id', () => {
+  const reattached = (over: Partial<ConnectLiveRunPort> = {}) =>
+    portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3, steps: 8 })),
+      ...over,
+    });
+
+  it('restores the connected state and the END RUN control without issuing anything', async () => {
+    const port = reattached();
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    expect(await screen.findByText('AGENT CONNECTED')).toBeVisible();
+    expect(screen.getByText('3')).toBeVisible();
+    expect(screen.getByRole('button', { name: /end run and judge/i })).toBeVisible();
+    expect(port.reattach).toHaveBeenCalledWith({ runId: 'run-77' });
+    expect(port.readState).toHaveBeenCalledWith({ runId: 'run-77' });
+    expect(port.start).not.toHaveBeenCalled();
+  });
+
+  it('shows the endpoint and the task goal again, read off the run itself', async () => {
+    render(<LiveRunConsole port={reattached()} category="ASI05" signedIn reattachRunId="run-77" />);
+
+    await screen.findByText('AGENT CONNECTED');
+    expect(screen.getByText(REATTACH.endpoint)).toBeVisible();
+    expect(screen.getByText(REATTACH.promptName)).toBeVisible();
+    // The run's own category, not the one the picker happens to be on.
+    expect(screen.getByText('ASI01')).toBeVisible();
+  });
+
+  it('shows no token and no client setup, and says why', async () => {
+    const { container } = render(
+      <LiveRunConsole port={reattached()} category="ASI01" signedIn reattachRunId="run-77" />,
+    );
+
+    await screen.findByText('AGENT CONNECTED');
+    expect(container.textContent).not.toContain('mcpwn_rt_');
+    expect(screen.queryByText('RUN TOKEN')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /register .* client/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/we cannot show it again/i)).toBeVisible();
+  });
+
+  it('ends a reattached run by its id', async () => {
+    const user = userEvent.setup();
+    const port = reattached();
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    expect(port.finish).toHaveBeenCalledWith({ runId: 'run-77' });
+    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
+      'href',
+      '/runs/stored-77',
+    );
+  });
+
+  it('says a run nobody connected to cannot be registered again, and offers a fresh one', async () => {
+    const user = userEvent.setup();
+    const onRunChange = vi.fn();
+    render(
+      <LiveRunConsole
+        port={portWith()}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        onRunChange={onRunChange}
+      />,
+    );
+
+    expect(await screen.findByText('AWAITING AGENT')).toBeVisible();
+    expect(screen.getByText(/cannot be registered with a client now/i)).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: /issue a fresh run/i }));
+
+    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(onRunChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not offer a fresh run while the agent is connected', async () => {
+    render(<LiveRunConsole port={reattached()} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    await screen.findByText('AGENT CONNECTED');
+    expect(screen.queryByRole('button', { name: /issue a fresh run/i })).not.toBeInTheDocument();
+  });
+
+  it('links a run that had already finished to its saved replay', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ({
+        ok: true as const,
+        value: { ...REATTACH, finishedAt: '2026-10-02T10:00:00.000Z', storedRunId: 'stored-77' },
+      })),
+      readState: vi.fn(async () =>
+        statusOf({ phase: 'finished', toolCalls: 3, finishedAt: '2026-10-02T10:00:00.000Z' }),
+      ),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
+      'href',
+      '/runs/stored-77',
+    );
+    expect(screen.queryByRole('button', { name: /end run and judge/i })).not.toBeInTheDocument();
+  });
+
+  it('says plainly when a finished run has no saved result, and links nowhere', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ({
+        ok: true as const,
+        value: { ...REATTACH, finishedAt: '2026-10-02T10:00:00.000Z', storedRunId: null },
+      })),
+      readState: vi.fn(async () =>
+        statusOf({ phase: 'finished', finishedAt: '2026-10-02T10:00:00.000Z' }),
+      ),
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={() => new Date('2026-10-02T11:00:00.000Z')}
+      />,
+    );
+
+    expect(await screen.findByText('RUN FINISHED')).toBeVisible();
+    expect(await screen.findByText(/closed without a saved result/i)).toBeVisible();
+    expect(screen.queryByRole('link', { name: /open the replay/i })).not.toBeInTheDocument();
+  });
+
+  it('states a refused reattach calmly and leaves the way to a new run open', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ({
+        ok: false as const,
+        refusal: { code: 'RUN_NOT_FOUND' as const, message: 'That run was not found.' },
+      })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-gone" />);
+
+    expect(await screen.findByText('RUN NOT FOUND')).toBeVisible();
+    expect(screen.getByText(/that run was not found/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(port.readState).not.toHaveBeenCalled();
+  });
+
+  it('asks for nothing while signed out', () => {
+    const port = portWith();
+    render(<LiveRunConsole port={port} category="ASI01" signedIn={false} reattachRunId="run-77" />);
+
+    expect(screen.getByRole('link', { name: /sign in/i })).toBeVisible();
+    expect(port.reattach).not.toHaveBeenCalled();
+  });
+
+  it('reports the run id it issued, so the screen can put it in the URL', async () => {
+    const user = userEvent.setup();
+    const onRunChange = vi.fn();
+    render(
+      <LiveRunConsole port={portWith()} category="ASI01" signedIn onRunChange={onRunChange} />,
+    );
+
+    await issue(user);
+
+    await waitFor(() => expect(onRunChange).toHaveBeenCalledWith('run-77'));
+  });
+});
+
+describe('LiveRunConsole · a run that was ended somewhere else', () => {
+  it('finds the saved result and links to the replay', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'finished', toolCalls: 2 })),
+      reattach: vi.fn(async () => ({
+        ok: true as const,
+        value: { ...REATTACH, finishedAt: '2026-10-02T10:00:00.000Z', storedRunId: 'stored-91' },
+      })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+
+    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
+      'href',
+      '/runs/stored-91',
+    );
+  });
+
+  it('claims nothing about the result when the lookup itself fails', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'finished', toolCalls: 2 })),
+      reattach: vi.fn(async () => ({
+        ok: false as const,
+        refusal: { code: 'REFUSED' as const, message: 'We could not read this run just now.' },
+      })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+
+    expect(await screen.findByText('RUN FINISHED')).toBeVisible();
+    await waitFor(() => expect(port.reattach).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open the replay/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * THE RUN DOCK. Once a run is active, what we have seen and the control that
+ * ends the run are the two things the reader needs most, and they used to sit
+ * under three long sections of setup. They now lead the run and stay pinned
+ * while the setup below is read. Layout cannot be measured here (there is no
+ * layout engine), so this holds down the structure that produces it: the dock
+ * comes first, it is a direct child of the run column so it can stay pinned for
+ * the whole of it, and the state and the END RUN control are both inside it.
+ */
+describe('LiveRunConsole · status and END RUN lead the active run', () => {
+  const connected = () =>
+    portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3, steps: 8 })),
+    });
+
+  const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+
+  it('puts the run state before the endpoint and the setup', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+
+    const state = await screen.findByRole('status');
+    const endpoint = screen.getByRole('heading', { name: /point your agent here/i });
+    const setup = screen.getByRole('region', { name: /register .* client/i });
+    const following = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(state.compareDocumentPosition(endpoint) & following).toBeTruthy();
+    expect(state.compareDocumentPosition(setup) & following).toBeTruthy();
+  });
+
+  it('keeps the state and the END RUN control together in one pinned dock', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+
+    const button = await screen.findByRole('button', { name: /end run and judge/i });
+    expect(dock()).toContainElement(screen.getByRole('status'));
+    expect(dock()).toContainElement(button);
+    // Pinned below the 72px header at EVERY width, by class: sticky with a top
+    // offset, and no breakpoint prefix that would switch it off on a phone.
+    expect(dock().className).toMatch(/(^|\s)sticky(\s|$)/);
+    expect(dock().className).toMatch(/(^|\s)top-\[/);
+    // Short enough to pin: the explanatory sentences are NOT inside it.
+    expect(dock()).not.toContainElement(detail());
+    expect(dock().querySelectorAll('p.reading')).toHaveLength(0);
+  });
+
+  it('makes the dock a direct child of the run column, so it stays pinned for all of it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByRole('status');
+
+    // A sticky element only travels as far as its parent does. Nested inside its
+    // own section it would un-pin the moment that section scrolled away.
+    expect(dock().parentElement).toBe(container.firstElementChild);
+    expect(container.firstElementChild).toContainElement(
+      screen.getByRole('heading', { name: /give your agent its task/i }),
+    );
+  });
+
+  it('draws the state once and the END RUN control once', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText('AGENT CONNECTED');
+
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /end run and judge/i })).toHaveLength(1);
+    expect(screen.getAllByText('AGENT CONNECTED', { selector: 'span' })).toHaveLength(1);
+  });
+
+  it('hands off to the replay from the same dock once the run is judged', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    const link = await screen.findByRole('link', { name: /open the replay/i });
+    expect(dock()).toContainElement(link);
+  });
+
+  it('leads a reopened run with the same dock', async () => {
+    render(<LiveRunConsole port={connected()} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    const button = await screen.findByRole('button', { name: /end run and judge/i });
+    expect(dock()).toContainElement(button);
+  });
+});
+
+/**
+ * ENDED IS NOT THE SAME AS SAVED. Finishing a run stamps it ended FIRST and
+ * saves the result only after the gate and the judge have answered, which can
+ * take minutes. For that whole window a run reads "finished" and has no saved
+ * result. A page opened in it (a reload while judging, a second tab) used to
+ * look once, find nothing, and say the run had no replay, on the ordinary path
+ * of a run that was about to get one.
+ */
+describe('LiveRunConsole · a run that is ended but whose result is not saved yet', () => {
+  const ENDED = '2026-10-02T10:00:00.000Z';
+  const at = (iso: string) => () => new Date(iso);
+  const SOON_AFTER = at('2026-10-02T10:00:30.000Z');
+  const LONG_AFTER = at('2026-10-02T10:30:00.000Z');
+  const ended = (storedRunId: string | null) => ({
+    ok: true as const,
+    value: { ...REATTACH, finishedAt: ENDED, storedRunId },
+  });
+  const finishedState = vi.fn(async () => statusOf({ phase: 'finished', finishedAt: ENDED }));
+
+  it('does not say a run still being judged has no replay', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ended(null)),
+      readState: finishedState,
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={SOON_AFTER}
+      />,
+    );
+
+    expect(await screen.findByText(/its result is not saved yet/i)).toBeVisible();
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
+  });
+
+  it('picks the replay up when the result is saved a moment later', async () => {
+    const reattach = vi
+      .fn<ConnectLiveRunPort['reattach']>()
+      .mockResolvedValueOnce(ended(null))
+      .mockResolvedValueOnce(ended(null))
+      .mockResolvedValue(ended('stored-77'));
+    const port = portWith({ reattach, readState: finishedState });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={SOON_AFTER}
+        pollIntervalMs={10}
+      />,
+    );
+
+    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
+      'href',
+      '/runs/stored-77',
+    );
+  });
+
+  it('says the run has no replay only once the judging window has passed', async () => {
+    const port = portWith({
+      reattach: vi.fn(async () => ended(null)),
+      readState: finishedState,
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        reattachRunId="run-77"
+        now={LONG_AFTER}
+      />,
+    );
+
+    expect(await screen.findByText(/closed without a saved result/i)).toBeVisible();
+    expect(screen.queryByText(/not saved yet/i)).not.toBeInTheDocument();
+  });
+
+  it('says the run is being judged while this page is the one judging it', async () => {
+    const user = userEvent.setup();
+    let pressed = false;
+    const port = portWith({
+      // The run reads finished as soon as it is claimed, long before the judge
+      // answers. The finish call itself is left in flight.
+      readState: vi.fn(async () =>
+        pressed
+          ? statusOf({ phase: 'finished', toolCalls: 2, finishedAt: ENDED })
+          : statusOf({ phase: 'connected', toolCalls: 2 }),
+      ),
+      finish: vi.fn(() => new Promise<never>(() => {})),
+      reattach: vi.fn(async () => ended(null)),
+    });
+    render(
+      <LiveRunConsole port={port} category="ASI01" signedIn now={LONG_AFTER} pollIntervalMs={10} />,
+    );
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    pressed = true;
+
+    expect(await screen.findByText(/is being judged/i)).toBeVisible();
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * AUDIT FIXES (the /impeccable audit run before PR #167 merged).
+ *
+ * The pinned run bar introduced a WCAG 2.2 failure of its own: a control
+ * focused by keyboard while the page was scrolled could land entirely
+ * underneath it (2.4.11 Focus Not Obscured). Measured in Chromium, five of the
+ * eleven controls in the run column were hidden that way. The fix is a scroll
+ * margin on every focusable in the column, so a focus scroll stops short of the
+ * bar. A layout engine is needed to see the effect; this pins the cause.
+ */
+describe('LiveRunConsole · audit fixes', () => {
+  it('gives every focusable under the pinned bar room to scroll clear of it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByRole('status');
+
+    expect(container.firstElementChild?.className).toMatch(
+      /\[&_:is\(a,button,\[tabindex\]\)\]:scroll-mt-/,
+    );
+  });
+
+  it('announces that a run is being reopened', () => {
+    const port = portWith({ reattach: vi.fn(() => new Promise<never>(() => {})) });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('REOPENING RUN');
+  });
+
+  it('stops asking for a saved result once the window has passed, even if every ask fails', async () => {
+    let clock = Date.parse('2026-10-02T10:00:00.000Z');
+    const reattach = vi.fn(async () => ({
+      ok: false as const,
+      refusal: { code: 'REFUSED' as const, message: 'We could not read this run just now.' },
+    }));
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'finished', toolCalls: 2 })),
+      reattach,
+    });
+    render(
+      <LiveRunConsole
+        port={port}
+        category="ASI01"
+        signedIn
+        now={() => new Date(clock)}
+        pollIntervalMs={10}
+      />,
+    );
+    await issue(user);
+    await waitFor(() => expect(reattach.mock.calls.length).toBeGreaterThan(1));
+
+    // Past the window: the asking stops, and nothing is claimed about the result.
+    clock += 10 * 60_000;
+    await waitFor(async () => {
+      const seen = reattach.mock.calls.length;
+      await new Promise((r) => setTimeout(r, 60));
+      expect(reattach.mock.calls.length).toBe(seen);
+    });
+    expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
   });
 });

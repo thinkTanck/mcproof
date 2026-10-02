@@ -64,6 +64,7 @@ beforeEach(() => {
     saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
+    findByRunId: vi.fn(),
     getRun: vi.fn(async (userId: string, id: string) =>
       userId === row.userId && id === row.id ? row : null,
     ),

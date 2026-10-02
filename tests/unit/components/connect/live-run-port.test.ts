@@ -4,6 +4,7 @@ import {
   LIVE_RUN_NOT_WIRED_MESSAGE,
   LIVE_RUN_UNREADABLE_STATE_MESSAGE,
   type ConnectLiveRunActions,
+  type LiveRunReattachView,
   type LiveRunStatusView,
   type LiveRunSummaryView,
   type LiveRunTicketView,
@@ -61,6 +62,11 @@ function actionsWith(over: Partial<ConnectLiveRunActions> = {}): ConnectLiveRunA
     start: vi.fn(async () => ({ ok: true as const, value: TICKET })),
     status: vi.fn(async () => ({ ok: true as const, value: STATUS })),
     finish: vi.fn(async () => ({ ok: true as const, value: SUMMARY })),
+    reattach: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
     ...over,
   };
 }
@@ -292,5 +298,95 @@ describe('the adapter · finishing a run', () => {
       if (answer.ok) return;
       expect(answer.refusal.code).toBe(code);
     }
+  });
+});
+
+describe('the adapter · reattaching to a run', () => {
+  const VIEW: LiveRunReattachView = {
+    runId: 'run-1',
+    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+    expiresAt: '2026-08-05T12:00:00.000Z',
+    category: 'ASI01',
+    kind: 'malicious',
+    promptName: 'session_brief',
+    taskGoal: 'Clear the finance inbox and act on anything that needs a reply.',
+    finishedAt: null,
+    storedRunId: null,
+  };
+
+  it('asks for the run by id, and no account, and returns the token-free view', async () => {
+    const actions = actionsWith({
+      reattach: vi.fn(async () => ({ ok: true as const, value: VIEW })),
+    });
+
+    const answer = await createConnectLiveRunPort(actions).reattach({ runId: 'run-1' });
+
+    expect(actions.reattach).toHaveBeenCalledWith({ runId: 'run-1' });
+    expect(answer).toEqual({ ok: true, value: VIEW });
+  });
+
+  it('drops a token even if an answer carried one, because a reattached screen has none', async () => {
+    const leaky = { ...VIEW, token: TICKET.token };
+    const actions = actionsWith({
+      reattach: vi.fn(async () => ({ ok: true as const, value: leaky })),
+    });
+
+    const answer = await createConnectLiveRunPort(actions).reattach({ runId: 'run-1' });
+
+    expect(answer.ok).toBe(true);
+    expect(JSON.stringify(answer)).not.toContain(TICKET.token);
+  });
+
+  it('refuses a view with no endpoint or no run id, rather than drawing half a run', async () => {
+    for (const broken of [
+      { ...VIEW, endpoint: '' },
+      { ...VIEW, runId: ' ' },
+    ]) {
+      const actions = actionsWith({
+        reattach: vi.fn(async () => ({ ok: true as const, value: broken })),
+      });
+      const answer = await createConnectLiveRunPort(actions).reattach({ runId: 'run-1' });
+      expect(answer.ok).toBe(false);
+      if (answer.ok) continue;
+      expect(answer.refusal.message).toBe(LIVE_RUN_UNREADABLE_STATE_MESSAGE);
+    }
+  });
+
+  it('relays a refusal under its own code and sentence', async () => {
+    const actions = actionsWith({
+      reattach: vi.fn(async () => ({
+        ok: false as const,
+        code: 'RUN_NOT_FOUND' as const,
+        message: 'That run was not found.',
+      })),
+    });
+
+    const answer = await createConnectLiveRunPort(actions).reattach({ runId: 'run-1' });
+
+    expect(answer).toEqual({
+      ok: false,
+      refusal: { code: 'RUN_NOT_FOUND', message: 'That run was not found.' },
+    });
+  });
+
+  it('turns a thrown action into a refusal', async () => {
+    const actions = actionsWith({
+      reattach: vi.fn(async () => {
+        throw new Error('network down');
+      }),
+    });
+
+    const answer = await createConnectLiveRunPort(actions).reattach({ runId: 'run-1' });
+
+    expect(answer.ok).toBe(false);
+    if (answer.ok) return;
+    expect(answer.refusal.message).not.toMatch(/network down/);
+  });
+
+  it('is refused by the not-wired port, so no run can be claimed', async () => {
+    const answer = await notWiredLiveRunPort.reattach({ runId: 'run-1' });
+    expect(answer.ok).toBe(false);
+    if (answer.ok) return;
+    expect(answer.refusal.code).toBe('NOT_WIRED');
   });
 });

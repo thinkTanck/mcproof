@@ -94,6 +94,37 @@ export interface LiveRunTicketView {
 }
 
 /**
+ * A run handed back to a screen that lost it (a reload, a navigation away): the
+ * ticket WITHOUT its token, restated from the durable row.
+ *
+ * There is no `token` field and there never can be one. The credential exists in
+ * full once, in the answer to `startLiveRun`; storage holds a digest. A
+ * reattached screen can watch the run and end it, which need only the run id and
+ * the signed-in account. It cannot show the client setup again, so a run whose
+ * agent never connected has to be replaced with a fresh one.
+ */
+export interface LiveRunReattachView {
+  readonly runId: string;
+  /** The per-run MCP endpoint the agent connects to. */
+  readonly endpoint: string;
+  /** ISO-8601 wall-clock expiry of the run's token. */
+  readonly expiresAt: string;
+  readonly category: Category;
+  readonly kind: VariantKind;
+  /** The goal, delivered OUT OF BAND: fetch the published prompt, or paste this. */
+  readonly taskGoal: string;
+  /** The name of the published MCP prompt carrying that goal. */
+  readonly promptName: string;
+  /** ISO-8601 once the run has been finished, else null. */
+  readonly finishedAt: string | null;
+  /**
+   * The saved result's row id, the address the replay is linked by. Null while
+   * the run is open, and null for a run that was closed with nothing saved.
+   */
+  readonly storedRunId: string | null;
+}
+
+/**
  * Where a run has got to, as its DURABLE ROW records it. Every phase is derived
  * from the row, so it reads the same from any instance.
  *

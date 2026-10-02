@@ -13,10 +13,13 @@ import { FindingsReport, FindingsEmpty } from '@/components/findings';
  * port and at the database). The resolver also supplies the verdict's PROVENANCE,
  * so the page never has to decide on its own whether what it is showing is a
  * demonstration or a live capture.
+ *
+ * The route `id` is handed to the report too, so a clean result can link back to
+ * the replay of the same run at `/runs/[id]`. Both routes resolve that one id.
  */
 export default async function FindingsScreen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const view = await resolveFixReport(id);
   if (!view) return <FindingsEmpty id={id} />;
-  return <FindingsReport report={view.report} provenance={view.provenance} />;
+  return <FindingsReport report={view.report} routeId={id} provenance={view.provenance} />;
 }

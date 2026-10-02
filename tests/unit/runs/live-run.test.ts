@@ -1115,3 +1115,130 @@ describe('live run: the status read comes from the durable row', () => {
     expect(unknown.error.code).toBe(other.error.code);
   });
 });
+
+/**
+ * THE REATTACH READ. What a screen that lost its page memory (a reload, a
+ * navigation away and back) needs to pick an open run up again by its id alone:
+ * everything the ticket carried EXCEPT the token. The token exists in full once,
+ * at issue, and storage holds only a digest, so no read can hand it back.
+ */
+describe('live run: reattaching to a run by its id', () => {
+  function second(first: HostFixture, sessions: InMemoryLiveRunSessionStore): LiveRunHost {
+    return createLiveRunHost({
+      preflight: grant,
+      tokens: first.tokens,
+      sessions,
+      repository: first.repository,
+      resolveDetector: () => biteDetector,
+      origin: ORIGIN,
+      sleep: async () => {},
+    });
+  }
+
+  it('rebuilds everything the ticket carried except the token, from the durable row', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+
+    // A different instance, holding nothing in memory about this run.
+    const view = await second(first, sessions).getReattach({ runId: ticket.runId, userId: USER });
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    expect(view.value).toEqual({
+      runId: ticket.runId,
+      endpoint: ticket.endpoint,
+      expiresAt: ticket.expiresAt,
+      category: ticket.category,
+      kind: ticket.kind,
+      taskGoal: ticket.taskGoal,
+      promptName: ticket.promptName,
+      finishedAt: null,
+      storedRunId: null,
+    });
+  });
+
+  it('never carries the token, in any field', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+
+    const view = await host.getReattach({ runId: ticket.runId, userId: USER });
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    expect(view.value).not.toHaveProperty('token');
+    expect(JSON.stringify(view.value)).not.toContain(ticket.token);
+  });
+
+  it('reports when the TOKEN expires, not when the row is swept', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+
+    const view = await host.getReattach({ runId: ticket.runId, userId: USER });
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    // The row outlives the token by a grace period so a late finish can still be
+    // judged. A screen told the row's time would show a dead run as live.
+    expect(view.value.expiresAt).toBe(ticket.expiresAt);
+  });
+
+  it('points a finished run at its saved result', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await driveAgent(first.host, ticket, false);
+    const outcome = await first.host.finish({ runId: ticket.runId, userId: USER });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    const view = await second(first, sessions).getReattach({ runId: ticket.runId, userId: USER });
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    expect(view.value.finishedAt).not.toBeNull();
+    expect(view.value.storedRunId).toBe(outcome.value.stored.id);
+  });
+
+  it('reports a run closed without a saved result as finished, with nothing to link', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+    await host.abandon({ runId: ticket.runId, userId: USER });
+
+    const view = await host.getReattach({ runId: ticket.runId, userId: USER });
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    expect(view.value.finishedAt).not.toBeNull();
+    expect(view.value.storedRunId).toBeNull();
+  });
+
+  it('still reattaches when the saved result cannot be looked up', async () => {
+    const repository = new InMemoryRunRepository();
+    const { host } = fixture({
+      repository: {
+        saveRun: (userId, run) => repository.saveRun(userId, run),
+        findByRunId: async () => {
+          throw new Error('the run store is unreachable');
+        },
+      },
+    });
+    const ticket = await startRun(host);
+    await driveAgent(host, ticket, false);
+    await host.finish({ runId: ticket.runId, userId: USER });
+
+    const view = await host.getReattach({ runId: ticket.runId, userId: USER });
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    expect(view.value.finishedAt).not.toBeNull();
+    expect(view.value.storedRunId).toBeNull();
+  });
+
+  it('refuses another account the same way it refuses an unknown run', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+
+    const other = await host.getReattach({ runId: ticket.runId, userId: 'someone-else' });
+    const unknown = await host.getReattach({ runId: 'no-such-run', userId: USER });
+    expect(other.ok).toBe(false);
+    expect(unknown.ok).toBe(false);
+    if (other.ok || unknown.ok) return;
+    expect(other.error.code).toBe('RUN_NOT_FOUND');
+    expect(unknown.error).toEqual(other.error);
+  });
+});

@@ -40,12 +40,19 @@ function SectionHeading({
  * `provenance` says where the verdict came from. It is optional because a live
  * run's provenance is not this component's to invent: the DataSource supplies it,
  * and when it cannot, nothing is claimed.
+ *
+ * `routeId` is the id this report was opened under, which is the id the replay
+ * of the same run lives at. It is optional for the same reason: `report.runId` is
+ * NOT that id for a saved live run, so when the page does not supply one, no
+ * replay link is drawn rather than one guessed from the wrong id.
  */
 export function FindingsReport({
   report,
+  routeId,
   provenance,
 }: {
   report: FixReport;
+  routeId?: string;
   provenance?: string | null;
 }) {
   const finding = report.finding;
@@ -126,7 +133,10 @@ export function FindingsReport({
       {finding && step ? (
         <>
           {/* Offending step (telemetry) + summary (prose), side by side on desktop */}
-          <div className="mt-8 grid gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          {/* `grid-cols-1` is not decoration: an implicit single column is sized
+              `auto`, so one unbreakable token in the payload (a long path) set
+              the column wider than a phone screen and the page clipped it. */}
+          <div className="mt-8 grid grid-cols-1 gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <section aria-label="Offending step">
               <SectionHeading>Offending step</SectionHeading>
               <p className="readout mt-2 text-breach-text">
@@ -136,7 +146,9 @@ export function FindingsReport({
                 {stepPayload(step).map((row) => (
                   <div key={row.k} className="instrument flex gap-2">
                     <dt className="text-ink-faint">{row.k}</dt>
-                    <dd className="min-w-0 break-words text-readout">{row.v}</dd>
+                    <dd className="min-w-0 break-words text-readout [overflow-wrap:anywhere]">
+                      {row.v}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -245,6 +257,17 @@ export function FindingsReport({
               See it on the robustness leaderboard
             </Link>
           </p>
+          {/* And back to the evidence: the replay of this same run, step by step. */}
+          {routeId ? (
+            <p className="reading mt-3 max-w-[640px]">
+              <Link
+                href={`/runs/${routeId}`}
+                className="text-nominal underline underline-offset-2 hover:text-readout"
+              >
+                Open the replay of this run
+              </Link>
+            </p>
+          ) : null}
         </section>
       )}
     </article>

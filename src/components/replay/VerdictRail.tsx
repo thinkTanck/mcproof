@@ -39,16 +39,22 @@ function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolea
 
 export function VerdictRail({
   verdict,
+  routeId,
   compromiseStepNumber,
   offendingLabel,
 }: {
   verdict: Verdict;
+  /** The id in the `/runs/[id]` URL, which is the id `/findings/[id]` resolves. */
+  routeId: string;
   /** 1-based step number of verdict.stepId, or null if the run is clean. */
   compromiseStepNumber: number | null;
   /** Tool/label of the offending step, e.g. "send_email". */
   offendingLabel?: string;
 }) {
-  const href = `/findings/${verdict.runId}`;
+  // Built from the ROUTE id, never `verdict.runId`. For a saved live run that is
+  // the session's run id, which the findings route cannot resolve, so the link
+  // landed every live run on the missing-report state.
+  const href = `/findings/${routeId}`;
   const compromised = verdict.compromised;
   const exportLabel = compromised ? 'Export fix report' : 'Export run result';
   const [answered, setAnswered] = useState<null | 'n'>(null);

@@ -53,6 +53,9 @@ function fake(result: Result) {
       calls.order = [k, o];
       return builder;
     },
+    limit() {
+      return builder;
+    },
     single: async () => ({ data: result.single, error: err }),
     maybeSingle: async () => ({ data: result.maybeSingle ?? null, error: err }),
     then: (res: (v: unknown) => void) =>
@@ -126,6 +129,37 @@ describe('SupabaseRunRepository (query building + mapping)', () => {
     const { client } = fake({ error: 'permission denied' });
     await expect(new SupabaseRunRepository(client).saveRun('u', run)).rejects.toThrow(
       /permission denied/,
+    );
+  });
+});
+
+describe('SupabaseRunRepository: finding a saved run by the run id it was hosted under', () => {
+  it('narrows by user_id AND the run id inside the stored result', async () => {
+    const run = await sampleRun();
+    const row = { id: 'row-1', user_id: 'u', created_at: '2026-01-01T00:00:00Z', run };
+    const { client, calls } = fake({ maybeSingle: row });
+
+    const stored = await new SupabaseRunRepository(client).findByRunId('u', run.runId);
+
+    expect(calls.table).toBe('runs');
+    expect(calls.filters).toEqual(
+      expect.arrayContaining([
+        ['user_id', 'u'],
+        ['run->>runId', run.runId],
+      ]),
+    );
+    expect(stored).toEqual({ id: 'row-1', userId: 'u', createdAt: '2026-01-01T00:00:00Z', run });
+  });
+
+  it('returns null when nothing was saved under that run id', async () => {
+    const { client } = fake({});
+    expect(await new SupabaseRunRepository(client).findByRunId('u', 'no-such-run')).toBeNull();
+  });
+
+  it('throws a named error when the read fails', async () => {
+    const { client } = fake({ error: 'boom' });
+    await expect(new SupabaseRunRepository(client).findByRunId('u', 'r')).rejects.toThrow(
+      /findByRunId failed: boom/,
     );
   });
 });

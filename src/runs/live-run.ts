@@ -267,6 +267,42 @@ export interface LiveRunTicket {
   readonly promptName: string;
 }
 
+/**
+ * A run handed back to a screen that lost it: the ticket WITHOUT its token.
+ *
+ * The token exists in full exactly once, in the answer to `start`. Storage holds
+ * a digest that cannot produce it, so this read has no token to give and never
+ * will. Everything else is restated from the durable row: the endpoint is the
+ * origin plus the run id, and the goal is a function of the staged scenario.
+ *
+ * What that means for the person reading the screen: a run whose agent is
+ * already connected can be watched and finished from here, because finishing
+ * needs the run id and the signed-in account, not the token. A run whose agent
+ * never connected cannot be registered with a client any more, and the only
+ * honest advice is to start a fresh run.
+ */
+export interface LiveRunReattachment {
+  readonly runId: string;
+  /** The per-run MCP endpoint. */
+  readonly endpoint: string;
+  /** Wall-clock expiry of the run's TOKEN (ISO-8601), not of its row. */
+  readonly expiresAt: string;
+  readonly category: Category;
+  readonly kind: VariantKind;
+  /** The goal, delivered OUT OF BAND: the published prompt, or paste this. */
+  readonly taskGoal: string;
+  /** The name of the published prompt carrying that goal. */
+  readonly promptName: string;
+  /** ISO-8601 of when the run was finished, or null while it is open. */
+  readonly finishedAt: string | null;
+  /**
+   * The saved result's row id, or null. Null while the run is open, and null
+   * for a run closed with nothing saved: abandoned, or claimed and then refused
+   * by the gate or the judge.
+   */
+  readonly storedRunId: string | null;
+}
+
 /** What closing a run without judging it produced. There is no verdict here. */
 export interface AbandonedLiveRun {
   readonly runId: string;
@@ -293,8 +329,12 @@ export interface LiveRunHostDeps {
    * (`getLiveRunSessionStore()`) anywhere more than one instance can serve a run.
    */
   readonly sessions?: LiveRunSessionStore;
-  /** Where a finished run is persisted, owner-scoped. */
-  readonly repository: Pick<RunRepository, 'saveRun'>;
+  /**
+   * Where a finished run is persisted, owner-scoped. `findByRunId` is what lets
+   * a reattached screen link a finished run to its saved result; without it the
+   * reattach read still answers and reports no saved result.
+   */
+  readonly repository: Pick<RunRepository, 'saveRun'> & Partial<Pick<RunRepository, 'findByRunId'>>;
   /**
    * The judge, resolved per stage. Pass `() => resolveLiveDetector()`: it returns
    * `null` when no judge credential is configured, which is a refusal here and
@@ -326,6 +366,14 @@ export interface LiveRunHost {
    * so it is the same answer from any instance. See {@link LiveRunStatus}.
    */
   getStatus(input: { runId: string; userId: string }): Promise<LiveRunDecision<LiveRunStatus>>;
+  /**
+   * Hand a run back to its owner by id, WITHOUT its token, read off the durable
+   * row. See {@link LiveRunReattachment}.
+   */
+  getReattach(input: {
+    runId: string;
+    userId: string;
+  }): Promise<LiveRunDecision<LiveRunReattachment>>;
   /** Revoke, gate, judge, persist and report. */
   finish(input: { runId: string; userId: string }): Promise<LiveRunDecision<LiveRunOutcome>>;
   /**
@@ -371,6 +419,11 @@ interface LiveRunSession {
   readonly category: Category;
   readonly kind: VariantKind;
   readonly taskGoal: string;
+  /**
+   * When the run's TOKEN expires (ISO-8601). The row stores its own, later
+   * expiry (the token's plus a grace period), so this is that minus the grace.
+   */
+  readonly tokenExpiresAt: string;
   readonly server: HostedMcpServer;
   readonly handler: StreamableHttpHandler;
   /** How many observed events are already durable. The append index. */
@@ -543,6 +596,9 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       category: row.category,
       kind: row.kind,
       taskGoal: server.taskGoal,
+      tokenExpiresAt: new Date(
+        new Date(row.expiresAt).getTime() - LIVE_RUN_SESSION_GRACE_MS,
+      ).toISOString(),
       server,
       handler: createStreamableHttpHandler(() => server, HOSTED_TRANSPORT),
       flushed: row.events.length,
@@ -556,6 +612,9 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
     );
     return session;
   }
+
+  /** The per-run endpoint. A function of the run id alone, so it can be restated. */
+  const endpointFor = (runId: string): string => `${origin}${LIVE_RUN_ENDPOINT_PREFIX}/${runId}`;
 
   /** The owner's own run, or nothing. Another account gets the same nothing. */
   async function ownedSession(runId: string, userId: string): Promise<LiveRunSession | undefined> {
@@ -693,6 +752,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
         category,
         kind,
         taskGoal: server.taskGoal,
+        tokenExpiresAt: record.expiresAt,
         server,
         handler,
         flushed: server.observedEvents.length,
@@ -705,7 +765,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
         ok: true,
         value: {
           runId,
-          endpoint: `${origin}${LIVE_RUN_ENDPOINT_PREFIX}/${runId}`,
+          endpoint: endpointFor(runId),
           token,
           expiresAt: record.expiresAt,
           category,
@@ -781,6 +841,38 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       const steps = session.server.observedEvents.length;
       logger?.info('live run abandoned', { runId, userId, steps });
       return { ok: true, value: { runId, steps } };
+    },
+
+    async getReattach({ runId, userId }) {
+      const session = await ownedSession(runId, userId);
+      if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
+
+      // Only a finished run can have a saved result, and not every finished run
+      // does. A lookup that fails is reported as "no saved result" rather than
+      // refusing the reattach: the run's state is still true and still useful.
+      let storedRunId: string | null = null;
+      if (session.finishedAt !== null && deps.repository.findByRunId !== undefined) {
+        try {
+          storedRunId = (await deps.repository.findByRunId(userId, runId))?.id ?? null;
+        } catch {
+          logger?.error('live run reattach could not look up the saved result', { runId });
+        }
+      }
+
+      return {
+        ok: true,
+        value: {
+          runId,
+          endpoint: endpointFor(runId),
+          expiresAt: session.tokenExpiresAt,
+          category: session.category,
+          kind: session.kind,
+          taskGoal: session.taskGoal,
+          promptName: TASK_PROMPT_NAME,
+          finishedAt: session.finishedAt,
+          storedRunId,
+        },
+      };
     },
 
     async finish({ runId, userId }) {
