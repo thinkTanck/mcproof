@@ -19,6 +19,7 @@ import {
   type LiveRunPreflight,
   type LiveRunTicket,
 } from '@/runs/live-run';
+import { InMemoryLiveRunSessionStore } from '@/runs/live-run-store';
 import { InMemoryRunTokenStore } from '@/runs/run-token';
 import { noteAgentRequest, resetLiveRunRegistry } from '@/app/api/mcp/host';
 import { finishLiveRun, getLiveRunStatus, startLiveRun } from '@/app/actions/live-run';
@@ -210,21 +211,128 @@ describe('getLiveRunStatus', () => {
     if (!result.ok) return;
     expect(result.value.phase).toBe('waiting');
     expect(result.value.connectedAt).toBeNull();
-    expect(result.value.requests).toBe(0);
+    expect(result.value.lastSeenAt).toBeNull();
     expect(result.value.toolCalls).toBe(0);
     expect(result.value.finishedAt).toBeNull();
   });
 
-  it('reports a run the agent has reached as connected', async () => {
+  /**
+   * THE PRODUCTION BUG (2026-10-02, observed on a live run): the agent connected
+   * and made 3 tool calls, the panel counted them, and it still read AWAITING
+   * AGENT, "No agent has connected yet", LAST SEEN never. The count came from the
+   * durable row. The connected flag came from a map in the memory of whichever
+   * process served the agent, and the status action runs in a different one.
+   *
+   * `callTool` drives the pipeline directly and never touches this process's
+   * observation registry, which is exactly the position the status action is in
+   * on the deployed platform.
+   */
+  it('reports connected from the durable row when another process served the agent', async () => {
     const ticket = await startOk();
-    noteAgentRequest(ticket.runId, new Date('2026-08-05T10:00:00.000Z'));
+    await callTool(ticket, 'read_email', { mailbox: 'inbox' });
+
     const result = await getLiveRunStatus({ runId: ticket.runId });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.phase).toBe('connected');
-    expect(result.value.connectedAt).toBe('2026-08-05T10:00:00.000Z');
-    expect(result.value.requests).toBe(1);
+    expect(result.value.toolCalls).toBe(1);
     expect(result.value.steps).toBeGreaterThan(0);
+  });
+
+  it('reports connected as soon as initialize has been served, before any tool call', async () => {
+    const ticket = await startOk();
+    await host.handle(
+      new Request(ticket.endpoint, {
+        method: 'POST',
+        headers: new Headers({
+          'content-type': 'application/json',
+          accept: 'application/json',
+          authorization: `Bearer ${ticket.token}`,
+        }),
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: { protocolVersion: '2025-06-18', clientInfo: { name: 'action-test-agent' } },
+        }),
+      }),
+    );
+
+    const result = await getLiveRunStatus({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The row records the client name when initialize is served. That is the
+    // durable sign of a connection, and no tool call has happened yet.
+    expect(result.value.phase).toBe('connected');
+    expect(result.value.toolCalls).toBe(0);
+  });
+
+  it('reads the status from a different instance than the one that served the agent', async () => {
+    const tokens = new InMemoryRunTokenStore();
+    const sessions = new InMemoryLiveRunSessionStore();
+    const build = () =>
+      createLiveRunHost({
+        preflight: (input) => preflight(input),
+        tokens,
+        sessions,
+        repository,
+        resolveDetector: () => detector,
+        origin: 'https://mcpwn.test',
+      });
+    host = build();
+    const ticket = await startOk();
+    await callTool(ticket, 'read_email', { mailbox: 'inbox' });
+
+    // A second instance over the same stores, holding nothing in memory.
+    host = build();
+    const result = await getLiveRunStatus({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.phase).toBe('connected');
+    expect(result.value.toolCalls).toBe(1);
+  });
+
+  it('does not take the in-memory registry as proof of a connection', async () => {
+    const ticket = await startOk();
+    // An entry in THIS process's memory, for a run whose durable row shows no
+    // client and no tool call. The row is the truth, so the run is still waiting.
+    noteAgentRequest(ticket.runId, new Date('2026-08-05T10:00:00.000Z'));
+
+    const result = await getLiveRunStatus({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.phase).toBe('waiting');
+  });
+
+  it('reports no last-seen time, because nothing durable records one yet', async () => {
+    const ticket = await startOk();
+    await callTool(ticket, 'read_email', { mailbox: 'inbox' });
+    noteAgentRequest(ticket.runId, new Date('2026-08-05T10:00:00.000Z'));
+
+    const result = await getLiveRunStatus({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Null means "not recorded", and the screen omits it. A timestamp read from
+    // one process's memory would be right only when that process happened to
+    // serve both the agent and this read.
+    expect(result.value.connectedAt).toBeNull();
+    expect(result.value.lastSeenAt).toBeNull();
+    expect(result.value).not.toHaveProperty('requests');
+  });
+
+  it('reports finished from the durable row when another process finished the run', async () => {
+    const ticket = await startOk();
+    await callTool(ticket, 'read_email', { mailbox: 'inbox' });
+    // Finished through the pipeline directly: this process's memory holds no
+    // finish stamp, exactly as when another instance served the finish.
+    const outcome = await host.finish({ runId: ticket.runId, userId: USER });
+    expect(outcome.ok).toBe(true);
+
+    const result = await getLiveRunStatus({ runId: ticket.runId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.phase).toBe('finished');
+    expect(result.value.finishedAt).not.toBeNull();
   });
 
   it('refuses another account the same way it refuses an unknown run', async () => {

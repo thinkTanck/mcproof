@@ -40,7 +40,6 @@ const STATUS: LiveRunStatusView = {
   phase: 'connected',
   connectedAt: '2026-08-05T11:20:00.000Z',
   lastSeenAt: '2026-08-05T11:30:00.000Z',
-  requests: 3,
   steps: 6,
   toolCalls: 4,
   finishedAt: null,
@@ -244,7 +243,7 @@ describe('the adapter · reading real lifecycle state', () => {
   });
 
   it('refuses a count that is not a whole non-negative number', async () => {
-    for (const bad of [{ steps: -1 }, { toolCalls: 1.5 }, { requests: Number.NaN }]) {
+    for (const bad of [{ steps: -1 }, { toolCalls: 1.5 }, { steps: Number.NaN }]) {
       const port = createConnectLiveRunPort(
         actionsWith({
           status: vi.fn(async () => ({ ok: true as const, value: { ...STATUS, ...bad } })),

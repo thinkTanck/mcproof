@@ -477,13 +477,19 @@ function Connection({
         {statusRefusal !== null && (
           <p className="reading mt-2 max-w-[68ch] text-ink-muted">{statusRefusal.message}</p>
         )}
-        {/* When the run stops accepting connections, beside when we last saw the
-            agent: the two readings that tell a quiet run from a dead one. Both
-            are evidence, printed as issued and never counted down or animated. */}
+        {/* When the run stops accepting connections, and, when the server records
+            one, when the agent was last seen. Both are evidence, printed as issued
+            and never counted down or animated.
+
+            LAST SEEN is shown only when a time was actually reported. It used to
+            fall back to the word "never", which sat beside AGENT CONNECTED and a
+            tool-call count on a live run and was simply false. No durable
+            timestamp exists yet (`last_seen_at` on `live_runs` is deferred to
+            v2), so until then the reading is omitted rather than invented. */}
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-          {status !== null && (
+          {status !== null && status.lastSeenAt !== null && (
             <p className="instrument-faint">
-              LAST SEEN <span className="readout">{status.lastSeenAt ?? 'never'}</span>
+              LAST SEEN <span className="readout">{status.lastSeenAt}</span>
             </p>
           )}
           <p className="instrument-faint">

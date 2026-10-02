@@ -94,23 +94,31 @@ export interface LiveRunTicketView {
 }
 
 /**
- * Where a run has got to, as this instance can honestly observe it.
+ * Where a run has got to, as its DURABLE ROW records it. Every phase is derived
+ * from the row, so it reads the same from any instance.
  *
- * `waiting` — a token has been issued and no authenticated request has arrived.
- * `connected` — the agent has reached the endpoint at least once.
- * `finished` — the run has been ended, judged and persisted.
+ * `waiting`: a token has been issued and the row shows no sign of an agent.
+ * `connected`: the row has a client name (written when `initialize` is served)
+ *   or the trace holds a tool call.
+ * `finished`: the row has a finish time, the run was ended, judged and persisted.
  */
 export type LiveRunPhase = 'waiting' | 'connected' | 'finished';
 
 export interface LiveRunStatusView {
   readonly runId: string;
   readonly phase: LiveRunPhase;
-  /** ISO-8601 of the first authenticated request, or null while waiting. */
+  /**
+   * ISO-8601 of the first authenticated request, or null when not recorded.
+   * ALWAYS null today: nothing durable records it. It needs a `connected_at`
+   * column on `live_runs`, deferred to v2. Null is "not recorded", never "never".
+   */
   readonly connectedAt: string | null;
-  /** ISO-8601 of the most recent authenticated request, or null. */
+  /**
+   * ISO-8601 of the most recent authenticated request, or null when not
+   * recorded. ALWAYS null today, for the same reason (`last_seen_at`, v2). The
+   * screen omits the reading when it is null.
+   */
   readonly lastSeenAt: string | null;
-  /** Authenticated requests served for this run. Refused ones are not counted. */
-  readonly requests: number;
   /**
    * Observable steps recorded so far. It counts the principal instruction and
    * the inferred completion step as well as the agent's own, so it is never zero

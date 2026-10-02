@@ -42,7 +42,6 @@ const WAITING: LiveRunStatusView = {
   phase: 'waiting',
   connectedAt: null,
   lastSeenAt: null,
-  requests: 0,
   steps: 2,
   toolCalls: 0,
   finishedAt: null,
@@ -311,6 +310,51 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     expect(await screen.findByText('6')).toBeInTheDocument();
     expect(screen.getByText(/tool calls/i)).toBeInTheDocument();
     expect(screen.getByText(/your agent is calling tools/i)).toBeInTheDocument();
+  });
+
+  /**
+   * "LAST SEEN never" beside a connected agent and a tool-call count was a false
+   * statement on the screen. No durable timestamp exists yet, so the reading is
+   * omitted rather than filled with a word that claims the opposite of what the
+   * rest of the panel shows.
+   */
+  it('never says LAST SEEN never for an agent that has connected', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () =>
+        statusOf({ phase: 'connected', steps: 8, toolCalls: 3, lastSeenAt: null }),
+      ),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+
+    const panel = await screen.findByRole('status');
+    expect(await within(panel).findByText('AGENT CONNECTED')).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent(/never/i);
+    expect(panel).not.toHaveTextContent('LAST SEEN');
+  });
+
+  it('omits LAST SEEN while waiting too, since no time is recorded either way', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText(/no agent has connected yet/i);
+
+    expect(screen.getByRole('status')).not.toHaveTextContent('LAST SEEN');
+  });
+
+  it('prints LAST SEEN when the server does report a time', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () =>
+        statusOf({ phase: 'connected', toolCalls: 1, lastSeenAt: '2026-08-05T11:31:00Z' }),
+      ),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+
+    expect(await screen.findByText('AGENT CONNECTED')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('LAST SEEN 2026-08-05T11:31:00Z');
   });
 
   it('separates "the agent is here" from "the agent has done something"', async () => {
