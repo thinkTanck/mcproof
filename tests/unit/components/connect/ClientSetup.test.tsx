@@ -57,7 +57,6 @@ function portWith(): ConnectLiveRunPort {
         phase: 'waiting' as const,
         connectedAt: null,
         lastSeenAt: null,
-        requests: 0,
         steps: 2,
         toolCalls: 0,
         finishedAt: null,

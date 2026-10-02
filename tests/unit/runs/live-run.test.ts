@@ -1040,3 +1040,78 @@ describe('live run: the open-run registry is durable, not process-local', () => 
     expect(decision.error.code).toBe('RUN_NOT_FOUND');
   });
 });
+
+/**
+ * THE STATUS READ. What the owner's screen needs to know about a run, taken from
+ * the durable row and nothing else, so it is the same answer from any instance:
+ * the trace, the client name the row recorded at `initialize`, and when the run
+ * finished. It exists because the screen once read "has the agent connected" from
+ * one process's memory and showed AWAITING AGENT beside a tool-call count.
+ */
+describe('live run: the status read comes from the durable row', () => {
+  function second(first: HostFixture, sessions: InMemoryLiveRunSessionStore): LiveRunHost {
+    return createLiveRunHost({
+      preflight: grant,
+      tokens: first.tokens,
+      sessions,
+      repository: first.repository,
+      resolveDetector: () => biteDetector,
+      origin: ORIGIN,
+      sleep: async () => {},
+    });
+  }
+
+  it('reports no client and no finish time for a run nobody has reached', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+
+    const status = await host.getStatus({ runId: ticket.runId, userId: USER });
+    expect(status.ok).toBe(true);
+    if (!status.ok) return;
+    expect(status.value.client).toBeNull();
+    expect(status.value.finishedAt).toBeNull();
+    expect(status.value.trace.steps.map((s) => s.type)).toContain('principal_instruction');
+  });
+
+  it('reports the client another instance recorded at initialize', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await post(first.host, ticket.endpoint, initialize, { token: ticket.token });
+
+    const status = await second(first, sessions).getStatus({ runId: ticket.runId, userId: USER });
+    expect(status.ok).toBe(true);
+    if (!status.ok) return;
+    expect(status.value.client).toBe('agent-under-test');
+  });
+
+  it('reports the finish time when another instance finished the run', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await driveAgent(first.host, ticket, false);
+    // The reading instance has already cached the run before it is finished.
+    const reader = second(first, sessions);
+    await reader.getStatus({ runId: ticket.runId, userId: USER });
+
+    await first.host.finish({ runId: ticket.runId, userId: USER });
+
+    const status = await reader.getStatus({ runId: ticket.runId, userId: USER });
+    expect(status.ok).toBe(true);
+    if (!status.ok) return;
+    expect(status.value.finishedAt).not.toBeNull();
+  });
+
+  it('refuses another account the same way it refuses an unknown run', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+
+    const other = await host.getStatus({ runId: ticket.runId, userId: 'someone-else' });
+    const unknown = await host.getStatus({ runId: 'no-such-run', userId: USER });
+    expect(other.ok).toBe(false);
+    expect(unknown.ok).toBe(false);
+    if (other.ok || unknown.ok) return;
+    expect(other.error.code).toBe('RUN_NOT_FOUND');
+    expect(unknown.error.code).toBe(other.error.code);
+  });
+});

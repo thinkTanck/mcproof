@@ -31,12 +31,20 @@
  *
  * ── THE OBSERVATION REGISTRY ──
  *
- * The pipeline can answer "what has been recorded" (the trace). It cannot answer
- * "has the agent turned up yet", because a client that only initializes and lists
- * tools has taken no step the contract has a type for. So the endpoint notes each
- * AUTHENTICATED inbound request here, and the status action reads it. Refused
- * requests are never noted: a stranger hammering the endpoint must not be able to
- * make a run look connected.
+ * The endpoint notes each AUTHENTICATED inbound request here. Refused requests
+ * are never noted: a stranger hammering the endpoint must not be able to make a
+ * run look connected.
+ *
+ * THIS IS ONE INSTANCE'S MEMORY, AND THE STATUS ACTION NO LONGER READS IT. It
+ * was built so the status action could answer "has the agent turned up yet",
+ * and that is exactly where it failed: the action runs in a different process
+ * from the route that writes here, so on the deployed platform it read an empty
+ * map and a live run showed AWAITING AGENT beside three recorded tool calls
+ * (2026-10-02). Status is now derived from the durable row (`getStatus` on the
+ * pipeline). What is left here is a per-instance observation that nothing in
+ * the app consults. The durable replacement for its timestamps is a pair of
+ * columns on `live_runs` (`connected_at`, `last_seen_at`), deferred to v2, at
+ * which point this registry should be deleted rather than kept alongside them.
  *
  * Nothing in this registry is a secret. It holds a run id, two timestamps and a
  * count — never a token, never a payload.

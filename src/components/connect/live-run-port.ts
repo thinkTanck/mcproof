@@ -202,7 +202,7 @@ const isId = (s: unknown): s is string => typeof s === 'string' && s.trim().leng
  */
 function readStatus(value: LiveRunStatusView): LiveRunStatusView | null {
   if (!PHASES.includes(value.phase)) return null;
-  if (!isCount(value.steps) || !isCount(value.toolCalls) || !isCount(value.requests)) return null;
+  if (!isCount(value.steps) || !isCount(value.toolCalls)) return null;
   if (!isId(value.runId)) return null;
   return value;
 }

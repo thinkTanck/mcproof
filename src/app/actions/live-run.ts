@@ -35,12 +35,7 @@
 import type { Trace } from '@/contract';
 import { getUser } from '@/lib/auth/user';
 import type { LiveRunDecision, LiveRunError } from '@/runs/live-run';
-import {
-  getLiveRunHost,
-  noteRunFinished,
-  readAgentActivity,
-  readRunFinishedAt,
-} from '@/app/api/mcp/host';
+import { getLiveRunHost } from '@/app/api/mcp/host';
 import {
   INVALID_REQUEST_MESSAGE,
   LiveRunRefSchema,
@@ -109,6 +104,21 @@ export async function startLiveRun(
 /**
  * Where the run has got to: whether the agent has turned up, how much it has
  * done, and whether the run has been finished. Safe to poll.
+ *
+ * EVERY FIELD COMES FROM THE DURABLE ROW. This action runs in a different
+ * process from the one that serves the agent, so anything read from process
+ * memory here is read from the wrong process. It used to take "connected" and
+ * "last seen" from such a map, and a live run showed AWAITING AGENT and LAST
+ * SEEN never beside a count of three tool calls.
+ *
+ * `connected` is derived from the two durable signs of a connection: the row
+ * has a client name (written when `initialize` is served), or the trace holds a
+ * tool call. `finished` is the row's own `finished_at`.
+ *
+ * `connectedAt` and `lastSeenAt` are reported as null. Nothing durable records
+ * WHEN the agent connected or was last seen: that needs `connected_at` and
+ * `last_seen_at` columns on `live_runs`, a migration deferred to v2. Null means
+ * "not recorded", and the screen omits the reading rather than print "never".
  */
 export async function getLiveRunStatus(
   input: unknown,
@@ -122,24 +132,24 @@ export async function getLiveRunStatus(
 
   // Owner-scoped inside the pipeline: another account gets RUN_NOT_FOUND, which
   // is the same answer an id that never existed gets.
-  const decision = await getLiveRunHost().getTrace({ runId, userId });
+  const decision = await getLiveRunHost().getStatus({ runId, userId });
   if (!decision.ok) return relay(decision.error);
 
-  const activity = readAgentActivity(runId);
-  const finishedAt = readRunFinishedAt(runId);
+  const { trace, client, finishedAt } = decision.value;
+  const calls = toolCalls(trace);
+  const connected = client !== null || calls > 0;
   const phase: LiveRunPhase =
-    finishedAt !== null ? 'finished' : activity !== null ? 'connected' : 'waiting';
+    finishedAt !== null ? 'finished' : connected ? 'connected' : 'waiting';
 
   return {
     ok: true,
     value: {
       runId,
       phase,
-      connectedAt: activity?.connectedAt ?? null,
-      lastSeenAt: activity?.lastSeenAt ?? null,
-      requests: activity?.requests ?? 0,
-      steps: decision.value.steps.length,
-      toolCalls: toolCalls(decision.value),
+      connectedAt: null,
+      lastSeenAt: null,
+      steps: trace.steps.length,
+      toolCalls: calls,
       finishedAt,
     },
   };
@@ -164,7 +174,6 @@ export async function finishLiveRun(
   if (!decision.ok) return relay(decision.error);
 
   const { stored, verdict, trace } = decision.value;
-  noteRunFinished(runId);
   return {
     ok: true,
     value: {

@@ -321,6 +321,11 @@ export interface LiveRunHost {
   handle(request: Request): Promise<Response>;
   /** The observable trace recorded so far, for the owner of the run. */
   getTrace(input: { runId: string; userId: string }): Promise<LiveRunDecision<Trace>>;
+  /**
+   * What the owner's screen needs to know about a run, read off the DURABLE row
+   * so it is the same answer from any instance. See {@link LiveRunStatus}.
+   */
+  getStatus(input: { runId: string; userId: string }): Promise<LiveRunDecision<LiveRunStatus>>;
   /** Revoke, gate, judge, persist and report. */
   finish(input: { runId: string; userId: string }): Promise<LiveRunDecision<LiveRunOutcome>>;
   /**
@@ -328,6 +333,31 @@ export interface LiveRunHost {
    * nothing. For a run that recorded nothing worth asking the judge about.
    */
   abandon(input: { runId: string; userId: string }): Promise<LiveRunDecision<AbandonedLiveRun>>;
+}
+
+/**
+ * A run's status, taken from its durable row and nothing else.
+ *
+ * WHY IT IS THE ROW AND NOT WHAT AN INSTANCE REMEMBERS. The Connect screen once
+ * read "has the agent connected" and "when was it last seen" from a map in the
+ * memory of whichever process served the agent's requests. The status read runs
+ * in a different process on the deployed platform, so it saw nothing: on a live
+ * run (2026-10-02) the agent made three tool calls, the panel counted them off
+ * the durable trace, and it still said AWAITING AGENT, LAST SEEN never.
+ *
+ * What the row can say today: the client name it recorded when `initialize` was
+ * served, the trace, and when the run finished. What it cannot say is WHEN the
+ * agent connected or was last seen. Those need `connected_at` / `last_seen_at`
+ * columns on `live_runs`, a migration deliberately deferred to v2, so no such
+ * timestamps are reported here and none are invented from process memory.
+ */
+export interface LiveRunStatus {
+  /** The observable trace recorded so far. */
+  readonly trace: Trace;
+  /** The client name recorded at `initialize`, or null if none has been served. */
+  readonly client: string | null;
+  /** ISO-8601 of when the run was finished, or null while it is open. */
+  readonly finishedAt: string | null;
 }
 
 /**
@@ -347,6 +377,8 @@ interface LiveRunSession {
   flushed: number;
   /** The client name last written, so an unchanged label is not rewritten. */
   client: string | null;
+  /** When the row says the run finished, as of the last read. Null while open. */
+  finishedAt: string | null;
 }
 
 const fail = (
@@ -482,6 +514,9 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       row.events.length <= cached.flushed &&
       (row.client === null || row.client === cached.client)
     ) {
+      // Still the same run, but another instance may have finished it since:
+      // a finish adds no step and no client, so it is carried over on its own.
+      cached.finishedAt = row.finishedAt;
       return cached;
     }
 
@@ -512,6 +547,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       handler: createStreamableHttpHandler(() => server, HOSTED_TRANSPORT),
       flushed: row.events.length,
       client: row.client,
+      finishedAt: row.finishedAt,
     };
     live.set(runId, session);
     logger?.info(
@@ -661,6 +697,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
         handler,
         flushed: server.observedEvents.length,
         client: null,
+        finishedAt: null,
       });
 
       logger?.info('live run started', { runId, userId, category, kind });
@@ -707,6 +744,22 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       return { ok: true, value: await session.server.buildTrace() };
     },
 
+    async getStatus({ runId, userId }) {
+      // `ownedSession` goes through `resolve`, which reads the durable row on
+      // every call, so each field below is what the row holds now, whichever
+      // instance served the agent or finished the run.
+      const session = await ownedSession(runId, userId);
+      if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
+      return {
+        ok: true,
+        value: {
+          trace: await session.server.buildTrace(),
+          client: session.server.observedClient ?? session.client,
+          finishedAt: session.finishedAt,
+        },
+      };
+    },
+
     async abandon({ runId, userId }) {
       const session = await ownedSession(runId, userId);
       if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
@@ -718,6 +771,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       if (!(await registry.finish(runId, at))) {
         return fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
       }
+      session.finishedAt = at.toISOString();
       await deps.tokens.endRun(runId, at);
 
       // NO GATE here, deliberately. Both preflight calls exist to stop something
@@ -740,6 +794,8 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       if (!(await registry.finish(runId, at))) {
         return fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
       }
+      // This instance finished it, so it knows without waiting for the next read.
+      session.finishedAt = at.toISOString();
       // The session is over however this call ends, so the token dies here — a
       // refusal below must not leave a live credential on a public endpoint.
       await deps.tokens.endRun(runId, at);
