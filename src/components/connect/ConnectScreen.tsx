@@ -1,12 +1,21 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
 import { LiveRunConsole } from './LiveRunConsole';
+import { readActiveRunId, subscribeActiveRunId, writeActiveRunId } from './active-run-store';
 import {
   createConnectLiveRunPort,
   notWiredLiveRunPort,
@@ -166,9 +175,9 @@ export function ConnectScreen({
 }: {
   signedIn?: boolean;
   /**
-   * A run named in the URL (`?run=<id>`), to reopen. Present means the visitor
-   * came back to a run they had already issued, so the screen opens on the live
-   * console instead of the sample.
+   * A run named in the URL (`?run=<id>`) as the SERVER saw it, to reopen. It is
+   * only a seed: the live URL and the stored id are read here as well, because
+   * the server's view is stale on Back and absent on a plain `/connect` link.
    */
   initialRunId?: string;
   /** Category to recorded-run id. Absent entries fall back to the canonical sample. */
@@ -185,22 +194,77 @@ export function ConnectScreen({
   /** A ready-made port. Tests inject one; the route passes actions instead. */
   livePort?: ConnectLiveRunPort;
 }) {
-  const [mode, setMode] = useState<Mode>(initialRunId === undefined ? 'sample' : 'live');
-  // THE ACTIVE RUN, BY ID. It is held here, above the console, for two reasons.
-  // The console unmounts when the mode switches to SAMPLE, and a run that lived
-  // only inside it was lost on the way back. And it is mirrored into the URL, so
-  // a reload or a visit to another screen comes back to the same run. Only the
-  // id is kept: the token stays in the console's memory and nowhere else.
-  const [activeRunId, setActiveRunId] = useState<string | null>(initialRunId ?? null);
-  const onRunChange = useCallback((runId: string | null) => {
-    setActiveRunId(runId);
-    const { pathname } = window.location;
-    window.history.replaceState(
-      null,
-      '',
-      runId === null ? pathname : `${pathname}?run=${encodeURIComponent(runId)}`,
-    );
+  // THE ACTIVE RUN, BY ID. It is held here, above the console, because the
+  // console unmounts when the mode switches to SAMPLE and a run that lived only
+  // inside it was lost on the way back. Only the id is kept: the token stays in
+  // the console's memory and nowhere else.
+  //
+  // WHERE THE ID COMES FROM, in order. It used to be read once, from the server
+  // prop, and both ways back to this screen lost it: the nav link goes to plain
+  // `/connect`, and Back restores the router tree the page was first rendered
+  // with, which has no `?run=` in it even though the address bar does. So:
+  //
+  //   1. the LIVE URL, which is right on a reload and on Back;
+  //   2. the id stored for this tab, which is what a plain `/connect` link finds;
+  //   3. the server's prop, a seed that is dropped the moment a run changes here.
+  //
+  // A signed-out visitor is offered nothing from storage: a run is reopened for
+  // the account that issued it, and the gate is all they are shown.
+  const searchParams = useSearchParams() as ReturnType<typeof useSearchParams> | null;
+  const urlRunId = searchParams?.get('run')?.trim() || null;
+  const storedRunId = useSyncExternalStore(subscribeActiveRunId, readActiveRunId, () => null);
+  const [seedRunId, setSeedRunId] = useState<string | null>(initialRunId ?? null);
+  // A run that is over here: ended, let go, or unknown to the server. Its id may
+  // still be in the URL, and it is not put back into storage from there.
+  const [settledRunId, setSettledRunId] = useState<string | null>(null);
+  const activeRunId = urlRunId ?? (signedIn ? storedRunId : null) ?? seedRunId;
+
+  const [mode, setMode] = useState<Mode>(activeRunId === null ? 'sample' : 'live');
+  // A run that turns up after the first render (the stored id is only readable
+  // once the page is in the browser, and the URL changes on navigation) opens
+  // the live console, exactly as one named at load does.
+  const [shownRunId, setShownRunId] = useState(activeRunId);
+  if (activeRunId !== shownRunId) {
+    setShownRunId(activeRunId);
+    if (activeRunId !== null) setMode('live');
+  }
+
+  /** Stop remembering a run. Its URL, if it has one, is left alone. */
+  const forgetRun = useCallback((runId: string) => {
+    if (readActiveRunId() === runId) writeActiveRunId(null);
+    setSettledRunId(runId);
   }, []);
+
+  const onRunChange = useCallback(
+    (runId: string | null) => {
+      setSeedRunId(null);
+      // Letting a run go settles it; issuing one starts afresh.
+      setSettledRunId(runId === null ? activeRunId : null);
+      writeActiveRunId(runId);
+      const { pathname } = window.location;
+      window.history.replaceState(
+        null,
+        '',
+        runId === null ? pathname : `${pathname}?run=${encodeURIComponent(runId)}`,
+      );
+    },
+    [activeRunId],
+  );
+
+  // KEEP THE TWO COPIES IN STEP. A run found in storage is put back in the URL,
+  // so a reload from here reopens it; a run found in the URL is stored, so a
+  // trip to another screen comes back to it. A settled run is left out of both.
+  useEffect(() => {
+    if (activeRunId === null || activeRunId === settledRunId) return;
+    if (signedIn && storedRunId === null) writeActiveRunId(activeRunId);
+    if (urlRunId === null) {
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}?run=${encodeURIComponent(activeRunId)}`,
+      );
+    }
+  }, [activeRunId, settledRunId, signedIn, storedRunId, urlRunId]);
   const [category, setCategory] = useState<Category>(DEFAULT_CATEGORY);
   // The attack, unless the user says otherwise: the same default the pipeline
   // already applies, so the existing one-click path is unchanged.
@@ -386,6 +450,7 @@ export function ConnectScreen({
             signedIn={signedIn}
             reattachRunId={activeRunId ?? undefined}
             onRunChange={onRunChange}
+            onRunOver={forgetRun}
           />
         ) : (
           <div className="flex flex-col gap-4">

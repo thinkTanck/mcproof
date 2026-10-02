@@ -198,6 +198,7 @@ export function LiveRunConsole({
   now = systemNow,
   reattachRunId,
   onRunChange,
+  onRunOver,
 }: {
   /**
    * A run to reopen by id, when this console has none of its own. It comes from
@@ -209,6 +210,12 @@ export function LiveRunConsole({
    * one go. The screen mirrors it into the URL. Only the id is ever reported.
    */
   onRunChange?: (runId: string | null) => void;
+  /**
+   * Told the id of a run that has nothing left to come back to: it is ended, or
+   * the server does not know it. The screen stops remembering it, so a later
+   * visit does not reopen it. The run stays on this page as it is.
+   */
+  onRunOver?: (runId: string) => void;
   port?: ConnectLiveRunPort;
   category: Category;
   /**
@@ -297,11 +304,21 @@ export function LiveRunConsole({
         return;
       }
       setReattachOutcome({ runId: reattachRunId, refusal: answer.refusal });
+      // Only a run the server does not know is given up on. Any other refusal
+      // can be a passing one, and the run may still be there on the next visit.
+      if (answer.refusal.code === 'RUN_NOT_FOUND') onRunOver?.(reattachRunId);
     })();
     return () => {
       live = false;
     };
-  }, [port, wantsReattach, reattachRunId]);
+  }, [port, wantsReattach, reattachRunId, onRunOver]);
+
+  // An ended run is not one to come back to. Its result is reached by the
+  // replay link, and reopening it here on every later visit would only get in
+  // the way of the next run.
+  useEffect(() => {
+    if (runId !== null && done) onRunOver?.(runId);
+  }, [runId, done, onRunOver]);
 
   // A run that turns out to be finished, with no summary in hand (it was ended
   // elsewhere, or before this page was opened), is asked where its saved
