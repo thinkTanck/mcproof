@@ -83,6 +83,10 @@ function portWith(): ConnectLiveRunPort {
   };
 }
 
+/**
+ * Call this AFTER `userEvent.setup()`: setup installs a clipboard of its own, and
+ * a stub placed before it is silently replaced.
+ */
 function stubClipboard() {
   const writeText = vi.fn<(text: string) => Promise<void>>(async () => undefined);
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
@@ -225,7 +229,8 @@ describe('ClientSetup · Claude Code', () => {
     const at = (pattern: RegExp) => steps.findIndex((s) => pattern.test(s));
     const register = at(/claude mcp add/);
     const launch = at(/--strict-mcp-config/);
-    const check = at(/\/mcp/);
+    // The endpoint itself contains "/mcp", so the check step is found by its verb.
+    const check = at(/type \/mcp/i);
     const goal = at(/task goal/i);
     expect(register).toBeGreaterThanOrEqual(0);
     expect(launch).toBeGreaterThan(register);
@@ -270,8 +275,8 @@ describe('ClientSetup · Claude Code', () => {
   });
 
   it('copies the PowerShell-safe command with the real endpoint and token in it', async () => {
-    const writeText = stubClipboard();
     const user = await opened(TABS.code);
+    const writeText = stubClipboard();
 
     await user.click(
       within(panel()).getByRole('button', { name: /copy Claude Code transport command/i }),
@@ -284,8 +289,8 @@ describe('ClientSetup · Claude Code', () => {
   });
 
   it('gives the config file the isolated launch reads, and the launch itself', async () => {
-    const writeText = stubClipboard();
     const user = await opened(TABS.code);
+    const writeText = stubClipboard();
 
     const file = within(panel()).getByRole('group', { name: /Claude Code config file/i });
     expect(file).toHaveTextContent('mcpServers');
@@ -374,8 +379,8 @@ describe('ClientSetup · Claude Desktop (chat) is the OTHER path', () => {
   });
 
   it('copies the header value with the Bearer scheme, and renders it masked', async () => {
-    const writeText = stubClipboard();
     const user = await opened(TABS.desktop);
+    const writeText = stubClipboard();
 
     // Claude sends the value exactly as entered, so the scheme has to be in it.
     const value = within(panel()).getByRole('group', { name: /connector header value/i });
@@ -399,8 +404,8 @@ describe('ClientSetup · Claude Desktop (chat) is the OTHER path', () => {
 
 describe('ClientSetup · Cursor / VS Code', () => {
   it('gives each editor its own file, in the {url, type, headers} shape', async () => {
-    const writeText = stubClipboard();
     const user = await opened(TABS.editors);
+    const writeText = stubClipboard();
 
     const entry = {
       [MCP_SERVER_NAME]: {
@@ -474,8 +479,8 @@ describe('ClientSetup · the token is copyable and never in plain sight', () => 
   });
 
   it('copies the real token out of the bash Claude Code command', async () => {
-    const writeText = stubClipboard();
     const user = await opened(TABS.code);
+    const writeText = stubClipboard();
 
     await user.click(
       within(panel()).getByRole('button', { name: /copy Claude Code add-json command/i }),

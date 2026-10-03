@@ -70,3 +70,12 @@ export function addJsonCommand(endpoint: string, token: string): string {
 export function desktopConfig(endpoint: string, token: string): string {
   return JSON.stringify(buildMcpConfig(endpoint, token), null, 2);
 }
+
+/**
+ * The `.vscode/mcp.json` file. VS Code reads the same server entry under a
+ * `servers` key where every other client here reads `mcpServers`, so it is built
+ * from the same config rather than left for the reader to rename by hand.
+ */
+export function vsCodeConfig(endpoint: string, token: string): string {
+  return JSON.stringify({ servers: buildMcpConfig(endpoint, token).mcpServers }, null, 2);
+}
