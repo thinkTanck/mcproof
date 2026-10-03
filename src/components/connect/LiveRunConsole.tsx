@@ -937,7 +937,9 @@ function Connection({
               'accept connections. Issue a new run to try again.'
             : status === null
               ? 'We are reading the state of this run from the server.'
-              : phaseLine(status, result)}
+              : // The bar's phase, not the last read's: polling stops once the run
+                // is done, so a run this page ended last read `connected`.
+                phaseLine({ ...status, phase: phase ?? status.phase }, result)}
         </p>
         {!lapsed && phase === 'waiting' && !reattached && (
           <p className="reading max-w-[68ch] text-ink-muted">
