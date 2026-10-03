@@ -103,6 +103,18 @@ function refusingPort(code: string, message: string): ConnectLiveRunPort {
  */
 const detail = () => screen.getByTestId('run-state-detail');
 
+/**
+ * The run bar's own status reading. The console holds more than one status
+ * region (the notices announce into regions of their own), so the bar is reached
+ * through the pinned dock that holds it rather than as "the" status.
+ */
+const runBar = () =>
+  within(screen.getByRole('region', { name: /what we have actually seen/i })).getByRole('status');
+const findRunBar = async () =>
+  within(await screen.findByRole('region', { name: /what we have actually seen/i })).getByRole(
+    'status',
+  );
+
 const issue = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
@@ -354,7 +366,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
 
-    const panel = await screen.findByRole('status');
+    const panel = await findRunBar();
     expect(await within(panel).findByText('AGENT CONNECTED')).toBeInTheDocument();
     expect(panel).not.toHaveTextContent(/never/i);
     expect(detail()).not.toHaveTextContent('LAST SEEN');
@@ -409,7 +421,7 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
   const at = (iso: string) => () => new Date(iso);
   const BEFORE = at('2098-12-31T23:00:00.000Z');
   const AFTER = at('2099-01-01T00:00:01.000Z');
-  const panel = () => screen.getByRole('status');
+  const panel = runBar;
 
   it('says what the reading will change to, so AWAITING is not mistaken for broken', async () => {
     const user = userEvent.setup();
@@ -592,7 +604,9 @@ describe('LiveRunConsole · refusals fail closed and say so calmly', () => {
     await issue(user);
 
     expect(await screen.findByText('LIVE RUNS PAUSED')).toBeInTheDocument();
-    expect(screen.getByRole('status').textContent).not.toMatch(/\d/);
+    for (const region of screen.getAllByRole('status')) {
+      expect(region.textContent).not.toMatch(/\d/);
+    }
   });
 
   it('states an unreadable gate as its own fact, not as being out of runs', async () => {
@@ -906,7 +920,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
     await issue(user);
 
-    const state = await screen.findByRole('status');
+    const state = await findRunBar();
     const endpoint = screen.getByRole('heading', { name: /point your agent here/i });
     const setup = screen.getByRole('region', { name: /register .* client/i });
     const following = Node.DOCUMENT_POSITION_FOLLOWING;
@@ -920,7 +934,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     await issue(user);
 
     const button = await screen.findByRole('button', { name: /end run and judge/i });
-    expect(dock()).toContainElement(screen.getByRole('status'));
+    expect(dock()).toContainElement(runBar());
     expect(dock()).toContainElement(button);
     // Pinned below the 72px header at EVERY width, by class: sticky with a top
     // offset, and no breakpoint prefix that would switch it off on a phone.
@@ -935,11 +949,11 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     const user = userEvent.setup();
     const { container } = render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
     await issue(user);
-    await screen.findByRole('status');
+    await findRunBar();
 
     // A sticky element only travels as far as its parent does. Nested inside its
     // own section it would un-pin the moment that section scrolled away.
-    expect(dock().parentElement).toBe(container.firstElementChild);
+    expect(dock().parentElement).toBe(container.querySelector('.panel-in'));
     expect(container.firstElementChild).toContainElement(
       screen.getByRole('heading', { name: /give your agent its task/i }),
     );
@@ -951,7 +965,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     await issue(user);
     await screen.findByText('AGENT CONNECTED');
 
-    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(within(dock()).getAllByRole('status')).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: /end run and judge/i })).toHaveLength(1);
     expect(screen.getAllByText('AGENT CONNECTED', { selector: 'span' })).toHaveLength(1);
   });
@@ -1096,9 +1110,9 @@ describe('LiveRunConsole · audit fixes', () => {
     const user = userEvent.setup();
     const { container } = render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
     await issue(user);
-    await screen.findByRole('status');
+    await findRunBar();
 
-    expect(container.firstElementChild?.className).toMatch(
+    expect(container.querySelector('.panel-in')?.className).toMatch(
       /\[&_:is\(a,button,\[tabindex\]\)\]:scroll-mt-/,
     );
   });
@@ -1107,7 +1121,8 @@ describe('LiveRunConsole · audit fixes', () => {
     const port = portWith({ reattach: vi.fn(() => new Promise<never>(() => {})) });
     render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('REOPENING RUN');
+    expect(screen.getByTestId('live-reopening')).toHaveAttribute('role', 'status');
+    expect(screen.getByTestId('live-reopening')).toHaveTextContent('REOPENING RUN');
   });
 
   it('stops asking for a saved result once the window has passed, even if every ask fails', async () => {
@@ -1180,7 +1195,7 @@ describe('LiveRunConsole · the selection and the issued run can disagree, and t
     expect(notice()).toHaveTextContent(/task goal/i);
     // A status the reader has to notice, so it is announced, and it is a
     // neutral fact: nothing is wrong, and nothing here is a breach.
-    expect(notice()).toHaveAttribute('role', 'status');
+    expect(notice()?.closest('[role="status"]')).not.toBeNull();
     expect(notice()?.className ?? '').not.toMatch(/breach/);
     // The run on screen is untouched: same goal, and nothing new was issued.
     expect(screen.getByText(TICKET.taskGoal)).toBeInTheDocument();
@@ -1393,7 +1408,7 @@ describe('LiveRunConsole · a finished run can be followed by another without a 
  */
 describe('LiveRunConsole · the sentence under the bar agrees with the bar', () => {
   const live = /your agent is calling tools/i;
-  const bar = () => screen.getByRole('status');
+  const bar = runBar;
 
   it('still says the agent is calling tools while it is connected', async () => {
     const user = userEvent.setup();
@@ -1440,5 +1455,109 @@ describe('LiveRunConsole · the sentence under the bar agrees with the bar', () 
     expect(await within(bar()).findByText('RUN FINISHED')).toBeInTheDocument();
     expect(detail()).not.toHaveTextContent(live);
     expect(detail()).toHaveTextContent(/is being judged/i);
+  });
+});
+
+/**
+ * A LIVE REGION HAS TO EXIST BEFORE ITS TEXT DOES. A status region that mounts
+ * already holding its sentence is announced by some screen readers and silently
+ * skipped by others: what they watch is a change to a region they already know
+ * about. So each notice's region is rendered empty first and its content is
+ * written into that same node afterwards.
+ *
+ * The proof is in the DOM mutations, not in a screen reader. React builds a new
+ * subtree off-document and inserts it whole, so a region that mounted with its
+ * text produces no mutation whose target is the region itself. A mutation that
+ * adds nodes INTO the region can only mean it was already there, empty.
+ */
+function watchInsertions() {
+  const records: MutationRecord[] = [];
+  const observer = new MutationObserver((batch) => records.push(...batch));
+  observer.observe(document.body, { childList: true, subtree: true });
+  return {
+    /** Whether content was added into this existing node. */
+    insertedInto(el: Element) {
+      records.push(...observer.takeRecords());
+      return records.some((r) => r.target === el && r.addedNodes.length > 0);
+    },
+    stop: () => observer.disconnect(),
+  };
+}
+
+describe('LiveRunConsole · notices are written into status regions that were already there', () => {
+  it('holds an empty refusal region before issue, and writes the refusal into it', async () => {
+    const user = userEvent.setup();
+    const watcher = watchInsertions();
+    render(
+      <LiveRunConsole
+        port={refusingPort(
+          'ALLOWANCE_EXHAUSTED',
+          'You have used the free live runs on this account.',
+        )}
+        category="ASI01"
+        signedIn
+      />,
+    );
+
+    const region = screen.getByTestId('live-refusal');
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toBeEmptyDOMElement();
+
+    await issue(user);
+
+    await waitFor(() => expect(region).toHaveTextContent('FREE LIVE RUNS USED'));
+    expect(screen.getByTestId('live-refusal')).toBe(region);
+    expect(region).toHaveTextContent('You have used the free live runs on this account.');
+    expect(watcher.insertedInto(region)).toBe(true);
+    watcher.stop();
+  });
+
+  it('mounts the reopening region empty, then writes REOPENING RUN into it', async () => {
+    const watcher = watchInsertions();
+    const port = portWith({ reattach: vi.fn(() => new Promise<never>(() => {})) });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
+
+    const region = await screen.findByTestId('live-reopening');
+    expect(region).toHaveAttribute('role', 'status');
+    await waitFor(() => expect(region).toHaveTextContent('REOPENING RUN'));
+    // Written into the region after it mounted, not mounted with it.
+    expect(watcher.insertedInto(region)).toBe(true);
+    watcher.stop();
+  });
+
+  it('holds an empty selection region on a matching run, and writes the mismatch into it', async () => {
+    const user = userEvent.setup();
+    const port = portWith();
+    const { rerender } = render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+    await findRunBar();
+
+    const region = screen.getByTestId('live-selection');
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toBeEmptyDOMElement();
+
+    const watcher = watchInsertions();
+    rerender(<LiveRunConsole port={port} category="ASI05" signedIn />);
+
+    await waitFor(() => expect(region).toHaveTextContent(/this run serves ASI01/i));
+    expect(screen.getByTestId('live-selection')).toBe(region);
+    expect(watcher.insertedInto(region)).toBe(true);
+    watcher.stop();
+  });
+
+  it('empties a region again when its notice no longer applies, and keeps the node', async () => {
+    const user = userEvent.setup();
+    const port = portWith();
+    const { rerender } = render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+    await findRunBar();
+    const region = screen.getByTestId('live-selection');
+
+    rerender(<LiveRunConsole port={port} category="ASI05" signedIn />);
+    await waitFor(() => expect(region).toHaveTextContent(/this run serves/i));
+    rerender(<LiveRunConsole port={port} category="ASI01" signedIn />);
+
+    await waitFor(() => expect(region).toBeEmptyDOMElement());
+    expect(screen.getByTestId('live-selection')).toBe(region);
   });
 });
