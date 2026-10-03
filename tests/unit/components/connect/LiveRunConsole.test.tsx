@@ -1383,3 +1383,62 @@ describe('LiveRunConsole · a finished run can be followed by another without a 
     expect(within(dock()).getByRole('button', fresh)).toBeVisible();
   });
 });
+
+/**
+ * THE SENTENCE UNDER THE BAR FOLLOWS THE SAME PHASE AS THE BAR. Polling stops the
+ * moment a run is done, so the last status read on a run this page ended is
+ * still `connected`. The bar already took its phase from the finish answer; the
+ * sentence used to take it from that stale read, and said the agent was still
+ * calling tools beside RUN FINISHED.
+ */
+describe('LiveRunConsole · the sentence under the bar agrees with the bar', () => {
+  const live = /your agent is calling tools/i;
+  const bar = () => screen.getByRole('status');
+
+  it('still says the agent is calling tools while it is connected', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3 })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+
+    expect(await within(bar()).findByText('AGENT CONNECTED')).toBeInTheDocument();
+    expect(detail()).toHaveTextContent(live);
+  });
+
+  it('says the run is ended and saved once this page has judged it', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3 })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    expect(await within(bar()).findByText('RUN FINISHED')).toBeInTheDocument();
+    expect(detail()).not.toHaveTextContent(live);
+    expect(detail()).toHaveTextContent(/ended, judged and saved/i);
+  });
+
+  it('says the run is being judged when the server reads it ended mid-judgement', async () => {
+    const user = userEvent.setup();
+    let ended = false;
+    const port = portWith({
+      readState: vi.fn(async () =>
+        statusOf({ phase: ended ? 'finished' : 'connected', toolCalls: 3 }),
+      ),
+      finish: vi.fn(() => {
+        ended = true;
+        return new Promise<never>(() => undefined);
+      }),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn pollIntervalMs={10} />);
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    expect(await within(bar()).findByText('RUN FINISHED')).toBeInTheDocument();
+    expect(detail()).not.toHaveTextContent(live);
+    expect(detail()).toHaveTextContent(/is being judged/i);
+  });
+});
