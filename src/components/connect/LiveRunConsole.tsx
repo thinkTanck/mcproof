@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
@@ -432,18 +432,43 @@ export function LiveRunConsole({
   }, [port, runId, done, pollIntervalMs, now, expiresAt]);
 
   if (!signedIn) return <SignInGate />;
-  if (refusal !== null) return <Refusal refusal={refusal} onRetry={issue} />;
+
+  // The refusal and reopening notices are written into regions that every
+  // signed-in branch below renders in the same place, so they stay mounted while
+  // the branches change around them. See `LiveNotice`.
+  const reopening = refusal === null && run === null && wantsReattach;
+  const withNotices = (body: ReactNode) => (
+    <>
+      <LiveNotice
+        testId="live-refusal"
+        show={refusal !== null}
+        className="mb-4 flex flex-col gap-2 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4"
+      >
+        {refusal !== null && <RefusalText refusal={refusal} />}
+      </LiveNotice>
+      <LiveNotice
+        testId="live-reopening"
+        show={reopening}
+        className="rounded-lg border border-line bg-panel/60 px-5 py-4"
+      >
+        <ReopeningText />
+      </LiveNotice>
+      {body}
+    </>
+  );
+
+  if (refusal !== null) return withNotices(<Refusal refusal={refusal} onRetry={issue} />);
   if (run === null) {
-    if (wantsReattach) return <Reopening />;
+    if (wantsReattach) return withNotices(null);
     const reattachRefusal =
       reattachOutcome !== null && reattachOutcome.runId === reattachRunId
         ? reattachOutcome.refusal
         : null;
-    return (
+    return withNotices(
       <div className="flex flex-col gap-5">
         {reattachRefusal !== null && <ReattachRefused refusal={reattachRefusal} />}
         <BeforeIssue onIssue={issue} issuing={issuing} kind={kind} />
-      </div>
+      </div>,
     );
   }
 
@@ -469,7 +494,7 @@ export function LiveRunConsole({
   // The one piece of motion on this screen: the issued run eases in, once,
   // because the user just asked for it. Transform and opacity only, and
   // `prefers-reduced-motion` resolves it to the resting state (globals.css).
-  return (
+  return withNotices(
     // The scroll margin is the other half of pinning the bar. A control focused
     // by keyboard while the page is scrolled is brought to the top edge, which
     // is exactly where the header and the bar sit, so without it the focused
@@ -499,7 +524,11 @@ export function LiveRunConsole({
         finishing={finishing}
         onFinish={finish}
       />
-      {(run.category !== category || run.kind !== kind) && (
+      <LiveNotice
+        testId="live-selection"
+        show={run.category !== category || run.kind !== kind}
+        className="rounded-lg border border-line-em bg-panel/60 px-5 py-4"
+      >
         <SelectionNotice
           run={run}
           category={category}
@@ -510,7 +539,7 @@ export function LiveRunConsole({
           canRelease={!lapsed && !reattached && phase === 'waiting'}
           onRelease={release}
         />
-      )}
+      </LiveNotice>
       <Endpoint run={run} />
       {/* THE HOW. The three sections around it say what the run is, what the
           agent's job is and what we have seen; this one is the only place that
@@ -521,7 +550,7 @@ export function LiveRunConsole({
           work, which is worse than no command. */}
       {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
       <TaskGoal run={run} />
-    </div>
+    </div>,
   );
 }
 
@@ -590,16 +619,67 @@ function BeforeIssue({
   );
 }
 
+// ── Notices, announced ──
+
+/**
+ * A STATUS REGION THAT EXISTS BEFORE ITS TEXT DOES.
+ *
+ * Each notice on this console used to be a `role="status"` box that mounted
+ * already holding its sentence. Some screen readers announce that; others watch
+ * only for changes to a region they already know about, and say nothing. So the
+ * region is rendered on every pass, EMPTY for its first commit whatever `show`
+ * says, and the notice is written into that same node afterwards.
+ *
+ * While there is nothing to say it is visually hidden rather than removed or
+ * `display: none`, either of which would take it out of the accessibility tree
+ * and turn the next notice back into an insertion. `sr-only` also positions it
+ * absolutely, so an idle region adds no gap to the flex column around it.
+ *
+ * The box styling moves onto the region itself, so a notice is announced once
+ * and read once, with no hidden duplicate beside it.
+ */
+function LiveNotice({
+  testId,
+  show,
+  className,
+  children,
+}: {
+  testId: string;
+  show: boolean;
+  /** The notice's box, applied only while it is showing. */
+  className: string;
+  children: ReactNode;
+}) {
+  // A region that mounts with nothing to say is ready at once: it commits empty
+  // anyway, and a later notice is written into it with no delay. Only a region
+  // that would mount already showing (a reopening run, or a run reopened under
+  // a different selection) holds its notice back one frame. setState runs only
+  // inside the rAF callback, so this never trips react-hooks/set-state-in-effect
+  // (the same pattern as the replay terminal).
+  const [ready, setReady] = useState(!show);
+  useEffect(() => {
+    if (ready) return;
+    const raf = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, [ready]);
+  const on = ready && show;
+  return (
+    <div role="status" data-testid={testId} className={on ? className : 'sr-only'}>
+      {on ? children : null}
+    </div>
+  );
+}
+
 // ── Reattach in flight, and reattach refused ──
 
-function Reopening() {
+function ReopeningText() {
   return (
-    <div role="status" className="rounded-lg border border-line bg-panel/60 px-5 py-4">
+    <>
       <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
         REOPENING RUN
       </p>
       <p className="reading mt-1.5 max-w-[68ch]">We are reading this run back from the server.</p>
-    </div>
+    </>
   );
 }
 
@@ -647,12 +727,9 @@ function SelectionNotice({
   canRelease: boolean;
   onRelease: () => void;
 }) {
+  // The box and the status role live on the region around this (`LiveNotice`).
   return (
-    <div
-      role="status"
-      data-testid="run-selection-notice"
-      className="flex flex-col gap-2 rounded-lg border border-line-em bg-panel/60 px-5 py-4"
-    >
+    <div data-testid="run-selection-notice" className="flex flex-col gap-2">
       <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
         SELECTION DIFFERS FROM THIS RUN
       </p>
@@ -1015,16 +1092,20 @@ function Connection({
 
 // ── Refusal ──
 
+/** What a refusal says. Written into the persistent refusal region (`LiveNotice`). */
+function RefusalText({ refusal }: { refusal: LiveRunRefusal }) {
+  return (
+    <>
+      <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
+      <p className="reading max-w-[68ch]">{refusal.message}</p>
+    </>
+  );
+}
+
+/** The ways on from a refusal. The refusal itself is announced above it. */
 function Refusal({ refusal, onRetry }: { refusal: LiveRunRefusal; onRetry: () => void }) {
   return (
     <div className="flex flex-col gap-4">
-      <div
-        role="status"
-        className="flex flex-col gap-2 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4"
-      >
-        <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
-        <p className="reading max-w-[68ch]">{refusal.message}</p>
-      </div>
       <div className="flex flex-wrap items-center gap-4">
         <Link
           href="/runs/sample"

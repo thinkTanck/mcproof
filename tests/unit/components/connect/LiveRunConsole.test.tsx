@@ -718,7 +718,9 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     expect(screen.getByText(REATTACH.promptName)).toBeVisible();
     // The run's own category, not the one the picker happens to be on. It is
     // named twice now: on the SERVING line, and in the notice that says the
-    // picker and the run disagree.
+    // picker and the run disagree. That notice mounts already showing, so it is
+    // written one frame after its region (see the live-region suite) and waited for.
+    await screen.findByTestId('run-selection-notice');
     const named = screen.getAllByText('ASI01');
     expect(named).toHaveLength(2);
     for (const el of named) expect(el).toBeVisible();
@@ -954,7 +956,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     // A sticky element only travels as far as its parent does. Nested inside its
     // own section it would un-pin the moment that section scrolled away.
     expect(dock().parentElement).toBe(container.querySelector('.panel-in'));
-    expect(container.firstElementChild).toContainElement(
+    expect(container.querySelector('.panel-in')).toContainElement(
       screen.getByRole('heading', { name: /give your agent its task/i }),
     );
   });
@@ -1117,12 +1119,15 @@ describe('LiveRunConsole · audit fixes', () => {
     );
   });
 
-  it('announces that a run is being reopened', () => {
+  it('announces that a run is being reopened', async () => {
     const port = portWith({ reattach: vi.fn(() => new Promise<never>(() => {})) });
     render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
 
     expect(screen.getByTestId('live-reopening')).toHaveAttribute('role', 'status');
-    expect(screen.getByTestId('live-reopening')).toHaveTextContent('REOPENING RUN');
+    // Written one frame after the region mounts, so it is waited for.
+    await waitFor(() =>
+      expect(screen.getByTestId('live-reopening')).toHaveTextContent('REOPENING RUN'),
+    );
   });
 
   it('stops asking for a saved result once the window has passed, even if every ask fails', async () => {
