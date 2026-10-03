@@ -473,9 +473,11 @@ export function LiveRunConsole({
     // The scroll margin is the other half of pinning the bar. A control focused
     // by keyboard while the page is scrolled is brought to the top edge, which
     // is exactly where the header and the bar sit, so without it the focused
-    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 14rem clears
-    // the header plus the bar at its tallest ordinary height.
-    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-56">
+    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 18rem clears
+    // the header plus the bar at its tallest: a finished run on a 360px phone,
+    // where OPEN THE REPLAY and ISSUE A FRESH RUN stack and the bar ends at 269px
+    // (measured). The 14rem it replaced was sized before that second control.
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-72">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
