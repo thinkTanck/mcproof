@@ -2,5 +2,15 @@
   "high": true,
   "critical": true,
   "report-type": "important",
-  "allowlist": ["GHSA-jmr9-qjv8-65gv", "GHSA-7pqw-9j4j-h8q3"]
+  "allowlist": [
+    "GHSA-jmr9-qjv8-65gv",
+    "GHSA-7pqw-9j4j-h8q3",
+    {
+      "GHSA-vfj7-8cjw-p6xm": {
+        "active": true,
+        "notes": "braces <=3.0.3 stack-exhaustion DoS. Added 2026-10-03. No patched version exists: the advisory lists none and 3.0.3 is the latest release, so no override can reach a fix. Dev-only, via eslint-config-next > @next/eslint-plugin-next > fast-glob > micromatch > braces; npm ls braces --omit=dev is empty. Review 2026-11-02: the entry expires then and the gate fails again until it is re-decided. Drop it once braces publishes a release above 3.0.3.",
+        "expiry": "2026-11-02"
+      }
+    }
+  ]
 }
