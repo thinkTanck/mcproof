@@ -459,6 +459,12 @@ export function LiveRunConsole({
         : lookup === 'unreadable'
           ? 'unknown'
           : lookup;
+  // Whether everything this page will learn about the result is in. Until it
+  // is, letting the run go would throw away the only route to its replay link.
+  const settled =
+    summary !== null || storedRunId !== undefined || lookup === 'none' || lookup === 'unreadable';
+  const phase: LiveRunPhase | null = summary !== null ? 'finished' : (status?.phase ?? null);
+  const lapsed = expired && phase !== 'finished';
 
   // The one piece of motion on this screen: the issued run eases in, once,
   // because the user just asked for it. Transform and opacity only, and
@@ -482,6 +488,7 @@ export function LiveRunConsole({
         reattached={reattached}
         replayRunId={replayRunId}
         result={result}
+        settled={settled}
         onRelease={release}
         status={status}
         statusRefusal={statusRefusal}
@@ -490,6 +497,18 @@ export function LiveRunConsole({
         finishing={finishing}
         onFinish={finish}
       />
+      {(run.category !== category || run.kind !== kind) && (
+        <SelectionNotice
+          run={run}
+          category={category}
+          kind={kind}
+          phase={lapsed ? null : phase}
+          // Only a run nobody has reached, that this page can still register, is
+          // offered up here. Every other state already has its own way on.
+          canRelease={!lapsed && !reattached && phase === 'waiting'}
+          onRelease={release}
+        />
+      )}
       <Endpoint run={run} />
       {/* THE HOW. The three sections around it say what the run is, what the
           agent's job is and what we have seen; this one is the only place that
@@ -595,6 +614,87 @@ function ReattachRefused({ refusal }: { refusal: LiveRunRefusal }) {
   );
 }
 
+// ── The picker and the issued run disagree ──
+
+/**
+ * THE GOAL IS NOT STUCK, AND THE SCREEN HAS TO SAY SO. The endpoint, the token
+ * and the task goal belong to the run that was issued; the category and run-type
+ * pickers above only decide what the NEXT run serves. Change a picker with a run
+ * open and the two disagree, and the only cue used to be the small SERVING line.
+ *
+ * A notice, not disabled radios: this screen has no disabled controls at all
+ * (see `finish`), and a greyed picker would also stop the reader lining up the
+ * next run while this one finishes.
+ *
+ * It is the neutral fourth state, never caution and never red. Nothing is wrong
+ * and nothing was breached; two true facts simply differ.
+ */
+function SelectionNotice({
+  run,
+  category,
+  kind,
+  phase,
+  canRelease,
+  onRelease,
+}: {
+  run: ActiveRun;
+  category: Category;
+  kind: VariantKind;
+  /** The live phase, or `null` when it is unread or the run has expired. */
+  phase: LiveRunPhase | null;
+  canRelease: boolean;
+  onRelease: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      data-testid="run-selection-notice"
+      className="flex flex-col gap-2 rounded-lg border border-line-em bg-panel/60 px-5 py-4"
+    >
+      <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
+        SELECTION DIFFERS FROM THIS RUN
+      </p>
+      <p className="reading max-w-[68ch]">
+        This run serves <span className="readout">{run.category}</span> (
+        <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>). You now have{' '}
+        <span className="readout">{category}</span> (
+        <span className="readout">{RUN_TYPE_LABEL[kind]}</span>) selected above. The endpoint, the
+        token and the task goal on this page belong to the run that was issued, and a new selection
+        only takes effect on the next run you issue.
+      </p>
+      <p className="reading max-w-[68ch] text-ink-muted">
+        {canRelease
+          ? 'No agent has connected to this run, so you can let it go and issue one for the new ' +
+            'selection. This run is left to expire.'
+          : phase === 'connected'
+            ? 'End this run first, then issue a new one for the new selection.'
+            : 'Issue a fresh run to use the new selection.'}
+      </p>
+      {canRelease && (
+        <div>
+          <FreshRunButton onRelease={onRelease} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one way back to the issue control from a run that is on screen. It lets
+ * the run go and ends nothing; the next click issues for whatever is selected.
+ */
+function FreshRunButton({ onRelease }: { onRelease: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRelease}
+      className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+    >
+      ISSUE A FRESH RUN
+    </button>
+  );
+}
+
 // ── The issued run ──
 
 function Endpoint({ run }: { run: ActiveRun }) {
@@ -694,6 +794,7 @@ function Connection({
   reattached,
   replayRunId,
   result,
+  settled,
   onRelease,
   status,
   statusRefusal,
@@ -702,6 +803,12 @@ function Connection({
   finishing,
   onFinish,
 }: {
+  /**
+   * Whether everything this page will learn about the result is in: a saved
+   * result, a settled "none", or a lookup that gave up. Until then a finished
+   * run is not offered a fresh one, because letting it go drops the replay link.
+   */
+  settled: boolean;
   /** The ticket's expiry, printed as issued. Evidence, never reformatted. */
   expiresAt: string;
   /** Whether the clock had passed that expiry at the last poll. */
@@ -739,6 +846,9 @@ function Connection({
   // the token it needs was shown once and is gone. Say so and offer the one
   // thing that works. A connected run is never offered this, it is still live.
   const stranded = reattached && phase === 'waiting';
+  // A finished run has nothing left to do here but hand off, and the next run
+  // should not need a reload. Offered only once the result is settled.
+  const canRestart = phase === 'finished' && !finishing && settled;
 
   return (
     <>
@@ -804,6 +914,7 @@ function Connection({
               OPEN THE REPLAY
             </Link>
           )}
+          {canRestart && <FreshRunButton onRelease={onRelease} />}
         </div>
         {/* A refused finish is shown HERE, beside the control that was pressed.
             The reader may be scrolled far down the setup when they press it, and
@@ -875,22 +986,21 @@ function Connection({
             one step; a clean run comes back as a clean run. Both are saved and both are results.
           </p>
         )}
-        {stranded && (
+        {/* ONE control for both dead ends. A run that expired tells the reader to
+            issue a new one in the sentence at the top of this block, and used to
+            draw the control only when it had also been reopened. */}
+        {(stranded || lapsed) && (
           <div className="flex flex-col gap-2.5">
-            <p className="reading max-w-[68ch]">
-              This run was reopened without its token, and no agent has connected to it. If your
-              client was not set up before this page was reloaded, the run cannot be registered with
-              a client now, because we cannot show the token again. Issue a fresh run to get a new
-              endpoint and token. This one is left to expire.
-            </p>
+            {stranded && (
+              <p className="reading max-w-[68ch]">
+                This run was reopened without its token, and no agent has connected to it. If your
+                client was not set up before this page was reloaded, the run cannot be registered
+                with a client now, because we cannot show the token again. Issue a fresh run to get
+                a new endpoint and token. This one is left to expire.
+              </p>
+            )}
             <div>
-              <button
-                type="button"
-                onClick={onRelease}
-                className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
-              >
-                ISSUE A FRESH RUN
-              </button>
+              <FreshRunButton onRelease={onRelease} />
             </div>
           </div>
         )}

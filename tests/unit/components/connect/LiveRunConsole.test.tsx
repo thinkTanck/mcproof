@@ -702,8 +702,13 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     await screen.findByText('AGENT CONNECTED');
     expect(screen.getByText(REATTACH.endpoint)).toBeVisible();
     expect(screen.getByText(REATTACH.promptName)).toBeVisible();
-    // The run's own category, not the one the picker happens to be on.
-    expect(screen.getByText('ASI01')).toBeVisible();
+    // The run's own category, not the one the picker happens to be on. It is
+    // named twice now: on the SERVING line, and in the notice that says the
+    // picker and the run disagree.
+    const named = screen.getAllByText('ASI01');
+    expect(named).toHaveLength(2);
+    for (const el of named) expect(el).toBeVisible();
+    expect(screen.getByTestId('run-selection-notice')).toHaveTextContent('ASI05');
   });
 
   it('shows no token and no client setup, and says why', async () => {
