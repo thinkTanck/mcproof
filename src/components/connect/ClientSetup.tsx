@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { MCP_SERVER_NAME, addJsonCommand, desktopConfig, vsCodeConfig } from '@/lib/mcp/config';
+import { MCP_SERVER_NAME, desktopConfig, vsCodeConfig } from '@/lib/mcp/config';
 import { CopyOut } from './CopyOut';
 import type { LiveRunTicketView } from './live-run-port';
 
@@ -30,8 +30,10 @@ import type { LiveRunTicketView } from './live-run-port';
  *    which was wrong). What differs is the shell: `add-json` passes JSON in single
  *    quotes, and Windows PowerShell strips the double quotes inside it before the
  *    program sees them, so the command fails there. `--transport http` with a
- *    `--header` carries no JSON and works everywhere. So the two are labelled by
- *    shell, and the PowerShell reader is told which one to use.
+ *    `--header` carries no JSON and works everywhere. So `add-json` is not offered
+ *    at all: every command left on this screen is byte-for-byte the same in bash
+ *    and in PowerShell, and its label says so, so neither reader has to wonder
+ *    whether a command is for them.
  *
  * 3. THE TOKEN IS COPYABLE WITHOUT BEING VISIBLE. A working command has to carry
  *    the credential, and a credential rendered inside a code block undoes the
@@ -89,8 +91,8 @@ const TOKEN_MASK = '•'.repeat(16);
 
 /**
  * `claude mcp add --transport http`: the Claude Code form that carries no JSON,
- * so it survives every shell, Windows PowerShell included. The `add-json`
- * command and the config files are built by the shared config module
+ * so it survives every shell, Windows PowerShell included. It is the Code panel
+ * route's registration command. The config files are built by the shared config module
  * (`@/lib/mcp/config`), which owns the server name and the config shape; this form
  * builds no server config of its own, so it stays here, named from the same
  * shared constant.
@@ -199,6 +201,12 @@ function Step({ children, snippets }: { children: ReactNode; snippets?: ReactNod
   );
 }
 
+/** A numbered list of steps. Real numerals, kept as list semantics. */
+const STEP_LIST = 'max-w-[72ch] list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal';
+
+/** The snippet label for a command that is the same in both shells (rule 2). */
+const BOTH_SHELLS = 'BASH AND POWERSHELL';
+
 /**
  * The shape every tab has, and the only shape a tab may have (rule 6): one line
  * of intro, the numbered steps, the caveats. `list-decimal` keeps real numerals
@@ -207,18 +215,29 @@ function Step({ children, snippets }: { children: ReactNode; snippets?: ReactNod
 function ClientSteps({
   intro,
   children,
+  route,
   caveats,
 }: {
   intro: ReactNode;
   children: ReactNode;
+  /**
+   * A second, separately labelled route through the same client, when one
+   * surface of it cannot take the main steps. Numbered on its own, so the two
+   * routes never blur into one list.
+   */
+  route?: { label: string; steps: ReactNode };
   caveats: ReactNode[];
 }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="reading max-w-[68ch]">{intro}</p>
-      <ol className="max-w-[72ch] list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal">
-        {children}
-      </ol>
+      <ol className={STEP_LIST}>{children}</ol>
+      {route && (
+        <div>
+          <p className="micro-label">{route.label}</p>
+          <ol className={cn(STEP_LIST, 'mt-3')}>{route.steps}</ol>
+        </div>
+      )}
       <div>
         <p className="micro-label">KEEP IN MIND</p>
         <ul className="mt-2 max-w-[68ch] list-disc space-y-1.5 pl-6 marker:text-ink-faint">
@@ -315,14 +334,41 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
 function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
   return (
     <ClientSteps
-      intro="For Claude Code in a terminal, or in the Code panel of the Claude desktop app. Both use the same steps."
+      intro="For Claude Code in a terminal. The Code panel of the Claude desktop app has no launch command to add flags to, so it takes its own route, below."
+      route={{
+        label: 'CODE PANEL ROUTE',
+        steps: (
+          <>
+            <Step
+              snippets={
+                <Snippet
+                  label={BOTH_SHELLS}
+                  name="Claude Code transport command"
+                  build={addTransportCommand}
+                  ticket={ticket}
+                />
+              }
+            >
+              Register the endpoint once from a terminal. The command is the same in bash and in
+              PowerShell.
+            </Step>
+            <Step>
+              Open a new session in the Code panel and type <Code>/mcp</Code>. Switch off every
+              server it lists except <Code>{MCP_SERVER_NAME}</Code>.
+            </Step>
+            <Step>
+              Paste the task goal from the next section, or fetch the published prompt named there.
+            </Step>
+          </>
+        ),
+      }}
       caveats={[
         'The token is shown once. Every command here carries it, so copy what you need before you leave this page.',
         <>
           Keep the attack run away from your real tools. A plain <Code>claude</Code> loads every
           other server you have alongside this one.
         </>,
-        'The PowerShell form echoes the token back in the confirmation your shell prints. Keep that output off a shared terminal and out of an issue report.',
+        'The Code panel route echoes the token back in the confirmation your shell prints. Keep that output off a shared terminal and out of an issue report.',
         'No flag covers tools built into the client itself, a browser extension for example. Disable those yourself for a clean run.',
         <>
           If the server does not connect, <Code>claude mcp get {MCP_SERVER_NAME}</Code> prints the
@@ -330,27 +376,6 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
         </>,
       ]}
     >
-      <Step
-        snippets={
-          <>
-            <Snippet
-              label="MACOS / LINUX / BASH"
-              name="Claude Code add-json command"
-              build={addJsonCommand}
-              ticket={ticket}
-            />
-            <Snippet
-              label="WINDOWS / POWERSHELL: USE THIS ONE"
-              name="Claude Code transport command"
-              build={addTransportCommand}
-              ticket={ticket}
-            />
-          </>
-        }
-      >
-        Register the endpoint with the command for your shell. Windows PowerShell strips the quotes
-        inside the JSON, so the first form fails there with an <Code>Invalid input</Code> error.
-      </Step>
       <Step
         snippets={
           <Snippet
@@ -367,15 +392,15 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
       <Step
         snippets={
           <CopyOut
-            label="ISOLATED LAUNCH"
+            label={`ISOLATED LAUNCH · ${BOTH_SHELLS}`}
             name="isolated launch command"
             tone="code"
             value={ISOLATED_LAUNCH_COMMAND}
           />
         }
       >
-        Start Claude Code with the isolated launch. In the Code panel, where there is no launch
-        command to add flags to, open a new session and go to the next step.
+        Start Claude Code with only that file&apos;s server loaded. The command is the same in bash
+        and in PowerShell.
       </Step>
       <Step>
         Type <Code>/mcp</Code> in the session. It should list <Code>{MCP_SERVER_NAME}</Code> and
