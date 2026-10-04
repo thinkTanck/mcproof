@@ -498,11 +498,13 @@ export function LiveRunConsole({
     // The scroll margin is the other half of pinning the bar. A control focused
     // by keyboard while the page is scrolled is brought to the top edge, which
     // is exactly where the header and the bar sit, so without it the focused
-    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 18rem clears
-    // the header plus the bar at its tallest: a finished run on a 360px phone,
-    // where OPEN THE REPLAY and ISSUE A FRESH RUN stack and the bar ends at 269px
-    // (measured). The 14rem it replaced was sized before that second control.
-    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-72">
+    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 15rem (240px)
+    // clears the bar pinned at 80px at its tallest, measured in every state at
+    // 1280, 390 and 360: 134px, a connected run on a phone with END RUN AND JUDGE
+    // wrapped under the status, ending at 214px, plus a 26px buffer. It was 18rem
+    // while the finished pair stacked on phones (#173); re-measure if the bar
+    // grows again (tests/e2e/connect-run-bar.spec.ts walks focus in every state).
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-60">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
@@ -762,14 +764,37 @@ function SelectionNotice({
  * The one way back to the issue control from a run that is on screen. It lets
  * the run go and ends nothing; the next click issues for whatever is selected.
  */
-function FreshRunButton({ onRelease }: { onRelease: () => void }) {
+function FreshRunButton({
+  onRelease,
+  compact = false,
+}: {
+  onRelease: () => void;
+  /**
+   * The pinned bar's copy: tighter padding and the visible label NEW RUN below
+   * `sm`, so it fits beside OPEN THE REPLAY on a phone. Its accessible name
+   * contains the visible label at every width (WCAG 2.5.3): NEW RUN on a phone,
+   * ISSUE A FRESH RUN from `sm` up.
+   */
+  compact?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onRelease}
-      className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+      aria-label={compact ? 'New run: issue a fresh run' : undefined}
+      className={cn(
+        'inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-line-em py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout',
+        compact ? 'px-3 sm:px-5' : 'px-5',
+      )}
     >
-      ISSUE A FRESH RUN
+      {compact ? (
+        <>
+          <span className="sm:hidden">NEW RUN</span>
+          <span className="hidden sm:inline">ISSUE A FRESH RUN</span>
+        </>
+      ) : (
+        'ISSUE A FRESH RUN'
+      )}
     </button>
   );
 }
@@ -985,15 +1010,27 @@ function Connection({
               {finishing ? 'JUDGING' : 'END RUN AND JUDGE'}
             </button>
           )}
-          {replayRunId !== undefined && (
-            <Link
-              href={`/runs/${replayRunId}`}
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 leading-6"
-            >
-              OPEN THE REPLAY
-            </Link>
+          {/* THE FINISHED PAIR, ONE ROW AT EVERY WIDTH (#173). Stacked on a phone
+              they made the pinned bar 169px tall. Below `sm` the padding drops to
+              px-3 and the labels shorten to REPLAY and NEW RUN: the full pair needs
+              353px and the row has 270px at 360 and 300px at 390 (measured), while
+              the short pair needs 242px. Each accessible name contains its visible
+              label at every width (WCAG 2.5.3). The row never wraps. */}
+          {(replayRunId !== undefined || canRestart) && (
+            <div className="flex flex-nowrap items-center gap-3 sm:gap-5">
+              {replayRunId !== undefined && (
+                <Link
+                  href={`/runs/${replayRunId}`}
+                  aria-label="Open the replay"
+                  className="inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-nominal bg-nominal/10 px-3 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 sm:px-5"
+                >
+                  <span className="sm:hidden">REPLAY</span>
+                  <span className="hidden sm:inline">OPEN THE REPLAY</span>
+                </Link>
+              )}
+              {canRestart && <FreshRunButton onRelease={onRelease} compact />}
+            </div>
           )}
-          {canRestart && <FreshRunButton onRelease={onRelease} />}
         </div>
         {/* A refused finish is shown HERE, beside the control that was pressed.
             The reader may be scrolled far down the setup when they press it, and

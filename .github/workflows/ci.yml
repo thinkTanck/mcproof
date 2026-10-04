@@ -41,21 +41,18 @@ jobs:
       - name: Unit tests (coverage)
         run: npm run test:coverage
 
+      # TWO BUILDS. This first one is production-shaped: no fixture routes. It is
+      # proven clean against its own routes manifest, and it is the build the CWV
+      # gate measures, so Lighthouse never sees a fixture build.
       - name: Build
         run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: E2E + accessibility
-        run: npm run test:e2e
-
-      - name: Dependency audit
-        run: npm run audit
+      - name: Prove the build has no e2e fixture routes
+        run: npx tsx scripts/verify-no-e2e-routes.ts
 
       # The CWV gate runs in its own fan-out below. It measures THIS build, not a
-      # rebuild of the same commit, so the numbers belong to the artifact that
-      # passed the tests above. `.next/cache` is build scratch and is excluded.
+      # rebuild of the same commit, so the numbers belong to the artifact proven
+      # clean above. `.next/cache` is build scratch and is excluded.
       - name: Upload the built app for the CWV gate
         uses: actions/upload-artifact@v7
         with:
@@ -65,6 +62,26 @@ jobs:
             !.next/cache
           retention-days: 1
           include-hidden-files: true
+
+      # The second build adds the fixture routes (page.e2e.tsx) for the browser
+      # tests, and only for them. See src/config/e2e-fixtures.ts. The check after
+      # it proves the fixtures really are in it, so the clean check above cannot
+      # pass vacuously.
+      - name: Build with e2e fixture routes
+        run: npm run build && npx tsx scripts/verify-no-e2e-routes.ts --expect-present
+        env:
+          E2E_FIXTURES: '1'
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E + accessibility
+        run: npm run test:e2e
+        env:
+          E2E_FIXTURES: '1'
+
+      - name: Dependency audit
+        run: npm run audit
 
       - name: Upload Playwright report
         if: always()
