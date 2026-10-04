@@ -225,15 +225,23 @@ function ClientSteps({
    * surface of it cannot take the main steps. Numbered on its own, so the two
    * routes never blur into one list.
    */
-  route?: { label: string; steps: ReactNode };
+  route?: {
+    /** Names the main list, once there are two, so "step 1" is never ambiguous. */
+    mainLabel: string;
+    label: string;
+    steps: ReactNode;
+  };
   caveats: ReactNode[];
 }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="reading max-w-[68ch]">{intro}</p>
-      <ol className={STEP_LIST}>{children}</ol>
+      <div>
+        {route && <p className="micro-label">{route.mainLabel}</p>}
+        <ol className={cn(STEP_LIST, route && 'mt-3')}>{children}</ol>
+      </div>
       {route && (
-        <div>
+        <div className="mt-2">
           <p className="micro-label">{route.label}</p>
           <ol className={cn(STEP_LIST, 'mt-3')}>{route.steps}</ol>
         </div>
@@ -336,6 +344,7 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
     <ClientSteps
       intro="For Claude Code in a terminal. The Code panel of the Claude desktop app has no launch command to add flags to, so it takes its own route, below."
       route={{
+        mainLabel: 'TERMINAL ROUTE',
         label: 'CODE PANEL ROUTE',
         steps: (
           <>
@@ -392,7 +401,7 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
       <Step
         snippets={
           <CopyOut
-            label={`ISOLATED LAUNCH · ${BOTH_SHELLS}`}
+            label={BOTH_SHELLS}
             name="isolated launch command"
             tone="code"
             value={ISOLATED_LAUNCH_COMMAND}
