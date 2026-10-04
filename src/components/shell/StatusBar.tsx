@@ -37,12 +37,16 @@ export function StatusBar({
     // tightens its spacing instead of dropping anything: 12px padding, 8px gaps,
     // no empty spacer (the chip takes `ml-auto`), and a tighter logo and chip. That
     // fits at 360 with 9px to spare. From 420px up every value is unchanged.
-    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-2 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-3 backdrop-blur-[6px] min-[420px]:gap-4 min-[420px]:px-[18px]">
+    //
+    // 320px (WCAG 1.4.10 Reflow: a 1280px window at 400% zoom). The 360 spacing
+    // still needs 351px there, so below 360px there is one tighter tier, again
+    // spacing only: 4px padding and 4px gaps. That needs 315px, 5px to spare.
+    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-1 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-1 backdrop-blur-[6px] min-[360px]:gap-2 min-[360px]:px-3 min-[420px]:gap-4 min-[420px]:px-[18px]">
       <MobileDrawer pathname={pathname} />
       <Link
         href="/"
         aria-label="MCPwn home"
-        className="flex shrink-0 items-center gap-1.5 rounded-md min-[420px]:gap-2.5"
+        className="flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
       >
         <svg
           width="30"
