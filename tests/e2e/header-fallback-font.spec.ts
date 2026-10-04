@@ -13,6 +13,10 @@ import { suppressBootSplash } from './support/screen';
  * Blocking the font file pins the fallback, the worst case a first-time visitor
  * sees, the same way tests/e2e/connect-run-bar.spec.ts does. A warm cache can
  * only make the header narrower.
+ *
+ * 320x568 is the WCAG 1.4.10 Reflow case: a 1280px window at 400% zoom lays out
+ * at 320 CSS px, and content has to reflow there without a sideways scroll. In
+ * the fallback font the header needed 351px at that width, 31px too many.
  */
 
 const SCREENS: { name: string; path: string; shell: boolean }[] = [
@@ -35,6 +39,7 @@ async function openInFallbackFont(page: Page, path: string) {
 }
 
 for (const [width, height] of [
+  [320, 568],
   [360, 640],
   [375, 667],
 ] as const) {
