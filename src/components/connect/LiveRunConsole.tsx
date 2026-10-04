@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
@@ -432,18 +432,43 @@ export function LiveRunConsole({
   }, [port, runId, done, pollIntervalMs, now, expiresAt]);
 
   if (!signedIn) return <SignInGate />;
-  if (refusal !== null) return <Refusal refusal={refusal} onRetry={issue} />;
+
+  // The refusal and reopening notices are written into regions that every
+  // signed-in branch below renders in the same place, so they stay mounted while
+  // the branches change around them. See `LiveNotice`.
+  const reopening = refusal === null && run === null && wantsReattach;
+  const withNotices = (body: ReactNode) => (
+    <>
+      <LiveNotice
+        testId="live-refusal"
+        show={refusal !== null}
+        className="mb-4 flex flex-col gap-2 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4"
+      >
+        {refusal !== null && <RefusalText refusal={refusal} />}
+      </LiveNotice>
+      <LiveNotice
+        testId="live-reopening"
+        show={reopening}
+        className="rounded-lg border border-line bg-panel/60 px-5 py-4"
+      >
+        <ReopeningText />
+      </LiveNotice>
+      {body}
+    </>
+  );
+
+  if (refusal !== null) return withNotices(<Refusal refusal={refusal} onRetry={issue} />);
   if (run === null) {
-    if (wantsReattach) return <Reopening />;
+    if (wantsReattach) return withNotices(null);
     const reattachRefusal =
       reattachOutcome !== null && reattachOutcome.runId === reattachRunId
         ? reattachOutcome.refusal
         : null;
-    return (
+    return withNotices(
       <div className="flex flex-col gap-5">
         {reattachRefusal !== null && <ReattachRefused refusal={reattachRefusal} />}
         <BeforeIssue onIssue={issue} issuing={issuing} kind={kind} />
-      </div>
+      </div>,
     );
   }
 
@@ -459,17 +484,25 @@ export function LiveRunConsole({
         : lookup === 'unreadable'
           ? 'unknown'
           : lookup;
+  // Whether everything this page will learn about the result is in. Until it
+  // is, letting the run go would throw away the only route to its replay link.
+  const settled =
+    summary !== null || storedRunId !== undefined || lookup === 'none' || lookup === 'unreadable';
+  const phase: LiveRunPhase | null = summary !== null ? 'finished' : (status?.phase ?? null);
+  const lapsed = expired && phase !== 'finished';
 
   // The one piece of motion on this screen: the issued run eases in, once,
   // because the user just asked for it. Transform and opacity only, and
   // `prefers-reduced-motion` resolves it to the resting state (globals.css).
-  return (
+  return withNotices(
     // The scroll margin is the other half of pinning the bar. A control focused
     // by keyboard while the page is scrolled is brought to the top edge, which
     // is exactly where the header and the bar sit, so without it the focused
-    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 14rem clears
-    // the header plus the bar at its tallest ordinary height.
-    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-56">
+    // control could land wholly underneath them (WCAG 2.2, 2.4.11). 18rem clears
+    // the header plus the bar at its tallest: a finished run on a 360px phone,
+    // where OPEN THE REPLAY and ISSUE A FRESH RUN stack and the bar ends at 269px
+    // (measured). The 14rem it replaced was sized before that second control.
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-72">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
@@ -482,6 +515,7 @@ export function LiveRunConsole({
         reattached={reattached}
         replayRunId={replayRunId}
         result={result}
+        settled={settled}
         onRelease={release}
         status={status}
         statusRefusal={statusRefusal}
@@ -490,6 +524,22 @@ export function LiveRunConsole({
         finishing={finishing}
         onFinish={finish}
       />
+      <LiveNotice
+        testId="live-selection"
+        show={run.category !== category || run.kind !== kind}
+        className="rounded-lg border border-line-em bg-panel/60 px-5 py-4"
+      >
+        <SelectionNotice
+          run={run}
+          category={category}
+          kind={kind}
+          phase={lapsed ? null : phase}
+          // Only a run nobody has reached, that this page can still register, is
+          // offered up here. Every other state already has its own way on.
+          canRelease={!lapsed && !reattached && phase === 'waiting'}
+          onRelease={release}
+        />
+      </LiveNotice>
       <Endpoint run={run} />
       {/* THE HOW. The three sections around it say what the run is, what the
           agent's job is and what we have seen; this one is the only place that
@@ -500,7 +550,7 @@ export function LiveRunConsole({
           work, which is worse than no command. */}
       {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
       <TaskGoal run={run} />
-    </div>
+    </div>,
   );
 }
 
@@ -569,16 +619,67 @@ function BeforeIssue({
   );
 }
 
+// ── Notices, announced ──
+
+/**
+ * A STATUS REGION THAT EXISTS BEFORE ITS TEXT DOES.
+ *
+ * Each notice on this console used to be a `role="status"` box that mounted
+ * already holding its sentence. Some screen readers announce that; others watch
+ * only for changes to a region they already know about, and say nothing. So the
+ * region is rendered on every pass, EMPTY for its first commit whatever `show`
+ * says, and the notice is written into that same node afterwards.
+ *
+ * While there is nothing to say it is visually hidden rather than removed or
+ * `display: none`, either of which would take it out of the accessibility tree
+ * and turn the next notice back into an insertion. `sr-only` also positions it
+ * absolutely, so an idle region adds no gap to the flex column around it.
+ *
+ * The box styling moves onto the region itself, so a notice is announced once
+ * and read once, with no hidden duplicate beside it.
+ */
+function LiveNotice({
+  testId,
+  show,
+  className,
+  children,
+}: {
+  testId: string;
+  show: boolean;
+  /** The notice's box, applied only while it is showing. */
+  className: string;
+  children: ReactNode;
+}) {
+  // A region that mounts with nothing to say is ready at once: it commits empty
+  // anyway, and a later notice is written into it with no delay. Only a region
+  // that would mount already showing (a reopening run, or a run reopened under
+  // a different selection) holds its notice back one frame. setState runs only
+  // inside the rAF callback, so this never trips react-hooks/set-state-in-effect
+  // (the same pattern as the replay terminal).
+  const [ready, setReady] = useState(!show);
+  useEffect(() => {
+    if (ready) return;
+    const raf = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, [ready]);
+  const on = ready && show;
+  return (
+    <div role="status" data-testid={testId} className={on ? className : 'sr-only'}>
+      {on ? children : null}
+    </div>
+  );
+}
+
 // ── Reattach in flight, and reattach refused ──
 
-function Reopening() {
+function ReopeningText() {
   return (
-    <div role="status" className="rounded-lg border border-line bg-panel/60 px-5 py-4">
+    <>
       <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
         REOPENING RUN
       </p>
       <p className="reading mt-1.5 max-w-[68ch]">We are reading this run back from the server.</p>
-    </div>
+    </>
   );
 }
 
@@ -592,6 +693,84 @@ function ReattachRefused({ refusal }: { refusal: LiveRunRefusal }) {
         until it is swept after it expires. You can issue a new run below.
       </p>
     </div>
+  );
+}
+
+// ── The picker and the issued run disagree ──
+
+/**
+ * THE GOAL IS NOT STUCK, AND THE SCREEN HAS TO SAY SO. The endpoint, the token
+ * and the task goal belong to the run that was issued; the category and run-type
+ * pickers above only decide what the NEXT run serves. Change a picker with a run
+ * open and the two disagree, and the only cue used to be the small SERVING line.
+ *
+ * A notice, not disabled radios: this screen has no disabled controls at all
+ * (see `finish`), and a greyed picker would also stop the reader lining up the
+ * next run while this one finishes.
+ *
+ * It is the neutral fourth state, never caution and never red. Nothing is wrong
+ * and nothing was breached; two true facts simply differ.
+ */
+function SelectionNotice({
+  run,
+  category,
+  kind,
+  phase,
+  canRelease,
+  onRelease,
+}: {
+  run: ActiveRun;
+  category: Category;
+  kind: VariantKind;
+  /** The live phase, or `null` when it is unread or the run has expired. */
+  phase: LiveRunPhase | null;
+  canRelease: boolean;
+  onRelease: () => void;
+}) {
+  // The box and the status role live on the region around this (`LiveNotice`).
+  return (
+    <div data-testid="run-selection-notice" className="flex flex-col gap-2">
+      <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
+        SELECTION DIFFERS FROM THIS RUN
+      </p>
+      <p className="reading max-w-[68ch]">
+        This run serves <span className="readout">{run.category}</span> (
+        <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>). You now have{' '}
+        <span className="readout">{category}</span> (
+        <span className="readout">{RUN_TYPE_LABEL[kind]}</span>) selected above. The endpoint, the
+        token and the task goal on this page belong to the run that was issued, and a new selection
+        only takes effect on the next run you issue.
+      </p>
+      <p className="reading max-w-[68ch] text-ink-muted">
+        {canRelease
+          ? 'No agent has connected to this run, so you can let it go and issue one for the new ' +
+            'selection. This run is left to expire.'
+          : phase === 'connected'
+            ? 'End this run first, then issue a new one for the new selection.'
+            : 'Issue a fresh run to use the new selection.'}
+      </p>
+      {canRelease && (
+        <div>
+          <FreshRunButton onRelease={onRelease} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one way back to the issue control from a run that is on screen. It lets
+ * the run go and ends nothing; the next click issues for whatever is selected.
+ */
+function FreshRunButton({ onRelease }: { onRelease: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRelease}
+      className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+    >
+      ISSUE A FRESH RUN
+    </button>
   );
 }
 
@@ -694,6 +873,7 @@ function Connection({
   reattached,
   replayRunId,
   result,
+  settled,
   onRelease,
   status,
   statusRefusal,
@@ -702,6 +882,12 @@ function Connection({
   finishing,
   onFinish,
 }: {
+  /**
+   * Whether everything this page will learn about the result is in: a saved
+   * result, a settled "none", or a lookup that gave up. Until then a finished
+   * run is not offered a fresh one, because letting it go drops the replay link.
+   */
+  settled: boolean;
   /** The ticket's expiry, printed as issued. Evidence, never reformatted. */
   expiresAt: string;
   /** Whether the clock had passed that expiry at the last poll. */
@@ -739,6 +925,9 @@ function Connection({
   // the token it needs was shown once and is gone. Say so and offer the one
   // thing that works. A connected run is never offered this, it is still live.
   const stranded = reattached && phase === 'waiting';
+  // A finished run has nothing left to do here but hand off, and the next run
+  // should not need a reload. Offered only once the result is settled.
+  const canRestart = phase === 'finished' && !finishing && settled;
 
   return (
     <>
@@ -804,6 +993,7 @@ function Connection({
               OPEN THE REPLAY
             </Link>
           )}
+          {canRestart && <FreshRunButton onRelease={onRelease} />}
         </div>
         {/* A refused finish is shown HERE, beside the control that was pressed.
             The reader may be scrolled far down the setup when they press it, and
@@ -826,7 +1016,9 @@ function Connection({
               'accept connections. Issue a new run to try again.'
             : status === null
               ? 'We are reading the state of this run from the server.'
-              : phaseLine(status, result)}
+              : // The bar's phase, not the last read's: polling stops once the run
+                // is done, so a run this page ended last read `connected`.
+                phaseLine({ ...status, phase: phase ?? status.phase }, result)}
         </p>
         {!lapsed && phase === 'waiting' && !reattached && (
           <p className="reading max-w-[68ch] text-ink-muted">
@@ -875,22 +1067,21 @@ function Connection({
             one step; a clean run comes back as a clean run. Both are saved and both are results.
           </p>
         )}
-        {stranded && (
+        {/* ONE control for both dead ends. A run that expired tells the reader to
+            issue a new one in the sentence at the top of this block, and used to
+            draw the control only when it had also been reopened. */}
+        {(stranded || lapsed) && (
           <div className="flex flex-col gap-2.5">
-            <p className="reading max-w-[68ch]">
-              This run was reopened without its token, and no agent has connected to it. If your
-              client was not set up before this page was reloaded, the run cannot be registered with
-              a client now, because we cannot show the token again. Issue a fresh run to get a new
-              endpoint and token. This one is left to expire.
-            </p>
+            {stranded && (
+              <p className="reading max-w-[68ch]">
+                This run was reopened without its token, and no agent has connected to it. If your
+                client was not set up before this page was reloaded, the run cannot be registered
+                with a client now, because we cannot show the token again. Issue a fresh run to get
+                a new endpoint and token. This one is left to expire.
+              </p>
+            )}
             <div>
-              <button
-                type="button"
-                onClick={onRelease}
-                className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
-              >
-                ISSUE A FRESH RUN
-              </button>
+              <FreshRunButton onRelease={onRelease} />
             </div>
           </div>
         )}
@@ -901,16 +1092,20 @@ function Connection({
 
 // ── Refusal ──
 
+/** What a refusal says. Written into the persistent refusal region (`LiveNotice`). */
+function RefusalText({ refusal }: { refusal: LiveRunRefusal }) {
+  return (
+    <>
+      <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
+      <p className="reading max-w-[68ch]">{refusal.message}</p>
+    </>
+  );
+}
+
+/** The ways on from a refusal. The refusal itself is announced above it. */
 function Refusal({ refusal, onRetry }: { refusal: LiveRunRefusal; onRetry: () => void }) {
   return (
     <div className="flex flex-col gap-4">
-      <div
-        role="status"
-        className="flex flex-col gap-2 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4"
-      >
-        <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
-        <p className="reading max-w-[68ch]">{refusal.message}</p>
-      </div>
       <div className="flex flex-wrap items-center gap-4">
         <Link
           href="/runs/sample"
