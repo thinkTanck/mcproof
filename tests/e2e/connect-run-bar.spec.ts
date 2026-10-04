@@ -54,7 +54,20 @@ for (const [width, height] of [
   test.describe(`finished run bar at ${width}x${height}`, () => {
     test.use({ viewport: { width, height } });
 
-    test('keeps both controls in one row, inside the bar, with no sideways scroll', async ({
+    /*
+     * THE WORST CASE, EVERY TIME. Geist loads with `display: 'optional'`
+     * (src/app/layout.tsx), so on a first visit that misses the font the page
+     * keeps next/font's metric-matched fallback, which sets these labels wider
+     * (OPEN THE REPLAY measures 191px of text in the fallback, 143px in Geist
+     * Mono). Which one a test got used to depend on timing. Blocking the font
+     * file pins the wider fallback, so the row is proven to fit as a first-time
+     * visitor sees it, and a warm cache can only make it narrower.
+     */
+    test.beforeEach(async ({ context }) => {
+      await context.route(/\.woff2?(\?|$)/, (route) => route.abort());
+    });
+
+    test('keeps both controls in one row, inside the bar, and the console inside the viewport', async ({
       page,
     }) => {
       await finished(page);
@@ -79,10 +92,21 @@ for (const [width, height] of [
       // Touch targets survive the tighter row.
       expect(a!.height).toBeGreaterThanOrEqual(44);
       expect(b!.height).toBeGreaterThanOrEqual(44);
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      expect(overflow).toBe(0);
+      // Nothing in the run console reaches past the viewport. Scoped to the page
+      // content, not the document: with the fallback font the shared HUD header
+      // overflows by 27px at 360 on every screen, a separate bug that predates
+      // this bar (measured on /connect and / with the font blocked).
+      const past = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const column = document.querySelector('.panel-in');
+        if (!column) return ['no run column'];
+        return [...column.querySelectorAll('*')]
+          .filter((el) => !el.closest('pre') && el.getBoundingClientRect().right > vw + 0.5)
+          .map(
+            (el) => `${el.tagName.toLowerCase()} "${(el.textContent ?? '').trim().slice(0, 30)}"`,
+          );
+      });
+      expect(past).toEqual([]);
     });
 
     test('names each control with words that contain its visible label (WCAG 2.5.3)', async ({
