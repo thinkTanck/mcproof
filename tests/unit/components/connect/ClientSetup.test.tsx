@@ -369,6 +369,34 @@ describe('ClientSetup · Claude Code', () => {
   });
 });
 
+describe('ClientSetup · audit: two routes in one tab stay apart', () => {
+  it('labels BOTH Claude Code routes, so "step 1" is never ambiguous', async () => {
+    await opened(TABS.code);
+
+    const [terminal, panelRoute] = [...panel().querySelectorAll('ol')];
+    // Each numbered list is introduced by its own route label, directly above it.
+    const labelAbove = (list: Element) =>
+      list.previousElementSibling?.classList.contains('micro-label')
+        ? list.previousElementSibling.textContent
+        : null;
+    expect(labelAbove(terminal!)).toBe('TERMINAL ROUTE');
+    expect(labelAbove(panelRoute!)).toBe('CODE PANEL ROUTE');
+  });
+
+  it('keeps every command label short enough to sit beside its COPY control on a phone', async () => {
+    const user = await opened();
+    for (const tab of Object.values(TABS)) {
+      await pick(user, tab);
+      for (const group of within(panel()).queryAllByRole('group', { name: /command/i })) {
+        const label =
+          group.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent ?? '';
+        // The longest label measured on one line beside COPY at 390px.
+        expect(label).toBe('BASH AND POWERSHELL');
+      }
+    }
+  });
+});
+
 describe('ClientSetup · one server name, everywhere', () => {
   it('names the server mcp-run in every snippet that names one, and never workspace', async () => {
     const user = await opened();
