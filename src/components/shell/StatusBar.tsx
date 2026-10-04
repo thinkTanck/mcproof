@@ -31,12 +31,18 @@ export function StatusBar({
 }) {
   const sevBreach = runContext ? /^(critical|high)$/i.test(runContext.severity) : false;
   return (
-    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-2.5 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-3 backdrop-blur-[6px] min-[360px]:gap-4 min-[360px]:px-[18px]">
+    // PHONE WIDTHS IN THE FALLBACK FONT (#176). Geist loads with display
+    // 'optional', so a first visit can keep next/font's wider fallback for the
+    // page's lifetime, and in it this row needed 405px. Below 420px the header
+    // tightens its spacing instead of dropping anything: 12px padding, 8px gaps,
+    // no empty spacer (the chip takes `ml-auto`), and a tighter logo and chip. That
+    // fits at 360 with 9px to spare. From 420px up every value is unchanged.
+    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-2 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-3 backdrop-blur-[6px] min-[420px]:gap-4 min-[420px]:px-[18px]">
       <MobileDrawer pathname={pathname} />
       <Link
         href="/"
         aria-label="MCPwn home"
-        className="flex shrink-0 items-center gap-2.5 rounded-md"
+        className="flex shrink-0 items-center gap-1.5 rounded-md min-[420px]:gap-2.5"
       >
         <svg
           width="30"
@@ -78,7 +84,7 @@ export function StatusBar({
         </>
       )}
 
-      <div className="flex-1" />
+      <div className="hidden flex-1 min-[420px]:block" />
 
       {runContext && (
         <div className="hidden items-center gap-3 min-[1100px]:flex">

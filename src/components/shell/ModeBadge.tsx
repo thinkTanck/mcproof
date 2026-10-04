@@ -8,7 +8,9 @@ export function ModeBadge({ mode = 'sample' }: { mode?: Mode }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border px-3 py-1.5',
+        // Below 420px the header has no spacer, so the chip pushes itself right,
+        // and its padding tightens a little. The word itself never shortens.
+        'ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 min-[420px]:ml-0 min-[420px]:gap-2 min-[420px]:px-3',
         live ? 'border-nominal bg-nominal/10 shadow-glow-nominal' : 'border-line-em bg-nominal/5',
       )}
     >
