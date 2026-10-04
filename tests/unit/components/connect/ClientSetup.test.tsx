@@ -207,10 +207,10 @@ describe('ClientSetup · every client is numbered steps, never paragraphs', () =
 
   it('uses no em dash anywhere in the section, on any tab', async () => {
     const user = await opened();
-    expect(setup().textContent ?? '').not.toContain('—');
+    expect(setup().textContent ?? '').not.toContain('\u2014');
     for (const tab of Object.values(TABS)) {
       await pick(user, tab);
-      expect(setup().textContent ?? '').not.toContain('—');
+      expect(setup().textContent ?? '').not.toContain('\u2014');
     }
   });
 });
