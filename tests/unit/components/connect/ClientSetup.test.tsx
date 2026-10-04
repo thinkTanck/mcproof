@@ -162,7 +162,9 @@ describe('ClientSetup · every client is numbered steps, never paragraphs', () =
       await opened(tab);
 
       const lists = panel().querySelectorAll('ol');
-      expect(lists).toHaveLength(1);
+      // One numbered list per tab. Claude Code alone carries a second one, its
+      // separately labelled Code panel route.
+      expect(lists).toHaveLength(_id === 'code' ? 2 : 1);
       const steps = lists[0]!.querySelectorAll(':scope > li');
       expect(steps.length).toBeGreaterThanOrEqual(4);
       // Real numerals, not a styled-away list: the reader is told "step 3".
@@ -214,67 +216,72 @@ describe('ClientSetup · every client is numbered steps, never paragraphs', () =
 });
 
 describe('ClientSetup · Claude Code', () => {
-  it('says the terminal and the Desktop Code panel use the same steps', async () => {
+  /** The INSTRUMENT label printed above a snippet. */
+  const labelOf = (group: HTMLElement) =>
+    group.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent ?? '';
+
+  it('says which route the terminal takes and which the Code panel takes', async () => {
     await opened(TABS.code);
     const text = panel().textContent ?? '';
     expect(text).toMatch(/terminal/i);
     expect(text).toMatch(/code panel/i);
-    expect(text).toMatch(/same steps/i);
+    // They no longer share one set of steps, and the copy must not say they do.
+    expect(text).not.toMatch(/same steps/i);
+    expect(within(panel()).getByText('CODE PANEL ROUTE')).toBeInTheDocument();
   });
 
-  it('walks register, isolated launch, the /mcp check, then the goal, in that order', async () => {
+  it('orders the terminal steps: save run-mcp.json, then the isolated launch, then check, then the goal', async () => {
     await opened(TABS.code);
 
-    const steps = [...panel().querySelectorAll('ol > li')].map((li) => li.textContent ?? '');
-    const at = (pattern: RegExp) => steps.findIndex((s) => pattern.test(s));
-    const register = at(/claude mcp add/);
-    const launch = at(/--strict-mcp-config/);
-    // The endpoint itself contains "/mcp", so the check step is found by its verb.
-    const check = at(/type \/mcp/i);
-    const goal = at(/task goal/i);
-    expect(register).toBeGreaterThanOrEqual(0);
-    expect(launch).toBeGreaterThan(register);
-    expect(check).toBeGreaterThan(launch);
-    expect(goal).toBeGreaterThan(check);
-    // The check names what a clean result looks like: this server and no other.
-    expect(steps[check]).toContain(MCP_SERVER_NAME);
-    expect(steps[check]).toMatch(/nothing else/i);
+    const main = panel().querySelectorAll('ol')[0]!;
+    const steps = [...main.querySelectorAll(':scope > li')];
+    // (1) save the file the launch reads.
+    expect(
+      within(steps[0] as HTMLElement).getByRole('group', { name: /Claude Code config file/i }),
+    ).toBeInTheDocument();
+    expect(steps[0]!.textContent).toContain(ISOLATED_CONFIG_FILE);
+    // (2) launch with only that file's servers.
+    expect(
+      within(steps[1] as HTMLElement).getByRole('group', { name: /isolated launch command/i }),
+    ).toHaveTextContent(`claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`);
+    // Then the check and the goal. The endpoint itself contains "/mcp", so the
+    // check is found by its verb.
+    const text = steps.map((li) => li.textContent ?? '');
+    const check = text.findIndex((s) => /type \/mcp/i.test(s));
+    expect(check).toBeGreaterThan(1);
+    expect(text[check]).toContain(MCP_SERVER_NAME);
+    expect(text[check]).toMatch(/nothing else/i);
+    expect(text.at(-1)).toMatch(/task goal/i);
+    // Registration is NOT a terminal step: the isolated launch ignores every
+    // registered server, so registering first was a step that did nothing.
+    expect(main.textContent).not.toMatch(/claude mcp add/);
   });
 
-  it('gives the bash add-json form with the issued endpoint in it', async () => {
+  it('gives the Code panel its own, separately labelled route using claude mcp add --transport http', async () => {
     await opened(TABS.code);
 
-    const command = within(panel()).getByRole('group', { name: /Claude Code add-json command/i });
-    expect(command).toHaveTextContent('claude mcp add-json');
-    expect(command).toHaveTextContent(TICKET.endpoint);
-    expect(command).toHaveTextContent(MCP_SERVER_NAME);
-  });
+    const [main, route] = [...panel().querySelectorAll('ol')];
+    expect(route).toBeDefined();
+    const label = within(panel()).getByText('CODE PANEL ROUTE');
+    // Labelled, and after the terminal steps, so the two routes never blur.
+    expect(main!.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(label.compareDocumentPosition(route!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(route!.className).toMatch(/\blist-decimal\b/);
 
-  it('labels the two registration commands by shell, and tells PowerShell which to use', async () => {
-    await opened(TABS.code);
-
-    // The form with no JSON in it is the one that survives Windows PowerShell,
-    // which strips the double quotes inside a single-quoted JSON argument.
-    const transport = within(panel()).getByRole('group', {
+    const transport = within(route as HTMLElement).getByRole('group', {
       name: /Claude Code transport command/i,
     });
     expect(transport).toHaveTextContent('claude mcp add --transport http');
     expect(transport).toHaveTextContent(TICKET.endpoint);
     expect(transport).toHaveTextContent('--header "Authorization: Bearer');
-
-    const text = panel().textContent ?? '';
-    expect(text).toContain('WINDOWS / POWERSHELL: USE THIS ONE');
-    expect(text).toContain('MACOS / LINUX / BASH');
-    expect(text).toMatch(/powershell strips the quotes/i);
-    // The cause is named, with the error the reader actually sees.
-    expect(text).toMatch(/Invalid input/);
-    // Both forms exist in one build, so the old "newer builds / older builds"
-    // framing was wrong and must not come back.
-    expect(text).not.toMatch(/newer builds|older builds|claude --version/i);
-    expect(text).not.toMatch(/if your build rejects/i);
+    // The route ends where every route ends.
+    const routeSteps = [...route!.querySelectorAll(':scope > li')];
+    expect(routeSteps.at(-1)?.textContent).toMatch(/task goal/i);
+    // The JSON form is gone: it was the one command PowerShell broke.
+    expect(panel().textContent).not.toMatch(/add-json/);
   });
 
-  it('copies the PowerShell-safe command with the real endpoint and token in it', async () => {
+  it('copies the Code panel command with the real endpoint and token in it', async () => {
     const user = await opened(TABS.code);
     const writeText = stubClipboard();
 
@@ -298,10 +305,6 @@ describe('ClientSetup · Claude Code', () => {
     expect(panel().textContent ?? '').toContain(`SAVE AS ${ISOLATED_CONFIG_FILE}`);
 
     const launch = within(panel()).getByRole('group', { name: /isolated launch command/i });
-    expect(launch).toHaveTextContent(
-      `claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`,
-    );
-    // The file comes before the command that reads it.
     expect(file.compareDocumentPosition(launch) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.click(
@@ -342,6 +345,50 @@ describe('ClientSetup · Claude Code', () => {
     expect(caveats).toMatch(/browser extension/i);
     // The command that explains a failed connection.
     expect(caveats).toContain(`claude mcp get ${MCP_SERVER_NAME}`);
+  });
+
+  it('labels every command for both bash and PowerShell, on every tab', async () => {
+    const user = await opened();
+    let seen = 0;
+    for (const tab of Object.values(TABS)) {
+      await pick(user, tab);
+      for (const group of within(panel()).queryAllByRole('group', { name: /command/i })) {
+        seen++;
+        const label = labelOf(group);
+        // Both shells named on the snippet itself, so neither reader has to
+        // wonder whether a command is for them.
+        expect(label).toMatch(/BASH/);
+        expect(label).toMatch(/POWERSHELL/);
+      }
+    }
+    // The Claude Code tab carries two commands: the launch and the Code panel route.
+    expect(seen).toBeGreaterThanOrEqual(2);
+    // Both forms exist in one build, so the old "newer builds / older builds"
+    // framing was wrong and must not come back.
+    expect(setup().textContent).not.toMatch(/newer builds|older builds|claude --version/i);
+  });
+});
+
+describe('ClientSetup · one server name, everywhere', () => {
+  it('names the server mcp-run in every snippet that names one, and never workspace', async () => {
+    const user = await opened();
+    const writeText = stubClipboard();
+    const copied: string[] = [];
+    for (const tab of Object.values(TABS)) {
+      await pick(user, tab);
+      for (const button of within(panel()).getAllByRole('button', { name: /^copy /i })) {
+        await user.click(button);
+        copied.push(writeText.mock.calls.at(-1)?.[0] ?? '');
+      }
+    }
+
+    // What actually reaches the reader's client, not what is drawn.
+    const naming = copied.filter((v) => /mcpServers|"servers"|claude mcp add/.test(v));
+    expect(naming.length).toBeGreaterThanOrEqual(4);
+    for (const value of naming) expect(value).toContain(MCP_SERVER_NAME);
+    for (const value of copied) expect(value).not.toMatch(/workspace/i);
+    // Claude Code reserves `workspace` and refuses to register it.
+    expect(MCP_SERVER_NAME).toBe('mcp-run');
   });
 });
 
@@ -478,18 +525,18 @@ describe('ClientSetup · the token is copyable and never in plain sight', () => 
     }
   });
 
-  it('copies the real token out of the bash Claude Code command', async () => {
+  it('copies the real token out of the Code panel route command', async () => {
     const user = await opened(TABS.code);
     const writeText = stubClipboard();
 
     await user.click(
-      within(panel()).getByRole('button', { name: /copy Claude Code add-json command/i }),
+      within(panel()).getByRole('button', { name: /copy Claude Code transport command/i }),
     );
 
     const copied = writeText.mock.calls.at(-1)?.[0] ?? '';
     expect(copied).toContain(TICKET.token);
     expect(copied).toContain(TICKET.endpoint);
-    expect(copied).toContain('claude mcp add-json');
+    expect(copied).toContain('claude mcp add --transport http');
   });
 });
 
