@@ -72,15 +72,13 @@ import type { LiveRunTicketView } from './live-run-port';
  * ── THE TWO CLAUDE DESKTOP PATHS ──
  *
  * The Claude desktop app holds two different agents. Its Code panel is Claude
- * Code and takes the Claude Code steps. Its CHAT side reaches a remote server
- * through a custom connector (Settings > Connectors), with the token sent as a
- * request header. An earlier version offered one "Claude Desktop" tab with a
- * `claude_desktop_config.json` entry, which described neither. The connector
- * steps follow Claude's own connector documentation, including its two limits:
- * the header value is sent exactly as entered (so the `Bearer ` scheme is part of
- * what we copy out), and the Request headers section is in beta and absent on
- * some accounts, in which case this path cannot carry the token and the tab says
- * so.
+ * Code and takes the Claude Code steps (its own Code panel route). Its CHAT side
+ * adds a remote server through a custom connector (Settings > Connectors > Add
+ * custom connector). That dialog, as observed, has two fields, "Name" and "MCP
+ * server URL", and no field for a header, so it cannot carry the run token and
+ * cannot connect to a run. The tab says exactly that and points to the tabs that
+ * can. An earlier version of this tab told the reader to fill a Request headers
+ * section taken from documentation; the observed dialog has none.
  */
 
 /**
@@ -122,14 +120,6 @@ export const ISOLATED_LAUNCH_COMMAND = `claude --strict-mcp-config --mcp-config 
 /** What every other client needs on every request. */
 export function authorizationHeader(_endpoint: string, token: string): string {
   return `Authorization: Bearer ${token}`;
-}
-
-/**
- * The value typed into a connector's `authorization` request header. Claude
- * sends it exactly as entered and adds no scheme, so the scheme is part of it.
- */
-export function bearerHeaderValue(_endpoint: string, token: string): string {
-  return `Bearer ${token}`;
 }
 
 /** The swapped panel, named so each picker button can point at it. */
@@ -327,7 +317,7 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
           </p>
         )}
         {client === 'claude-code' && <ClaudeCode ticket={ticket} />}
-        {client === 'claude-desktop-chat' && <ClaudeDesktopChat ticket={ticket} />}
+        {client === 'claude-desktop-chat' && <ClaudeDesktopChat />}
         {client === 'editors' && <CursorOrVsCode ticket={ticket} />}
         {client === 'generic' && <AnyClient ticket={ticket} />}
       </div>
@@ -424,46 +414,37 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
 
 // ── Claude Desktop, chat side: a custom connector, not Claude Code's config ──
 
-function ClaudeDesktopChat({ ticket }: { ticket: LiveRunTicketView }) {
+/**
+ * Written from the dialog as observed in Claude Desktop (Settings > Connectors >
+ * Add custom connector): two fields, "Name" and "MCP server URL", and the buttons
+ * "Cancel" and "Continue". There is no header field and no Advanced section, so
+ * nothing on it can carry the run token. The tab describes only that screen and
+ * claims nothing about what follows Continue.
+ */
+function ClaudeDesktopChat() {
   return (
     <ClientSteps
-      intro="For the chat side of the Claude desktop app, not the Code panel. Chat reaches this server through a custom connector."
+      intro="For the chat side of the Claude desktop app, not the Code panel. Its custom connector dialog cannot carry the run token."
       caveats={[
-        'The token is shown once here, and Claude does not show a saved header value again. To change it, remove the connector and add it again.',
-        'Any connector left on in that chat is within reach of the attack run. Switch every one of them off first.',
-        'Request headers is in beta and not on every account. If the dialog has no Request headers section, this path cannot send the token, so use the Claude Code tab instead.',
-        'Remove the connector when the run ends. Its token dies with the run.',
+        'The token is shown once, on this page. Copy it into a client that can carry it before you leave.',
+        'A connector added without the token is refused by the run endpoint, so it never reaches the attack run.',
       ]}
     >
       <Step>
-        Open <Code>Settings &gt; Connectors</Code> and select <Code>Add custom connector</Code>. On
-        some accounts the same page is under <Code>Customize &gt; Connectors</Code>.
+        Open <Code>Settings &gt; Connectors</Code> and select <Code>Add custom connector</Code>.
       </Step>
       <Step>
-        Name it <Code>{MCP_SERVER_NAME}</Code> and paste the RUN ENDPOINT from the top of this page
-        as the remote MCP server URL.
-      </Step>
-      <Step
-        snippets={
-          <Snippet
-            label="HEADER VALUE"
-            name="connector header value"
-            build={bearerHeaderValue}
-            ticket={ticket}
-          />
-        }
-      >
-        Open <Code>Request headers</Code>, choose the <Code>authorization</Code> header and paste
-        this value. If you are asked how people sign in, choose <Code>No sign-in</Code>.
+        The dialog asks for two things, <Code>Name</Code> and <Code>MCP server URL</Code>, and
+        offers <Code>Cancel</Code> and <Code>Continue</Code>.
       </Step>
       <Step>
-        Select <Code>Add</Code> to save the connector.
+        It has no field for the run token, and every request to an MCPwn run has to carry that
+        token. So this dialog cannot connect to an MCPwn run. Select <Code>Cancel</Code>.
       </Step>
       <Step>
-        Open a new chat. From the <Code>+</Code> menu choose <Code>Connectors</Code>, turn{' '}
-        <Code>{MCP_SERVER_NAME}</Code> on and turn every other connector off.
+        Connect from the Claude Code tab instead, whose Code panel route works inside the Claude
+        desktop app, or from the Any MCP client tab.
       </Step>
-      <Step>Paste the task goal from the next section into that chat.</Step>
     </ClientSteps>
   );
 }
