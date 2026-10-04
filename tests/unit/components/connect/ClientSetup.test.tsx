@@ -408,7 +408,8 @@ describe('ClientSetup · one server name, everywhere', () => {
     const copied: string[] = [];
     for (const tab of Object.values(TABS)) {
       await pick(user, tab);
-      for (const button of within(panel()).getAllByRole('button', { name: /^copy /i })) {
+      // queryAll: the Desktop chat tab cannot connect and has nothing to copy.
+      for (const button of within(panel()).queryAllByRole('button', { name: /^copy /i })) {
         await user.click(button);
         copied.push(writeText.mock.calls.at(-1)?.[0] ?? '');
       }
