@@ -8,8 +8,8 @@ import { suppressBootSplash } from './support/screen';
  * On a phone they used to stack, and the bar grew to 152px at 390x844 and 189px
  * at 360x640, screen the reader loses for as long as the bar is pinned. The
  * decision on the issue: both stay, side by side in one row below the narrow
- * breakpoint, with a shorter visible label on the fresh-run control if they do
- * not otherwise fit, and full labels on desktop.
+ * breakpoint, with the short visible labels REPLAY and NEW RUN on phones (the
+ * full pair does not fit at 360 or 390, measured), and full labels on desktop.
  *
  * Layout and visible labels depend on media queries, which jsdom does not apply,
  * so these run in Chromium against the Connect states fixture
@@ -95,8 +95,10 @@ for (const [width, height] of [
         expect(visible.length).toBeGreaterThan(0);
         await expect(control).toHaveAccessibleName(new RegExp(escape(visible), 'i'));
       }
-      // OPEN THE REPLAY keeps its label at every width.
-      expect((await replay(page).innerText()).trim()).toBe('OPEN THE REPLAY');
+      // Phones show the short labels. Measured: OPEN THE REPLAY beside NEW RUN needs
+      // 353px, and the row has 270px at 360 and 300px at 390 (decision on #173).
+      expect((await replay(page).innerText()).trim()).toBe('REPLAY');
+      expect((await fresh(page).innerText()).trim()).toBe('NEW RUN');
     });
   });
 }
