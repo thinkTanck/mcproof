@@ -190,8 +190,12 @@ describe('ClientSetup · every client is numbered steps, never paragraphs', () =
       expect(caveatText).toMatch(/shown once/i);
       expect(caveatText).toMatch(/attack run/i);
 
-      // Every tab ends at the same place: the agent gets its task goal.
-      expect(steps[steps.length - 1]!.textContent ?? '').toMatch(/task goal/i);
+      // Every tab that can connect ends at the same place: the agent gets its
+      // task goal. The Desktop chat tab cannot connect, so it ends by sending
+      // the reader to a tab that can.
+      expect(steps[steps.length - 1]!.textContent ?? '').toMatch(
+        _id === 'desktop' ? /Claude Code tab/ : /task goal/i,
+      );
     },
   );
 
@@ -420,60 +424,65 @@ describe('ClientSetup · one server name, everywhere', () => {
   });
 });
 
-describe('ClientSetup · Claude Desktop (chat) is the OTHER path', () => {
-  it('describes the connector path, distinctly from Claude Code', async () => {
+describe('ClientSetup · Claude Desktop (chat) says what its dialog shows, and that it cannot connect', () => {
+  /*
+   * Written from the dialog as observed in Claude Desktop (Settings > Connectors >
+   * Add custom connector): two fields, "Name" and "MCP server URL", and two
+   * buttons, "Cancel" and "Continue". No header field and no Advanced section.
+   * An MCPwn run refuses every request without its token, so this path cannot
+   * reach a run, and the tab says so instead of describing a field that is not there.
+   */
+  it('names the dialog and its two fields exactly as the app labels them', async () => {
     await opened(TABS.desktop);
-
     const text = panel().textContent ?? '';
+    expect(text).toContain('Add custom connector');
     expect(text).toMatch(/Settings > Connectors/);
-    expect(text).toMatch(/add custom connector/i);
-    expect(text).toMatch(/request headers/i);
-    expect(text).toMatch(/new chat/i);
-    // It is told apart from the Code panel of the same app in so many words.
-    expect(text).toMatch(/not the code panel/i);
-    // And nothing from the Claude Code path leaks in: no CLI, no config file.
-    expect(text).not.toMatch(/claude mcp|--strict-mcp-config|claude_desktop_config|mcpServers/);
-    expect(within(panel()).queryByRole('group', { name: /Claude Code/i })).toBeNull();
+    expect(within(panel()).getByText('Name', { selector: 'span' })).toBeInTheDocument();
+    expect(within(panel()).getByText('MCP server URL', { selector: 'span' })).toBeInTheDocument();
   });
 
-  it('walks add connector, bearer header, enable only this one, new chat, then the goal', async () => {
+  it('states plainly that the dialog has no field for the run token, so it cannot connect', async () => {
     await opened(TABS.desktop);
+    const text = panel().textContent ?? '';
+    expect(text).toMatch(/no field for the run token/i);
+    expect(text).toMatch(/cannot connect to an MCPwn run/i);
+  });
 
+  it('sends the reader to the Claude Code tab or the Any MCP client tab', async () => {
+    await opened(TABS.desktop);
     const steps = [...panel().querySelectorAll('ol > li')].map((li) => li.textContent ?? '');
-    const at = (pattern: RegExp) => steps.findIndex((s) => pattern.test(s));
-    const add = at(/add custom connector/i);
-    const header = at(/request headers/i);
-    const only = at(/every other connector off/i);
-    const goal = at(/task goal/i);
-    expect(add).toBeGreaterThanOrEqual(0);
-    expect(header).toBeGreaterThan(add);
-    expect(only).toBeGreaterThan(header);
-    expect(goal).toBeGreaterThan(only);
-    expect(steps[only]).toMatch(/new chat/i);
-    expect(steps.join(' ')).toContain(MCP_SERVER_NAME);
+    expect(steps.at(-1)).toMatch(/Claude Code tab/);
+    expect(steps.at(-1)).toMatch(/Any MCP client tab/);
   });
 
-  it('copies the header value with the Bearer scheme, and renders it masked', async () => {
-    const user = await opened(TABS.desktop);
-    const writeText = stubClipboard();
-
-    // Claude sends the value exactly as entered, so the scheme has to be in it.
-    const value = within(panel()).getByRole('group', { name: /connector header value/i });
-    expect(value).toHaveTextContent(/^Bearer /);
-    expect(value.textContent ?? '').not.toContain(TICKET.token);
-
-    await user.click(within(panel()).getByRole('button', { name: /copy connector header value/i }));
-    expect(writeText.mock.calls.at(-1)?.[0]).toBe(`Bearer ${TICKET.token}`);
-  });
-
-  it('warns to switch the other connectors off, and admits when this path is unavailable', async () => {
+  it('never tells the reader to fill a header, authorization or token field', async () => {
     await opened(TABS.desktop);
-    const caveats = panel().querySelector('ul')?.textContent ?? '';
-    expect(caveats).toMatch(/any connector left on/i);
-    // Request headers is not on every account. Without it this path cannot send
-    // the token, and the reader is sent to the tab that can.
-    expect(caveats).toMatch(/no request headers section/i);
-    expect(caveats).toMatch(/claude code tab/i);
+    const text = panel().textContent ?? '';
+    expect(text).not.toMatch(/request headers/i);
+    expect(text).not.toMatch(/authorization/i);
+    expect(text).not.toMatch(/no sign-in/i);
+    // Nothing to paste: no header value, no command, no config.
+    expect(within(panel()).queryAllByRole('group')).toHaveLength(0);
+    expect(within(panel()).queryAllByRole('button', { name: /^copy /i })).toHaveLength(0);
+    // Every sentence that mentions the token says it cannot go in, never to put it in.
+    for (const li of panel().querySelectorAll('li')) {
+      const line = li.textContent ?? '';
+      if (/token/i.test(line)) expect(line).not.toMatch(/\b(enter|paste|fill|type)\b[^.]*token/i);
+    }
+  });
+
+  it('describes only this screen, and claims nothing about what comes after Continue', async () => {
+    await opened(TABS.desktop);
+    const text = panel().textContent ?? '';
+    expect(text).toMatch(/Cancel/);
+    expect(text).not.toMatch(/after Continue|next screen|on the following screen/i);
+  });
+
+  it('keeps it distinct from Claude Code: no CLI and no config file', async () => {
+    await opened(TABS.desktop);
+    const text = panel().textContent ?? '';
+    expect(text).toMatch(/not the Code panel/i);
+    expect(text).not.toMatch(/claude mcp|--strict-mcp-config|claude_desktop_config|mcpServers/);
   });
 });
 
@@ -597,10 +606,12 @@ describe('ClientSetup · a dense screen stays scannable and stays inside its col
 
     for (const tab of Object.values(TABS)) {
       await pick(user, tab);
-      const blocks = within(panel()).getAllByRole('group', {
+      const blocks = within(panel()).queryAllByRole('group', {
         name: /command|configuration|file|header/i,
       });
-      expect(blocks.length).toBeGreaterThan(0);
+      // Every tab that can connect has something to copy; the Desktop chat tab
+      // cannot connect, so it has none.
+      if (tab !== TABS.desktop) expect(blocks.length).toBeGreaterThan(0);
       for (const block of blocks) {
         // The snippet scrolls inside its own box, so the page body never does.
         expect(block.className).toMatch(/overflow-x-auto/);
