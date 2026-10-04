@@ -37,6 +37,7 @@ interface ConfigModule {
   buildMcpConfig: (endpoint: string, token: string, serverName?: string) => McpConfig;
   addJsonCommand: (endpoint: string, token: string) => string;
   desktopConfig: (endpoint: string, token: string) => string;
+  vsCodeConfig: (endpoint: string, token: string) => string;
 }
 
 // A string-typed specifier keeps `tsc` from resolving the missing module, so the
@@ -93,6 +94,18 @@ describe('shared MCP config builder (RED: src/lib/mcp/config does not exist yet)
     for (const reserved of RESERVED_SERVER_NAMES) {
       expect(() => buildMcpConfig(endpoint, token, reserved)).toThrow();
     }
+  });
+
+  it('builds the VS Code file: the same entry under servers, not mcpServers', async () => {
+    const { vsCodeConfig, buildMcpConfig, MCP_SERVER_NAME } = await loadConfig();
+    const endpoint = readEnv('MCP_TEST_ENDPOINT');
+    const token = readEnv('MCP_TEST_TOKEN');
+
+    const parsed = JSON.parse(vsCodeConfig(endpoint, token)) as { servers: object };
+
+    expect(Object.keys(parsed)).toEqual(['servers']);
+    expect(parsed.servers).toEqual(buildMcpConfig(endpoint, token).mcpServers);
+    expect(Object.keys(parsed.servers)).toEqual([MCP_SERVER_NAME]);
   });
 
   it('builds exactly one http server, keyed by the shared name, with a bearer header', async () => {

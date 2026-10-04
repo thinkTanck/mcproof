@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { MCP_SERVER_NAME, addJsonCommand, desktopConfig } from '@/lib/mcp/config';
+import { MCP_SERVER_NAME, desktopConfig, vsCodeConfig } from '@/lib/mcp/config';
 import { CopyOut } from './CopyOut';
 import type { LiveRunTicketView } from './live-run-port';
 
@@ -18,7 +18,7 @@ import type { LiveRunTicketView } from './live-run-port';
  * pastes the URL into a client expecting stdio, gets a connection error, and the
  * screen has nothing to say about it.
  *
- * ── THE FOUR RULES THIS SECTION IS BUILT AROUND ──
+ * ── THE SIX RULES THIS SECTION IS BUILT AROUND ──
  *
  * 1. A REAL COMMAND, NOT A DESCRIPTION OF ONE. Every snippet is built from the
  *    issued ticket, so it is the command for THIS run and not a template with
@@ -30,8 +30,10 @@ import type { LiveRunTicketView } from './live-run-port';
  *    which was wrong). What differs is the shell: `add-json` passes JSON in single
  *    quotes, and Windows PowerShell strips the double quotes inside it before the
  *    program sees them, so the command fails there. `--transport http` with a
- *    `--header` carries no JSON and works everywhere. So the two are labelled by
- *    shell, and the PowerShell reader is told which one to use.
+ *    `--header` carries no JSON and works everywhere. So `add-json` is not offered
+ *    at all: every command left on this screen is byte-for-byte the same in bash
+ *    and in PowerShell, and its label says so, so neither reader has to wonder
+ *    whether a command is for them.
  *
  * 3. THE TOKEN IS COPYABLE WITHOUT BEING VISIBLE. A working command has to carry
  *    the credential, and a credential rendered inside a code block undoes the
@@ -42,27 +44,43 @@ import type { LiveRunTicketView } from './live-run-port';
  *    over the real command: a replace that misses prints the credential, and a
  *    string built from a mask has never held it.
  *
- * 4. ISOLATION IS STATED FIRST, WITH THE REAL COMMAND. The tools this endpoint
+ * 4. ISOLATION IS STATED FIRST, AND AGAIN IN EVERY TAB. The tools this endpoint
  *    serves are hostile by design, so an agent that also holds live connectors
  *    for mail, files or a cloud account can carry an injected instruction out to
- *    a real system. A reader who registers the server and then launches the
- *    client plainly loads every other server they have alongside it. Claude Code
- *    has a flag for exactly this, `--strict-mcp-config` with `--mcp-config`
- *    (verified against 2.1.286: "Only use MCP servers from --mcp-config, ignoring
- *    all other MCP configurations"). An earlier version of this section told the
- *    reader no such flag existed, and a test forbade the string; both were wrong.
- *    The command sits in the caution callout above everything else, and no flag
- *    is offered that was not read off the client's own help. What no MCP flag
- *    covers is tooling built into the client itself (a browser extension, for
- *    one), and the copy says so rather than implying the isolation is total.
+ *    a real system. The warning sits above the picker, and each tab then carries
+ *    the isolation move its own client really has: Claude Code's
+ *    `--strict-mcp-config` with `--mcp-config` (verified against 2.1.286: "Only
+ *    use MCP servers from --mcp-config, ignoring all other MCP configurations"),
+ *    the per-chat connector toggles in Claude Desktop, the editor's own MCP
+ *    settings. No flag is offered that was not read off the client's own help.
+ *    What no MCP flag covers is tooling built into the client itself (a browser
+ *    extension, for one), and the copy says so rather than implying the isolation
+ *    is total.
  *
- * 5. THE GENERIC PATH LEADS, THE CLIENTS ARE EXAMPLES. The endpoint is a standard
- *    remote MCP server over Streamable HTTP with a bearer header; any MCP client
- *    can register it. An earlier version defaulted the picker to Claude Code and
- *    opened the verify footer with `claude mcp list`, which read as Claude-only.
- *    Now the protocol facts and the header snippet come first and are always on
- *    screen, no client is selected until the reader picks one, and the universal
- *    check (the connection panel) is stated before any client's own command.
+ * 5. NO VENDOR IS THE WAY IN. The endpoint is a standard remote MCP server over
+ *    Streamable HTTP with a bearer header; any MCP client can register it. So no
+ *    tab is selected until the reader picks one, the generic path is a tab of its
+ *    own and not a footnote, and the universal check (the connection panel) is
+ *    stated outside every tab.
+ *
+ * 6. STEPS, NOT PARAGRAPHS. Every tab is one line of intro, a NUMBERED list and a
+ *    short list of caveats. The earlier version explained each client in prose,
+ *    which a reader who has never registered an MCP server could not follow: the
+ *    order of operations was buried in sentences. A step that needs a value
+ *    carries its snippet inside the step.
+ *
+ * ── THE TWO CLAUDE DESKTOP PATHS ──
+ *
+ * The Claude desktop app holds two different agents. Its Code panel is Claude
+ * Code and takes the Claude Code steps. Its CHAT side reaches a remote server
+ * through a custom connector (Settings > Connectors), with the token sent as a
+ * request header. An earlier version offered one "Claude Desktop" tab with a
+ * `claude_desktop_config.json` entry, which described neither. The connector
+ * steps follow Claude's own connector documentation, including its two limits:
+ * the header value is sent exactly as entered (so the `Bearer ` scheme is part of
+ * what we copy out), and the Request headers section is in beta and absent on
+ * some accounts, in which case this path cannot carry the token and the tab says
+ * so.
  */
 
 /**
@@ -73,8 +91,8 @@ const TOKEN_MASK = '•'.repeat(16);
 
 /**
  * `claude mcp add --transport http`: the Claude Code form that carries no JSON,
- * so it survives every shell, Windows PowerShell included. The `add-json`
- * command and the Claude Desktop entry are built by the shared config module
+ * so it survives every shell, Windows PowerShell included. It is the Code panel
+ * route's registration command. The config files are built by the shared config module
  * (`@/lib/mcp/config`), which owns the server name and the config shape; this form
  * builds no server config of its own, so it stays here, named from the same
  * shared constant.
@@ -106,15 +124,24 @@ export function authorizationHeader(_endpoint: string, token: string): string {
   return `Authorization: Bearer ${token}`;
 }
 
+/**
+ * The value typed into a connector's `authorization` request header. Claude
+ * sends it exactly as entered and adds no scheme, so the scheme is part of it.
+ */
+export function bearerHeaderValue(_endpoint: string, token: string): string {
+  return `Bearer ${token}`;
+}
+
 /** The swapped panel, named so each picker button can point at it. */
 const PANEL_ID = 'connect-client-panel';
 
-type ClientId = 'claude-code' | 'claude-desktop' | 'cursor';
+type ClientId = 'claude-code' | 'claude-desktop-chat' | 'editors' | 'generic';
 
 const CLIENTS: [ClientId, string][] = [
   ['claude-code', 'CLAUDE CODE'],
-  ['claude-desktop', 'CLAUDE DESKTOP'],
-  ['cursor', 'CURSOR / VS CODE'],
+  ['claude-desktop-chat', 'CLAUDE DESKTOP (CHAT)'],
+  ['editors', 'CURSOR / VS CODE'],
+  ['generic', 'ANY MCP CLIENT'],
 ];
 
 const WarningIcon = () => (
@@ -157,10 +184,85 @@ function Snippet({
   );
 }
 
+/** An inline machine string inside a sentence: a command, a file, a menu path. */
+const Code = ({ children }: { children: ReactNode }) => <span className="readout">{children}</span>;
+
+/**
+ * One numbered step. The sentence is READING; whatever the step needs the reader
+ * to copy sits inside the same list item, so "step 2" and its value never drift
+ * apart.
+ */
+function Step({ children, snippets }: { children: ReactNode; snippets?: ReactNode }) {
+  return (
+    <li className="reading pl-1.5">
+      {children}
+      {snippets && <div className="mt-2.5 flex flex-col gap-2.5">{snippets}</div>}
+    </li>
+  );
+}
+
+/** A numbered list of steps. Real numerals, kept as list semantics. */
+const STEP_LIST = 'max-w-[72ch] list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal';
+
+/** The snippet label for a command that is the same in both shells (rule 2). */
+const BOTH_SHELLS = 'BASH AND POWERSHELL';
+
+/**
+ * The shape every tab has, and the only shape a tab may have (rule 6): one line
+ * of intro, the numbered steps, the caveats. `list-decimal` keeps real numerals
+ * AND the list semantics a `list-none` reset would cost some screen readers.
+ */
+function ClientSteps({
+  intro,
+  children,
+  route,
+  caveats,
+}: {
+  intro: ReactNode;
+  children: ReactNode;
+  /**
+   * A second, separately labelled route through the same client, when one
+   * surface of it cannot take the main steps. Numbered on its own, so the two
+   * routes never blur into one list.
+   */
+  route?: {
+    /** Names the main list, once there are two, so "step 1" is never ambiguous. */
+    mainLabel: string;
+    label: string;
+    steps: ReactNode;
+  };
+  caveats: ReactNode[];
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="reading max-w-[68ch]">{intro}</p>
+      <div>
+        {route && <p className="micro-label">{route.mainLabel}</p>}
+        <ol className={cn(STEP_LIST, route && 'mt-3')}>{children}</ol>
+      </div>
+      {route && (
+        <div className="mt-2">
+          <p className="micro-label">{route.label}</p>
+          <ol className={cn(STEP_LIST, 'mt-3')}>{route.steps}</ol>
+        </div>
+      )}
+      <div>
+        <p className="micro-label">KEEP IN MIND</p>
+        <ul className="mt-2 max-w-[68ch] list-disc space-y-1.5 pl-6 marker:text-ink-faint">
+          {caveats.map((caveat, i) => (
+            <li key={i} className="reading pl-1 text-ink-muted">
+              {caveat}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
-  // No client is selected until the reader picks one: the generic path above
-  // the picker is complete on its own, and a preselected tab would again make
-  // one vendor's command read as the way in.
+  // No client is selected until the reader picks one: a preselected tab would
+  // make one vendor's command read as the way in.
   const [client, setClient] = useState<ClientId | null>(null);
 
   return (
@@ -172,7 +274,7 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
         Register the endpoint in your client.
       </h3>
 
-      {/* THE HIGHEST-VALUE SENTENCE ON THE PAGE, above the commands rather than
+      {/* THE HIGHEST-VALUE SENTENCE ON THE PAGE, above the steps rather than
           beside them. CAUTION amber, with an icon and a label, never colour
           alone: this is an elevated state, not a breach, so it is never red. */}
       <div className="rounded-lg border border-caution/40 bg-caution/5 px-4 py-3.5">
@@ -186,68 +288,16 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
           connector for mail, files, a browser or a cloud account, an instruction it takes on this
           endpoint can reach the real thing.
         </p>
-        <p className="micro-label mt-3 text-caution">RUN IT ISOLATED</p>
-        <p className="reading mt-2 max-w-[68ch]">
-          Launch your client with only this server loaded, so the attack run can only reach this
-          trap, nothing else in your setup. Registering the server and then starting the client the
-          usual way loads every other server you have alongside it. In Claude Code the isolated
-          launch is one command, using the config file from the Claude Code example below.
-        </p>
-        <div className="mt-2">
-          <CopyOut
-            label="ISOLATED LAUNCH"
-            name="isolated launch command"
-            tone="code"
-            value={ISOLATED_LAUNCH_COMMAND}
-          />
-        </div>
-        <p className="reading mt-2 max-w-[68ch] text-ink-muted">
-          In any other client, connect from a separate profile that holds only this endpoint, or
-          switch the other servers off before you start (in Claude Code,{' '}
-          <span className="readout">/mcp</span> inside a session does it).
-        </p>
-        <p className="reading mt-2 max-w-[68ch] text-ink-muted">
-          One thing no flag covers: tools built into the client itself, a browser extension for
-          example, can still load. Disable those yourself for a clean run.
-        </p>
       </div>
 
-      {/* THE GENERIC PATH, always on screen and above every client. These are
-          the protocol facts any MCP client needs, and nothing here names a
-          vendor. */}
-      <p className="reading max-w-[68ch]">
-        This is a standard remote MCP server over Streamable HTTP, so any MCP client can register
-        it. Point the client at the run endpoint above, send this header on every request, and read
-        the task goal from the prompt the server publishes. There is no stdio command to run and no
-        local process involved.
-      </p>
-      <Snippet
-        label="REQUEST HEADER"
-        name="authorization header"
-        build={authorizationHeader}
-        ticket={ticket}
-      />
-      <p className="reading max-w-[68ch] text-ink-muted">
-        One thing to expect: the server opens no server-to-client stream, so a GET on the endpoint
-        answers 405 and only POST and DELETE are served. A client that follows the specification
-        treats that as normal and carries on over POST.
-      </p>
-
-      <p className="reading max-w-[68ch]">
-        Each example below is built from the run you just issued and names the server{' '}
-        <span className="readout">{MCP_SERVER_NAME}</span>. Keep that name neutral: your client
-        namespaces the tools with it and your agent reads the name when it connects, so an id like
-        mcpwn or red-team tells the agent it is being tested.
-      </p>
-
-      <p className="micro-label">CLIENT EXAMPLES</p>
+      <p className="micro-label mt-1">YOUR CLIENT</p>
 
       {/* A pressed-button group, not a tablist: it is the same control the MODE
           picker on this screen already uses, and one component vocabulary beats a
-          roving-tabindex tablist for three buttons. `aria-controls` still names
+          roving-tabindex tablist for four buttons. `aria-controls` still names
           what each one changes, so a screen reader is told where the panel it
           just swapped actually is. Nothing is pressed until the reader chooses. */}
-      <div className="flex flex-wrap gap-2.5" role="group" aria-label="MCP client example">
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="MCP client">
         {CLIENTS.map(([id, label]) => {
           const active = client === id;
           return (
@@ -270,10 +320,16 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
         })}
       </div>
 
-      <div id={PANEL_ID}>
+      <div id={PANEL_ID} className="mt-1">
+        {client === null && (
+          <p className="reading max-w-[68ch] text-ink-muted">
+            Pick the client your agent runs in to see its steps.
+          </p>
+        )}
         {client === 'claude-code' && <ClaudeCode ticket={ticket} />}
-        {client === 'claude-desktop' && <ClaudeDesktop ticket={ticket} />}
-        {client === 'cursor' && <CursorOrVsCode ticket={ticket} />}
+        {client === 'claude-desktop-chat' && <ClaudeDesktopChat ticket={ticket} />}
+        {client === 'editors' && <CursorOrVsCode ticket={ticket} />}
+        {client === 'generic' && <AnyClient ticket={ticket} />}
       </div>
 
       <Verify />
@@ -281,118 +337,235 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
   );
 }
 
-// ── Claude Code: the isolated launch first, then registration by shell ──
+// ── Claude Code: a terminal, or the Code panel of the desktop app ──
 
 function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
   return (
-    <div className="flex flex-col gap-3">
-      <p className="reading max-w-[68ch]">
-        The isolated launch needs no registration. Save this as{' '}
-        <span className="readout">{ISOLATED_CONFIG_FILE}</span> in the folder you start from, then
-        run the isolated launch command above. It works the same in every shell, because nothing is
-        quoted on the command line.
-      </p>
-      <Snippet
-        label={`SAVE AS ${ISOLATED_CONFIG_FILE}`}
-        name="Claude Code config file"
-        build={desktopConfig}
-        ticket={ticket}
-      />
-      <p className="reading max-w-[68ch]">
-        If you would rather register the server, the command depends on your shell, not on which
-        build of Claude Code you have. Windows PowerShell strips the quotes inside the JSON before
-        Claude Code sees them, so <span className="readout">add-json</span> fails there with an{' '}
-        <span className="readout">Invalid input</span> error on every build. In PowerShell, use the{' '}
-        <span className="readout">--transport http</span> form.
-      </p>
-      <Snippet
-        label="MACOS / LINUX / BASH"
-        name="Claude Code add-json command"
-        build={addJsonCommand}
-        ticket={ticket}
-      />
-      <Snippet
-        label="WINDOWS / POWERSHELL: USE THIS ONE"
-        name="Claude Code transport command"
-        build={addTransportCommand}
-        ticket={ticket}
-      />
-      <p className="reading max-w-[68ch] text-ink-muted">
-        The header form echoes the token back in the confirmation your shell prints, so keep that
-        output off a shared terminal and out of an issue report. Once registered, still start Claude
-        Code with the isolated launch, not a plain <span className="readout">claude</span>.
-      </p>
-    </div>
+    <ClientSteps
+      intro="For Claude Code in a terminal. The Code panel of the Claude desktop app has no launch command to add flags to, so it takes its own route, below."
+      route={{
+        mainLabel: 'TERMINAL ROUTE',
+        label: 'CODE PANEL ROUTE',
+        steps: (
+          <>
+            <Step
+              snippets={
+                <Snippet
+                  label={BOTH_SHELLS}
+                  name="Claude Code transport command"
+                  build={addTransportCommand}
+                  ticket={ticket}
+                />
+              }
+            >
+              Register the endpoint once from a terminal. The command is the same in bash and in
+              PowerShell.
+            </Step>
+            <Step>
+              Open a new session in the Code panel and type <Code>/mcp</Code>. Switch off every
+              server it lists except <Code>{MCP_SERVER_NAME}</Code>.
+            </Step>
+            <Step>
+              Paste the task goal from the next section, or fetch the published prompt named there.
+            </Step>
+          </>
+        ),
+      }}
+      caveats={[
+        'The token is shown once. Every command here carries it, so copy what you need before you leave this page.',
+        <>
+          Keep the attack run away from your real tools. A plain <Code>claude</Code> loads every
+          other server you have alongside this one.
+        </>,
+        'The Code panel route echoes the token back in the confirmation your shell prints. Keep that output off a shared terminal and out of an issue report.',
+        'No flag covers tools built into the client itself, a browser extension for example. Disable those yourself for a clean run.',
+        <>
+          If the server does not connect, <Code>claude mcp get {MCP_SERVER_NAME}</Code> prints the
+          reason.
+        </>,
+      ]}
+    >
+      <Step
+        snippets={
+          <Snippet
+            label={`SAVE AS ${ISOLATED_CONFIG_FILE}`}
+            name="Claude Code config file"
+            build={desktopConfig}
+            ticket={ticket}
+          />
+        }
+      >
+        Save this file as <Code>{ISOLATED_CONFIG_FILE}</Code> in the folder you start Claude Code
+        from. The next step loads this file and ignores every other server you have.
+      </Step>
+      <Step
+        snippets={
+          <CopyOut
+            label={BOTH_SHELLS}
+            name="isolated launch command"
+            tone="code"
+            value={ISOLATED_LAUNCH_COMMAND}
+          />
+        }
+      >
+        Start Claude Code with only that file&apos;s server loaded. The command is the same in bash
+        and in PowerShell.
+      </Step>
+      <Step>
+        Type <Code>/mcp</Code> in the session. It should list <Code>{MCP_SERVER_NAME}</Code> and
+        nothing else. If another server is listed, switch it off there before you go on.
+      </Step>
+      <Step>
+        Paste the task goal from the next section, or fetch the published prompt named there.
+      </Step>
+    </ClientSteps>
   );
 }
 
-// ── Claude Desktop: a config file, and no bridge ──
+// ── Claude Desktop, chat side: a custom connector, not Claude Code's config ──
 
-function ClaudeDesktop({ ticket }: { ticket: LiveRunTicketView }) {
+function ClaudeDesktopChat({ ticket }: { ticket: LiveRunTicketView }) {
   return (
-    <div className="flex flex-col gap-3">
-      <p className="reading max-w-[68ch]">
-        Claude Desktop reads its servers from{' '}
-        <span className="readout">claude_desktop_config.json</span>. Add this entry and restart the
-        app. It speaks to a remote HTTP server natively, so there is no bridge to install and
-        nothing to run on your own machine.
-      </p>
-      <Snippet
-        label="CONFIG FILE ENTRY"
-        name="Claude Desktop configuration"
-        build={desktopConfig}
-        ticket={ticket}
-      />
-    </div>
+    <ClientSteps
+      intro="For the chat side of the Claude desktop app, not the Code panel. Chat reaches this server through a custom connector."
+      caveats={[
+        'The token is shown once here, and Claude does not show a saved header value again. To change it, remove the connector and add it again.',
+        'Any connector left on in that chat is within reach of the attack run. Switch every one of them off first.',
+        'Request headers is in beta and not on every account. If the dialog has no Request headers section, this path cannot send the token, so use the Claude Code tab instead.',
+        'Remove the connector when the run ends. Its token dies with the run.',
+      ]}
+    >
+      <Step>
+        Open <Code>Settings &gt; Connectors</Code> and select <Code>Add custom connector</Code>. On
+        some accounts the same page is under <Code>Customize &gt; Connectors</Code>.
+      </Step>
+      <Step>
+        Name it <Code>{MCP_SERVER_NAME}</Code> and paste the RUN ENDPOINT from the top of this page
+        as the remote MCP server URL.
+      </Step>
+      <Step
+        snippets={
+          <Snippet
+            label="HEADER VALUE"
+            name="connector header value"
+            build={bearerHeaderValue}
+            ticket={ticket}
+          />
+        }
+      >
+        Open <Code>Request headers</Code>, choose the <Code>authorization</Code> header and paste
+        this value. If you are asked how people sign in, choose <Code>No sign-in</Code>.
+      </Step>
+      <Step>
+        Select <Code>Add</Code> to save the connector.
+      </Step>
+      <Step>
+        Open a new chat. From the <Code>+</Code> menu choose <Code>Connectors</Code>, turn{' '}
+        <Code>{MCP_SERVER_NAME}</Code> on and turn every other connector off.
+      </Step>
+      <Step>Paste the task goal from the next section into that chat.</Step>
+    </ClientSteps>
   );
 }
 
-// ── Cursor and VS Code: the same server entry, in a project config file ──
+// ── Cursor and VS Code: the same server entry, one key apart ──
 
 function CursorOrVsCode({ ticket }: { ticket: LiveRunTicketView }) {
   return (
-    <div className="flex flex-col gap-3">
-      <p className="reading max-w-[68ch]">
-        Cursor reads <span className="readout">.cursor/mcp.json</span> in the project, or{' '}
-        <span className="readout">~/.cursor/mcp.json</span> for every project, in this shape. VS
-        Code reads <span className="readout">.vscode/mcp.json</span> with the same server entry
-        placed under a <span className="readout">servers</span> key instead of{' '}
-        <span className="readout">mcpServers</span>. Both speak to a remote HTTP server natively, so
-        there is nothing to install and nothing to run on your own machine.
-      </p>
-      <Snippet
-        label="CONFIG FILE ENTRY"
-        name="Cursor configuration"
-        build={desktopConfig}
-        ticket={ticket}
-      />
-    </div>
+    <ClientSteps
+      intro="Cursor and VS Code each read one small JSON file and speak to a remote HTTP server natively. There is nothing to install."
+      caveats={[
+        'The token is shown once, and the file holds it in plain text. Delete the file after the run and never commit it.',
+        'Any other server or extension the editor agent can use is within reach of the attack run. Switch them off first.',
+      ]}
+    >
+      <Step>Open an empty folder in the editor, so the agent has no project files in reach.</Step>
+      <Step
+        snippets={
+          <>
+            <Snippet
+              label="CURSOR · .cursor/mcp.json"
+              name="Cursor configuration"
+              build={desktopConfig}
+              ticket={ticket}
+            />
+            <Snippet
+              label="VS CODE · .vscode/mcp.json"
+              name="VS Code configuration"
+              build={vsCodeConfig}
+              ticket={ticket}
+            />
+          </>
+        }
+      >
+        Save the file for your editor in that folder. VS Code reads the same entry under a{' '}
+        <Code>servers</Code> key instead of <Code>mcpServers</Code>, so it has its own block.
+      </Step>
+      <Step>
+        Open the MCP settings of the editor, switch every other server off, and check that{' '}
+        <Code>{MCP_SERVER_NAME}</Code> shows as connected.
+      </Step>
+      <Step>Start a new agent chat and paste the task goal from the next section.</Step>
+    </ClientSteps>
+  );
+}
+
+// ── Any MCP client: the protocol facts, with no vendor in them ──
+
+function AnyClient({ ticket }: { ticket: LiveRunTicketView }) {
+  return (
+    <ClientSteps
+      intro="This is a standard remote MCP server over Streamable HTTP, so any MCP client can register it."
+      caveats={[
+        'The token is shown once. Copy the header before you leave this page.',
+        'Any other tool your agent holds is within reach of the attack run. Connect from a separate profile that holds only this endpoint, or switch the others off.',
+        'The server opens no server-to-client stream, so a GET on the endpoint answers 405 and only POST and DELETE are served. A client that follows the specification carries on over POST.',
+      ]}
+    >
+      <Step>
+        Add a remote server with the Streamable HTTP transport and point it at the RUN ENDPOINT from
+        the top of this page. There is no stdio command to run and no local process.
+      </Step>
+      <Step
+        snippets={
+          <Snippet
+            label="REQUEST HEADER"
+            name="authorization header"
+            build={authorizationHeader}
+            ticket={ticket}
+          />
+        }
+      >
+        Send this header on every request.
+      </Step>
+      <Step>
+        Name the server <Code>{MCP_SERVER_NAME}</Code>. Your client namespaces the tools with that
+        name and your agent reads it, so keep it neutral.
+      </Step>
+      <Step>Make this the only server the agent has loaded.</Step>
+      <Step>
+        Read the task goal from the prompt the server publishes, <Code>{ticket.promptName}</Code>,
+        or paste it from the next section.
+      </Step>
+    </ClientSteps>
   );
 }
 
 // ── Did it work? ──
 
 /**
- * Deliberately UNFRAMED. Four stacked bordered boxes in one section is the
- * thin-border panel soup PRODUCT.md lists as an anti-reference, and of the four
- * this is the one with the weakest claim to a frame: the caution callout is a
- * warning and the snippets are copyable artifacts, while this is two closing
- * sentences. The micro-label carries the scan cue instead.
+ * Deliberately UNFRAMED and outside every tab: the connection panel is the one
+ * check that holds for every client, so it is said once. The micro-label carries
+ * the scan cue instead of another bordered box.
  */
 function Verify() {
   return (
     <div className="mt-1">
       <p className="micro-label">CHECK IT TOOK</p>
       <p className="reading mt-2 max-w-[68ch]">
-        In any client, the reading that settles it is the connection panel below. It stays on
-        AWAITING AGENT until your agent really reaches this endpoint, and it moves to AGENT
+        In any client, the reading that settles it is the connection panel on this screen. It stays
+        on AWAITING AGENT until your agent really reaches this endpoint, and it moves to AGENT
         CONNECTED the first time it does.
-      </p>
-      <p className="reading mt-2 max-w-[68ch] text-ink-muted">
-        Clients have their own checks as well. In Claude Code, for example,{' '}
-        <span className="readout">claude mcp list</span> should show{' '}
-        <span className="readout">{MCP_SERVER_NAME}</span> as connected, and when it does not,{' '}
-        <span className="readout">claude mcp get {MCP_SERVER_NAME}</span> prints the reason it gave.
       </p>
     </div>
   );
