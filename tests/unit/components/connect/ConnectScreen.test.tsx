@@ -605,3 +605,153 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
     expect(live.reattach).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * THE TASK PREVIEW. The goal a run hands the agent is decided by the category,
+ * and it used to appear only at the very bottom of an issued run, four sections
+ * below the picker that decides it. The preview sits directly under the picker
+ * and follows the selection, so the reader sees what they are choosing.
+ *
+ * The goals reach the screen as a prop of plain strings, built on the server.
+ * These are invented strings on purpose: the screen must print what it is
+ * handed, not something it looked up for itself.
+ */
+describe('ConnectScreen · the task preview follows the category picker', () => {
+  const GOALS = {
+    ASI01: 'Goal one: read the inbox.',
+    ASI02: 'Goal two: fetch the invoice.',
+    ASI03: 'Goal three: look up the tier.',
+    ASI04: 'Goal four: add the library.',
+    ASI05: 'Goal five: convert the sheet.',
+    ASI06: 'Goal six: save the instructions.',
+    ASI10: 'Goal ten: review the expenses.',
+  } as const;
+  const CODES = Object.keys(GOALS) as (keyof typeof GOALS)[];
+
+  const ISSUED_GOAL = 'The goal the server issued with the run.';
+
+  const actions = () => ({
+    start: vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        runId: 'run-1',
+        endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+        token: 'mcpwn_rt_secret',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        category: 'ASI06' as const,
+        kind: 'malicious' as const,
+        taskGoal: ISSUED_GOAL,
+        promptName: 'session_brief',
+      },
+    })),
+    status: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+    finish: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+    reattach: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+  });
+
+  const preview = () => screen.getByRole('group', { name: /task preview/i });
+  const pick = (user: ReturnType<typeof userEvent.setup>, code: string) =>
+    user.click(screen.getByRole('radio', { name: new RegExp(code) }));
+
+  it.each(CODES)(
+    'shows the exact goal for %s when it is selected, with no run issued',
+    async (code) => {
+      const user = userEvent.setup();
+      render(<ConnectScreen categoryGoals={GOALS} />);
+
+      await pick(user, code);
+
+      expect(preview()).toHaveTextContent(GOALS[code]);
+      for (const other of CODES.filter((c) => c !== code)) {
+        expect(preview()).not.toHaveTextContent(GOALS[other]);
+      }
+    },
+  );
+
+  it('starts on the goal of the category the picker starts on', () => {
+    render(<ConnectScreen categoryGoals={GOALS} />);
+
+    expect(preview()).toHaveTextContent(GOALS[SAMPLE_CATEGORY as keyof typeof GOALS]);
+  });
+
+  it('updates on every change of the picker, without issuing anything', async () => {
+    const user = userEvent.setup();
+    const live = actions();
+    render(<ConnectScreen signedIn liveActions={live} categoryGoals={GOALS} />);
+    await goLive(user);
+
+    await pick(user, 'ASI01');
+    expect(preview()).toHaveTextContent(GOALS.ASI01);
+    await pick(user, 'ASI10');
+    expect(preview()).toHaveTextContent(GOALS.ASI10);
+    expect(preview()).not.toHaveTextContent(GOALS.ASI01);
+
+    expect(live.start).not.toHaveBeenCalled();
+  });
+
+  it('sits directly under the category picker, inside the same section', () => {
+    render(<ConnectScreen categoryGoals={GOALS} />);
+
+    const picker = screen.getByRole('radiogroup', { name: /attack category/i });
+    expect(picker.nextElementSibling).toBe(preview());
+  });
+
+  it('says how to get an endpoint and token, and offers nothing to copy, before a run', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
+    await goLive(user);
+
+    expect(preview()).toHaveTextContent('Issue a run to get your endpoint and token.');
+    expect(preview().querySelector('button')).toBeNull();
+    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps tracking the picker after a run is issued, apart from the issued run', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    const pasteStep = await screen.findByRole('region', { name: /give your agent its task/i });
+
+    await pick(user, 'ASI01');
+    expect(preview()).toHaveTextContent(GOALS.ASI01);
+    await pick(user, 'ASI05');
+    expect(preview()).toHaveTextContent(GOALS.ASI05);
+
+    // The issued run keeps the goal the server gave it, whatever the picker says.
+    expect(preview()).not.toHaveTextContent(ISSUED_GOAL);
+    expect(pasteStep).toHaveTextContent(ISSUED_GOAL);
+    expect(pasteStep).not.toHaveTextContent(GOALS.ASI05);
+  });
+
+  it('leaves the paste step as the only place the goal can be copied', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    const pasteStep = await screen.findByRole('region', { name: /give your agent its task/i });
+
+    const copyGoal = screen.getAllByRole('button', { name: /copy task goal/i });
+    expect(copyGoal).toHaveLength(1);
+    expect(pasteStep).toContainElement(copyGoal[0]!);
+    expect(preview().querySelector('button')).toBeNull();
+  });
+
+  it('renders no preview when no goals were handed down', () => {
+    render(<ConnectScreen />);
+
+    expect(screen.queryByRole('group', { name: /task preview/i })).not.toBeInTheDocument();
+  });
+});
