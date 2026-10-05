@@ -1682,3 +1682,51 @@ describe('LiveRunConsole · an expired run drops the setup that can no longer be
     expect(screen.getByRole('region', { name: /give your agent its task/i })).toBeVisible();
   });
 });
+
+/**
+ * THE TASK BOX SAYS WHICH RUN'S TASK IT IS.
+ *
+ * The picker above can move on while a run is open, and the task preview under
+ * it follows the picker. The task to paste belongs to the ISSUED run, so its
+ * label carries that run's category, the same code the SERVING line prints.
+ */
+describe('LiveRunConsole · the task label names the issued run', () => {
+  const pasteStep = () => screen.getByRole('region', { name: /give your agent its task/i });
+
+  it('labels the task with the category the run is serving', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText(TICKET.endpoint);
+
+    expect(within(pasteStep()).getByText('TASK GOAL · ASI01')).toBeVisible();
+    expect(screen.getByText('SERVING').closest('span')).toHaveTextContent('SERVING ASI01');
+  });
+
+  it('follows the issued run, not the picker', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      start: vi.fn(async () => ({
+        ok: true as const,
+        value: { ...TICKET, category: 'ASI05' as const },
+      })),
+    });
+    const { rerender } = render(<LiveRunConsole port={port} category="ASI05" signedIn />);
+    await issue(user);
+    await screen.findByText(TICKET.endpoint);
+
+    rerender(<LiveRunConsole port={port} category="ASI02" signedIn />);
+
+    expect(within(pasteStep()).getByText('TASK GOAL · ASI05')).toBeVisible();
+    expect(within(pasteStep()).queryByText(/ASI02/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the copy control named for the task goal', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText(TICKET.endpoint);
+
+    expect(within(pasteStep()).getByRole('button', { name: 'Copy task goal' })).toBeVisible();
+  });
+});
