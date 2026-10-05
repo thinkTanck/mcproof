@@ -896,7 +896,15 @@ function TaskGoal({ run }: { run: ActiveRun }) {
           If your client does not support prompts, paste this into your agent instead. It is the
           same text the prompt serves.
         </p>
-        <CopyOut label="TASK GOAL" name="task goal" value={run.taskGoal} tone="prose" />
+        {/* The label carries the ISSUED run's category, the code the SERVING line
+            prints: the picker and its task preview can move on while this run is
+            open, and this is the task of the run, not of the selection. */}
+        <CopyOut
+          label={`TASK GOAL · ${run.category}`}
+          name="task goal"
+          value={run.taskGoal}
+          tone="prose"
+        />
       </div>
     </section>
   );
