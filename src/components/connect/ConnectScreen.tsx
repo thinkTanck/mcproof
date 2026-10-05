@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
+  type KeyboardEvent,
   type ReactNode,
 } from 'react';
 import Link from 'next/link';
@@ -60,6 +61,15 @@ type Mode = 'sample' | 'live';
 /** Which recorded run each category plays. Resolved on the server; see the route. */
 export type SampleRunIds = Partial<Record<Category, string>>;
 
+/**
+ * The task each category's live run hands the agent, as plain strings.
+ *
+ * Built on the server (see the route) and handed down, never looked up here:
+ * the goals live beside the poisoned payloads and the trace builders, and
+ * importing those into this client component would ship them to the browser.
+ */
+export type CategoryGoals = Partial<Record<Category, string>>;
+
 /** The sample the screens ship with, when no per-category id was resolved. */
 const CANONICAL_SAMPLE = 'sample';
 
@@ -111,6 +121,9 @@ function Section({ children, labelledBy }: { children: ReactNode; labelledBy: st
  * decision at the same level of the setup ("what does this run serve"), so they
  * wear the same control rather than a second vocabulary, and the reader learns
  * one interaction instead of two.
+ *
+ * Only the checked option is a tab stop. The group is entered once and walked
+ * with the arrow keys (`onRadioGroupKeys`), which is how a radio group behaves.
  */
 function Choice({
   code,
@@ -128,6 +141,7 @@ function Choice({
       type="button"
       role="radio"
       aria-checked={checked}
+      tabIndex={checked ? 0 : -1}
       onClick={onSelect}
       className={cn(
         'flex min-h-11 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
@@ -149,6 +163,38 @@ function Choice({
   );
 }
 
+const RADIO_STEPS: Record<string, number> = {
+  ArrowDown: 1,
+  ArrowRight: 1,
+  ArrowUp: -1,
+  ArrowLeft: -1,
+};
+
+/**
+ * Arrow keys for a radio group: move to the next or previous option and select
+ * it, wrapping at the ends; Home and End jump to the first and last. Put on the
+ * `radiogroup` itself, so it serves both groups in section 02 and reads the
+ * options from the DOM instead of needing to know what they are.
+ */
+function onRadioGroupKeys(event: KeyboardEvent<HTMLDivElement>) {
+  const radios = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')];
+  const at = radios.indexOf(event.target as HTMLElement);
+  if (at === -1) return;
+  const step = RADIO_STEPS[event.key];
+  const to =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? radios.length - 1
+        : step === undefined
+          ? null
+          : (at + step + radios.length) % radios.length;
+  if (to === null) return;
+  event.preventDefault();
+  radios[to]?.focus();
+  radios[to]?.click();
+}
+
 const LockIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
     <rect
@@ -168,6 +214,7 @@ const LockIcon = () => (
 export function ConnectScreen({
   signedIn = false,
   sampleRunIds,
+  categoryGoals,
   sampleProvenance,
   liveActions,
   livePort,
@@ -182,6 +229,8 @@ export function ConnectScreen({
   initialRunId?: string;
   /** Category to recorded-run id. Absent entries fall back to the canonical sample. */
   sampleRunIds?: SampleRunIds;
+  /** Category to the task its live run serves. Absent means no preview is drawn. */
+  categoryGoals?: CategoryGoals;
   /** What the sample IS, in the sample library's own words. */
   sampleProvenance?: string;
   /**
@@ -279,6 +328,8 @@ export function ConnectScreen({
 
   const live = mode === 'live';
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
+  const previewGoal = categoryGoals?.[category];
+  const hasRun = activeRunId !== null && activeRunId !== settledRunId;
 
   return (
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
@@ -344,6 +395,7 @@ export function ConnectScreen({
           className="grid gap-2.5 md:grid-cols-2"
           role="radiogroup"
           aria-label="Attack category (OWASP Agentic Top 10)"
+          onKeyDown={onRadioGroupKeys}
         >
           {CORE7.map((c) => (
             <Choice
@@ -355,6 +407,37 @@ export function ConnectScreen({
             />
           ))}
         </div>
+
+        {/* THE TASK PREVIEW. The category decides what the agent is asked to do,
+            so the task is shown where the category is chosen and follows every
+            change of the picker. It always describes the SELECTION, never the
+            issued run: a run keeps the goal the server gave it, printed with its
+            copy control in the last step, and this lines up the next one. There
+            is no copy control here on purpose. Nothing can use the goal until a
+            run exists, and one place to copy it from is one place to trust. */}
+        {previewGoal !== undefined && (
+          <div
+            role="group"
+            aria-labelledby="connect-task-preview"
+            className="mt-4 rounded-lg border border-line bg-panel/60 px-4 py-3.5"
+          >
+            <p id="connect-task-preview" className="micro-label mb-2">
+              TASK PREVIEW
+            </p>
+            <p className="reading max-w-[68ch]" aria-live="polite">
+              {previewGoal}
+            </p>
+            <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+              {!live
+                ? 'A live run of this category gives your agent this task.'
+                : !signedIn
+                  ? 'Sign in to issue a run and get your endpoint and token.'
+                  : hasRun
+                    ? 'Lined up for your next run. The run you issued keeps its own task, shown in the last step.'
+                    : 'Issue a run to get your endpoint and token.'}
+            </p>
+          </div>
+        )}
 
         {/* THE CONTROL RUN. Live only, because every recorded sample IS an attack
             run: offering a control the sample library cannot play would be a
@@ -377,6 +460,7 @@ export function ConnectScreen({
               className="grid gap-2.5 md:grid-cols-2"
               role="radiogroup"
               aria-labelledby="connect-run-type"
+              onKeyDown={onRadioGroupKeys}
             >
               {RUN_TYPES.map((option) => (
                 <Choice

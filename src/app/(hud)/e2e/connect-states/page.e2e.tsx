@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import type { CategoryGoals } from '@/components/connect/ConnectScreen';
 import { isE2eFixturesEnabled } from '@/config/e2e-fixtures';
+import { CategorySchema } from '@/contract';
+import { buildHostedSurface } from '@/harness/server/surfaces';
 import { ConnectStatesFixture } from './fixture';
 
 /**
@@ -25,5 +28,13 @@ export default async function ConnectStatesFixturePage({
 }) {
   if (!isE2eFixturesEnabled(process.env)) notFound();
   const { state = 'waiting' } = await searchParams;
-  return <ConnectStatesFixture state={state} />;
+  // The real goals, built the way the Connect route builds them, so the task
+  // preview can be measured in a browser with a run issued.
+  const categoryGoals: CategoryGoals = Object.fromEntries(
+    CategorySchema.options.map((category) => [
+      category,
+      buildHostedSurface(category, 'malicious').taskGoal,
+    ]),
+  );
+  return <ConnectStatesFixture state={state} categoryGoals={categoryGoals} />;
 }

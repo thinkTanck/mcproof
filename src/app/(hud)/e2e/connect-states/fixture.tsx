@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ConnectScreen } from '@/components/connect/ConnectScreen';
+import { ConnectScreen, type CategoryGoals } from '@/components/connect/ConnectScreen';
 import type { ConnectLiveRunPort, LiveRunPhase } from '@/components/connect/live-run-port';
 
 /**
@@ -19,7 +19,13 @@ import type { ConnectLiveRunPort, LiveRunPhase } from '@/components/connect/live
  *              returns a saved result, which is how a test reaches FINISHED
  *   expired    a run whose expiry has already passed
  */
-export function ConnectStatesFixture({ state }: { state: string }) {
+export function ConnectStatesFixture({
+  state,
+  categoryGoals,
+}: {
+  state: string;
+  categoryGoals?: CategoryGoals;
+}) {
   const phase: LiveRunPhase = state === 'connected' ? 'connected' : 'waiting';
   const expiresAt = state === 'expired' ? '2000-01-01T00:00:00.000Z' : '2999-01-01T00:00:00.000Z';
 
@@ -70,5 +76,5 @@ export function ConnectStatesFixture({ state }: { state: string }) {
     [phase, expiresAt],
   );
 
-  return <ConnectScreen signedIn livePort={port} />;
+  return <ConnectScreen signedIn livePort={port} categoryGoals={categoryGoals} />;
 }

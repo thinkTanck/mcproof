@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
 import { ACTIVE_RUN_STORAGE_KEY } from '@/components/connect/active-run-store';
@@ -603,5 +603,256 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
 
     expect(screen.getByRole('button', { name: /sample/i })).toHaveAttribute('aria-pressed', 'true');
     expect(live.reattach).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * THE TASK PREVIEW. The goal a run hands the agent is decided by the category,
+ * and it used to appear only at the very bottom of an issued run, four sections
+ * below the picker that decides it. The preview sits directly under the picker
+ * and follows the selection, so the reader sees what they are choosing.
+ *
+ * The goals reach the screen as a prop of plain strings, built on the server.
+ * These are invented strings on purpose: the screen must print what it is
+ * handed, not something it looked up for itself.
+ */
+describe('ConnectScreen · the task preview follows the category picker', () => {
+  const GOALS = {
+    ASI01: 'Goal one: read the inbox.',
+    ASI02: 'Goal two: fetch the invoice.',
+    ASI03: 'Goal three: look up the tier.',
+    ASI04: 'Goal four: add the library.',
+    ASI05: 'Goal five: convert the sheet.',
+    ASI06: 'Goal six: save the instructions.',
+    ASI10: 'Goal ten: review the expenses.',
+  } as const;
+  const CODES = Object.keys(GOALS) as (keyof typeof GOALS)[];
+
+  const ISSUED_GOAL = 'The goal the server issued with the run.';
+
+  const actions = () => ({
+    start: vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        runId: 'run-1',
+        endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+        token: 'mcpwn_rt_secret',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        category: 'ASI06' as const,
+        kind: 'malicious' as const,
+        taskGoal: ISSUED_GOAL,
+        promptName: 'session_brief',
+      },
+    })),
+    status: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+    finish: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+    reattach: vi.fn(async () => ({
+      ok: false as const,
+      code: 'RUN_NOT_FOUND' as const,
+      message: 'That run was not found.',
+    })),
+  });
+
+  const preview = () => screen.getByRole('group', { name: /task preview/i });
+  const pick = (user: ReturnType<typeof userEvent.setup>, code: string) =>
+    user.click(screen.getByRole('radio', { name: new RegExp(code) }));
+
+  it.each(CODES)(
+    'shows the exact goal for %s when it is selected, with no run issued',
+    async (code) => {
+      const user = userEvent.setup();
+      render(<ConnectScreen categoryGoals={GOALS} />);
+
+      await pick(user, code);
+
+      expect(preview()).toHaveTextContent(GOALS[code]);
+      for (const other of CODES.filter((c) => c !== code)) {
+        expect(preview()).not.toHaveTextContent(GOALS[other]);
+      }
+    },
+  );
+
+  it('starts on the goal of the category the picker starts on', () => {
+    render(<ConnectScreen categoryGoals={GOALS} />);
+
+    expect(preview()).toHaveTextContent(GOALS[SAMPLE_CATEGORY as keyof typeof GOALS]);
+  });
+
+  it('updates on every change of the picker, without issuing anything', async () => {
+    const user = userEvent.setup();
+    const live = actions();
+    render(<ConnectScreen signedIn liveActions={live} categoryGoals={GOALS} />);
+    await goLive(user);
+
+    await pick(user, 'ASI01');
+    expect(preview()).toHaveTextContent(GOALS.ASI01);
+    await pick(user, 'ASI10');
+    expect(preview()).toHaveTextContent(GOALS.ASI10);
+    expect(preview()).not.toHaveTextContent(GOALS.ASI01);
+
+    expect(live.start).not.toHaveBeenCalled();
+  });
+
+  it('sits directly under the category picker, inside the same section', () => {
+    render(<ConnectScreen categoryGoals={GOALS} />);
+
+    const picker = screen.getByRole('radiogroup', { name: /attack category/i });
+    expect(picker.nextElementSibling).toBe(preview());
+  });
+
+  it('says how to get an endpoint and token, and offers nothing to copy, before a run', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
+    await goLive(user);
+
+    expect(preview()).toHaveTextContent('Issue a run to get your endpoint and token.');
+    expect(preview().querySelector('button')).toBeNull();
+    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps tracking the picker after a run is issued, apart from the issued run', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    const pasteStep = await screen.findByRole('region', { name: /give your agent its task/i });
+
+    await pick(user, 'ASI01');
+    expect(preview()).toHaveTextContent(GOALS.ASI01);
+    await pick(user, 'ASI05');
+    expect(preview()).toHaveTextContent(GOALS.ASI05);
+
+    // The issued run keeps the goal the server gave it, whatever the picker says.
+    expect(preview()).not.toHaveTextContent(ISSUED_GOAL);
+    expect(pasteStep).toHaveTextContent(ISSUED_GOAL);
+    expect(pasteStep).not.toHaveTextContent(GOALS.ASI05);
+  });
+
+  it('leaves the paste step as the only place the goal can be copied', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    const pasteStep = await screen.findByRole('region', { name: /give your agent its task/i });
+
+    const copyGoal = screen.getAllByRole('button', { name: /copy task goal/i });
+    expect(copyGoal).toHaveLength(1);
+    expect(pasteStep).toContainElement(copyGoal[0]!);
+    expect(preview().querySelector('button')).toBeNull();
+  });
+
+  it('renders no preview when no goals were handed down', () => {
+    render(<ConnectScreen />);
+
+    expect(screen.queryByRole('group', { name: /task preview/i })).not.toBeInTheDocument();
+  });
+
+  // A signed-out visitor in live mode is shown the sign-in gate, not the issue
+  // control, so telling them to issue a run names a step they cannot take.
+  it('tells a signed-out visitor to sign in, not to issue a run they cannot issue', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn={false} categoryGoals={GOALS} />);
+    await goLive(user);
+
+    expect(preview()).toHaveTextContent('Sign in to issue a run and get your endpoint and token.');
+    expect(preview()).not.toHaveTextContent('Issue a run to get your endpoint and token.');
+  });
+});
+
+/**
+ * THE RADIO GROUPS WORK THE WAY A RADIO GROUP DOES FROM THE KEYBOARD.
+ *
+ * Found by `/impeccable audit` on section 02: each option was its own tab stop
+ * and the arrow keys did nothing, so the seven categories cost seven Tab presses
+ * to get past and a screen reader user was told "radio, 2 of 7" by a control
+ * that did not behave like one. The ARIA radio group pattern is one tab stop
+ * (the checked option), with the arrow keys moving and selecting, wrapping at
+ * the ends.
+ */
+describe('ConnectScreen · the radio groups from the keyboard', () => {
+  const categories = () =>
+    within(screen.getByRole('radiogroup', { name: /attack category/i })).getAllByRole('radio');
+  const checked = (radios: HTMLElement[]) =>
+    radios.filter((radio) => radio.getAttribute('aria-checked') === 'true');
+
+  it('makes the category group one tab stop, on the checked option', () => {
+    render(<ConnectScreen />);
+
+    const tabStops = categories().filter((radio) => radio.tabIndex === 0);
+    expect(tabStops).toHaveLength(1);
+    expect(tabStops[0]).toHaveAttribute('aria-checked', 'true');
+    expect(tabStops[0]).toHaveAccessibleName(new RegExp(SAMPLE_CATEGORY));
+  });
+
+  it('moves and selects with the arrow keys, in both axes', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen />);
+    await user.click(screen.getByRole('radio', { name: /ASI03/ }));
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('radio', { name: /ASI04/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /ASI04/ })).toHaveFocus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('radio', { name: /ASI05/ })).toHaveAttribute('aria-checked', 'true');
+
+    await user.keyboard('{ArrowUp}{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: /ASI03/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /ASI03/ })).toHaveFocus();
+    expect(checked(categories())).toHaveLength(1);
+  });
+
+  it('wraps at both ends, and Home and End jump to them', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen />);
+    await user.click(screen.getByRole('radio', { name: /ASI01/ }));
+
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('radio', { name: /ASI10/ })).toHaveAttribute('aria-checked', 'true');
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveAttribute('aria-checked', 'true');
+
+    await user.keyboard('{End}');
+    expect(screen.getByRole('radio', { name: /ASI10/ })).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveFocus();
+    expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('keeps the task preview in step with an arrow-key selection', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen categoryGoals={{ ASI01: 'First goal.', ASI02: 'Second goal.' }} />);
+    await user.click(screen.getByRole('radio', { name: /ASI01/ }));
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('group', { name: /task preview/i })).toHaveTextContent('Second goal.');
+  });
+
+  it('gives the run type group the same keys', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn />);
+    await goLive(user);
+    const attack = screen.getByRole('radio', { name: /attack run/i });
+    const control = screen.getByRole('radio', { name: /control run/i });
+
+    expect(attack.tabIndex).toBe(0);
+    expect(control.tabIndex).toBe(-1);
+
+    await user.click(attack);
+    await user.keyboard('{ArrowDown}');
+    expect(control).toHaveAttribute('aria-checked', 'true');
+    expect(control).toHaveFocus();
+    // The category group is a separate group: its selection did not move.
+    expect(checked(categories())).toHaveLength(1);
+    expect(checked(categories())[0]).toHaveAccessibleName(new RegExp(SAMPLE_CATEGORY));
   });
 });
