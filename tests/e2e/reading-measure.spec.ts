@@ -20,6 +20,9 @@ import { suppressBootSplash } from './support/screen';
  * (the mean of a paragraph's full lines) is what a measure is, and it has to be
  * at or under 75. A single line of narrow letters can run a little longer than
  * its neighbours at the same width, so the longest line gets a ceiling of 80.
+ * A two-line paragraph has only one full line, so it is held to the ceiling
+ * alone (one such line on /threats is 77 characters at the same width that
+ * holds 66 on a typical line).
  *
  * Layout depends on computed styles and real font metrics, which jsdom has
  * neither of, so this runs in Chromium. It runs in the fallback font as well as
@@ -80,7 +83,9 @@ async function proseBlocks(page: Page): Promise<Block[]> {
       const full = counts.slice(0, -1);
       out.push({
         text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48),
-        typical: Math.round(full.reduce((a, n) => a + n, 0) / full.length),
+        // A mean needs more than one line to be a mean: a two-line paragraph has
+        // one full line, so it is held to the longest-line ceiling alone.
+        typical: full.length < 2 ? 0 : Math.round(full.reduce((a, n) => a + n, 0) / full.length),
         longest: Math.max(...counts),
         lines: counts.length,
       });
