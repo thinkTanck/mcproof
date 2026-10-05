@@ -173,7 +173,10 @@ for (const [width, height] of [
     for (const state of STATES) {
       test(`in the ${state.name} state`, async ({ page }) => {
         await state.reach(page);
-        await page.getByRole('button', { name: /copy task goal/i }).focus();
+        // Start from the last control the run column has in this state and walk
+        // back up. It used to start from the task-goal copy button, which an
+        // expired run no longer draws: its setup is gone with the run.
+        await page.locator('.panel-in :is(a, button)').last().focus();
 
         const hidden: string[] = [];
         for (let i = 0; i < 25; i++) {
