@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
+  type KeyboardEvent,
   type ReactNode,
 } from 'react';
 import Link from 'next/link';
@@ -120,6 +121,9 @@ function Section({ children, labelledBy }: { children: ReactNode; labelledBy: st
  * decision at the same level of the setup ("what does this run serve"), so they
  * wear the same control rather than a second vocabulary, and the reader learns
  * one interaction instead of two.
+ *
+ * Only the checked option is a tab stop. The group is entered once and walked
+ * with the arrow keys (`onRadioGroupKeys`), which is how a radio group behaves.
  */
 function Choice({
   code,
@@ -137,6 +141,7 @@ function Choice({
       type="button"
       role="radio"
       aria-checked={checked}
+      tabIndex={checked ? 0 : -1}
       onClick={onSelect}
       className={cn(
         'flex min-h-11 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
@@ -156,6 +161,38 @@ function Choice({
       <span className="font-sans text-[15px] text-ink">{label}</span>
     </button>
   );
+}
+
+const RADIO_STEPS: Record<string, number> = {
+  ArrowDown: 1,
+  ArrowRight: 1,
+  ArrowUp: -1,
+  ArrowLeft: -1,
+};
+
+/**
+ * Arrow keys for a radio group: move to the next or previous option and select
+ * it, wrapping at the ends; Home and End jump to the first and last. Put on the
+ * `radiogroup` itself, so it serves both groups in section 02 and reads the
+ * options from the DOM instead of needing to know what they are.
+ */
+function onRadioGroupKeys(event: KeyboardEvent<HTMLDivElement>) {
+  const radios = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')];
+  const at = radios.indexOf(event.target as HTMLElement);
+  if (at === -1) return;
+  const step = RADIO_STEPS[event.key];
+  const to =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? radios.length - 1
+        : step === undefined
+          ? null
+          : (at + step + radios.length) % radios.length;
+  if (to === null) return;
+  event.preventDefault();
+  radios[to]?.focus();
+  radios[to]?.click();
 }
 
 const LockIcon = () => (
@@ -358,6 +395,7 @@ export function ConnectScreen({
           className="grid gap-2.5 md:grid-cols-2"
           role="radiogroup"
           aria-label="Attack category (OWASP Agentic Top 10)"
+          onKeyDown={onRadioGroupKeys}
         >
           {CORE7.map((c) => (
             <Choice
@@ -392,9 +430,11 @@ export function ConnectScreen({
             <p className="reading mt-2 max-w-[68ch] text-ink-muted">
               {!live
                 ? 'A live run of this category gives your agent this task.'
-                : hasRun
-                  ? 'Lined up for your next run. The run you issued keeps its own task, shown in the last step.'
-                  : 'Issue a run to get your endpoint and token.'}
+                : !signedIn
+                  ? 'Sign in to issue a run and get your endpoint and token.'
+                  : hasRun
+                    ? 'Lined up for your next run. The run you issued keeps its own task, shown in the last step.'
+                    : 'Issue a run to get your endpoint and token.'}
             </p>
           </div>
         )}
@@ -420,6 +460,7 @@ export function ConnectScreen({
               className="grid gap-2.5 md:grid-cols-2"
               role="radiogroup"
               aria-labelledby="connect-run-type"
+              onKeyDown={onRadioGroupKeys}
             >
               {RUN_TYPES.map((option) => (
                 <Choice
