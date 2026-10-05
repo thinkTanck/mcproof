@@ -1566,3 +1566,119 @@ describe('LiveRunConsole · notices are written into status regions that were al
     expect(screen.getByTestId('live-selection')).toBe(region);
   });
 });
+
+/**
+ * AN EXPIRED RUN SHOWS ONLY WHAT IS STILL TRUE.
+ *
+ * An expired run used to keep its whole setup on screen under RUN EXPIRED: the
+ * endpoint to point an agent at, the token notice, the client steps and the task
+ * to hand over. Every one of those is an instruction for a run that no longer
+ * accepts connections, and a reopened one went further and said an agent that
+ * already holds the token keeps working, which is false once the run is dead.
+ * What is left is the reading, why it reads that way, and the way on.
+ */
+describe('LiveRunConsole · an expired run drops the setup that can no longer be used', () => {
+  const BEFORE = () => new Date('2098-12-31T23:00:00.000Z');
+  const AFTER = () => new Date('2099-01-01T00:00:01.000Z');
+
+  const expectNoDeadSetup = (container: HTMLElement) => {
+    // The endpoint box.
+    expect(screen.queryByText(TICKET.endpoint)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy run endpoint/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /point your agent here/i }),
+    ).not.toBeInTheDocument();
+    // The token notice, in both of its forms.
+    expect(screen.queryByText('RUN TOKEN')).not.toBeInTheDocument();
+    expect(screen.queryByText(/RUN REOPENED/)).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/token is shown once|we cannot show it again/i);
+    // No sentence that says the dead run still works.
+    expect(container.textContent).not.toMatch(/keeps working/i);
+    // The client steps and the task to hand over.
+    expect(screen.queryByRole('region', { name: /register .* client/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /give your agent its task/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(TICKET.taskGoal)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
+  };
+
+  const expectTheWayOn = () => {
+    expect(within(runBar()).getByText('RUN EXPIRED')).toBeInTheDocument();
+    expect(detail()).toHaveTextContent(/passed its expiry before it finished/i);
+    expect(detail()).toHaveTextContent(/no longer accept connections/i);
+    expect(detail()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
+    expect(screen.getAllByRole('button', { name: /issue a fresh run/i })).toHaveLength(1);
+  };
+
+  it('for a run issued on this page, which still holds its token', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveRunConsole port={portWith()} category="ASI01" signedIn now={AFTER} />,
+    );
+    await issue(user);
+    await screen.findByText('RUN EXPIRED');
+
+    expectNoDeadSetup(container);
+    expectTheWayOn();
+  });
+
+  it('for a reopened run, which never had its token here', async () => {
+    const { container } = render(
+      <LiveRunConsole
+        port={portWith()}
+        category="ASI01"
+        signedIn
+        now={AFTER}
+        reattachRunId="run-77"
+      />,
+    );
+    await screen.findByText('RUN EXPIRED');
+
+    expectNoDeadSetup(container);
+    expectTheWayOn();
+  });
+
+  it('still names what the dead run was serving, so two expired runs can be told apart', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={AFTER} />);
+    await issue(user);
+    await screen.findByText('RUN EXPIRED');
+
+    expect(detail()).toHaveTextContent('SERVING ASI01');
+    expect(detail()).toHaveTextContent('RUN TYPE ATTACK RUN');
+  });
+
+  // GUARD. A reopened run that has NOT expired is unchanged: its agent may well
+  // still hold the token, so everything it showed before is still shown.
+  it('leaves a reopened run that has not expired exactly as it was', async () => {
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3, steps: 8 })),
+    });
+    render(
+      <LiveRunConsole port={port} category="ASI01" signedIn now={BEFORE} reattachRunId="run-77" />,
+    );
+    await screen.findByText('AGENT CONNECTED');
+
+    expect(screen.getByText(REATTACH.endpoint)).toBeVisible();
+    expect(screen.getByRole('button', { name: /copy run endpoint/i })).toBeVisible();
+    expect(screen.getByText(/RUN REOPENED · TOKEN NOT SHOWN/)).toBeVisible();
+    expect(screen.getByText(/an agent that already holds the token keeps working/i)).toBeVisible();
+    expect(screen.getByRole('region', { name: /give your agent its task/i })).toBeVisible();
+    expect(screen.getByText(REATTACH.taskGoal)).toBeVisible();
+    expect(screen.getByRole('button', { name: /copy task goal/i })).toBeVisible();
+    expect(screen.queryByText('RUN EXPIRED')).not.toBeInTheDocument();
+  });
+
+  // GUARD. A live run issued on this page keeps its whole setup.
+  it('leaves a live run issued on this page with its whole setup', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
+    await issue(user);
+    await screen.findByText(TICKET.endpoint);
+
+    expect(screen.getByText('RUN TOKEN')).toBeVisible();
+    expect(screen.getByRole('region', { name: /register .* client/i })).toBeVisible();
+    expect(screen.getByRole('region', { name: /give your agent its task/i })).toBeVisible();
+  });
+});
