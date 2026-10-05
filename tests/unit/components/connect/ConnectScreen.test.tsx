@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
 import { ACTIVE_RUN_STORAGE_KEY } from '@/components/connect/active-run-store';
@@ -753,5 +753,106 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
     render(<ConnectScreen />);
 
     expect(screen.queryByRole('group', { name: /task preview/i })).not.toBeInTheDocument();
+  });
+
+  // A signed-out visitor in live mode is shown the sign-in gate, not the issue
+  // control, so telling them to issue a run names a step they cannot take.
+  it('tells a signed-out visitor to sign in, not to issue a run they cannot issue', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn={false} categoryGoals={GOALS} />);
+    await goLive(user);
+
+    expect(preview()).toHaveTextContent('Sign in to issue a run and get your endpoint and token.');
+    expect(preview()).not.toHaveTextContent('Issue a run to get your endpoint and token.');
+  });
+});
+
+/**
+ * THE RADIO GROUPS WORK THE WAY A RADIO GROUP DOES FROM THE KEYBOARD.
+ *
+ * Found by `/impeccable audit` on section 02: each option was its own tab stop
+ * and the arrow keys did nothing, so the seven categories cost seven Tab presses
+ * to get past and a screen reader user was told "radio, 2 of 7" by a control
+ * that did not behave like one. The ARIA radio group pattern is one tab stop
+ * (the checked option), with the arrow keys moving and selecting, wrapping at
+ * the ends.
+ */
+describe('ConnectScreen · the radio groups from the keyboard', () => {
+  const categories = () =>
+    within(screen.getByRole('radiogroup', { name: /attack category/i })).getAllByRole('radio');
+  const checked = (radios: HTMLElement[]) =>
+    radios.filter((radio) => radio.getAttribute('aria-checked') === 'true');
+
+  it('makes the category group one tab stop, on the checked option', () => {
+    render(<ConnectScreen />);
+
+    const tabStops = categories().filter((radio) => radio.tabIndex === 0);
+    expect(tabStops).toHaveLength(1);
+    expect(tabStops[0]).toHaveAttribute('aria-checked', 'true');
+    expect(tabStops[0]).toHaveAccessibleName(new RegExp(SAMPLE_CATEGORY));
+  });
+
+  it('moves and selects with the arrow keys, in both axes', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen />);
+    await user.click(screen.getByRole('radio', { name: /ASI03/ }));
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('radio', { name: /ASI04/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /ASI04/ })).toHaveFocus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('radio', { name: /ASI05/ })).toHaveAttribute('aria-checked', 'true');
+
+    await user.keyboard('{ArrowUp}{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: /ASI03/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /ASI03/ })).toHaveFocus();
+    expect(checked(categories())).toHaveLength(1);
+  });
+
+  it('wraps at both ends, and Home and End jump to them', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen />);
+    await user.click(screen.getByRole('radio', { name: /ASI01/ }));
+
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('radio', { name: /ASI10/ })).toHaveAttribute('aria-checked', 'true');
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveAttribute('aria-checked', 'true');
+
+    await user.keyboard('{End}');
+    expect(screen.getByRole('radio', { name: /ASI10/ })).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveFocus();
+    expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('keeps the task preview in step with an arrow-key selection', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen categoryGoals={{ ASI01: 'First goal.', ASI02: 'Second goal.' }} />);
+    await user.click(screen.getByRole('radio', { name: /ASI01/ }));
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('group', { name: /task preview/i })).toHaveTextContent('Second goal.');
+  });
+
+  it('gives the run type group the same keys', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn />);
+    await goLive(user);
+    const attack = screen.getByRole('radio', { name: /attack run/i });
+    const control = screen.getByRole('radio', { name: /control run/i });
+
+    expect(attack.tabIndex).toBe(0);
+    expect(control.tabIndex).toBe(-1);
+
+    await user.click(attack);
+    await user.keyboard('{ArrowDown}');
+    expect(control).toHaveAttribute('aria-checked', 'true');
+    expect(control).toHaveFocus();
+    // The category group is a separate group: its selection did not move.
+    expect(checked(categories())).toHaveLength(1);
+    expect(checked(categories())[0]).toHaveAccessibleName(new RegExp(SAMPLE_CATEGORY));
   });
 });
