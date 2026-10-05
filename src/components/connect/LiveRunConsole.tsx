@@ -525,6 +525,8 @@ export function LiveRunConsole({
         finishRefusal={finishRefusal}
         finishing={finishing}
         onFinish={finish}
+        category={run.category}
+        kind={run.kind}
       />
       <LiveNotice
         testId="live-selection"
@@ -542,16 +544,26 @@ export function LiveRunConsole({
           onRelease={release}
         />
       </LiveNotice>
-      <Endpoint run={run} />
-      {/* THE HOW. The three sections around it say what the run is, what the
+      {/* AN EXPIRED RUN KEEPS NONE OF ITS SETUP. The endpoint, the token notice,
+          the client steps and the task are all instructions for a run that no
+          longer accepts connections, and the reopened notice went further and
+          said an agent holding the token keeps working, which stops being true
+          the moment the run is dead. The dock above already says what happened
+          and offers a fresh run, so that is all an expired run shows. */}
+      {!lapsed && (
+        <>
+          <Endpoint run={run} />
+          {/* THE HOW. The three sections around it say what the run is, what the
           agent's job is and what we have seen; this one is the only place that
           says what the reader has to DO, so it sits immediately after the values
           it is built from and before the goal that depends on the connection. */}
-      {/* The setup commands embed the token, so a reopened run has none to
+          {/* The setup commands embed the token, so a reopened run has none to
           show. Drawing them with a placeholder would be a command that cannot
           work, which is worse than no command. */}
-      {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
-      <TaskGoal run={run} />
+          {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
+          <TaskGoal run={run} />
+        </>
+      )}
     </div>,
   );
 }
@@ -906,7 +918,12 @@ function Connection({
   finishRefusal,
   finishing,
   onFinish,
+  category,
+  kind,
 }: {
+  /** What the run serves. Printed here only once it has expired; see below. */
+  category: Category;
+  kind: VariantKind;
   /**
    * Whether everything this page will learn about the result is in: a saved
    * result, a settled "none", or a lookup that gave up. Until then a finished
@@ -1083,6 +1100,19 @@ function Connection({
             timestamp exists yet (`last_seen_at` on `live_runs` is deferred to
             v2), so until then the reading is omitted rather than invented. */}
         <div className="flex flex-wrap gap-x-5 gap-y-1">
+          {/* A live run names what it serves beside its endpoint. An expired
+              run has no endpoint section left, so it is named here instead:
+              two dead runs in one session still have to be told apart. */}
+          {lapsed && (
+            <>
+              <p className="instrument-faint">
+                SERVING <span className="readout">{category}</span>
+              </p>
+              <p className="instrument-faint">
+                RUN TYPE <span className="readout">{RUN_TYPE_LABEL[kind]}</span>
+              </p>
+            </>
+          )}
           {status !== null && status.lastSeenAt !== null && (
             <p className="instrument-faint">
               LAST SEEN <span className="readout">{status.lastSeenAt}</span>
