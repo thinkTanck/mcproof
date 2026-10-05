@@ -856,3 +856,123 @@ describe('ConnectScreen · the radio groups from the keyboard', () => {
     expect(checked(categories())[0]).toHaveAccessibleName(new RegExp(SAMPLE_CATEGORY));
   });
 });
+
+/**
+ * THE SECTION HEADING DOES NOT NAME AN ENDPOINT THAT IS NOT SHOWN.
+ *
+ * Section 03 is headed YOUR RUN ENDPOINT. An expired run no longer draws its
+ * endpoint (the run is dead, so its setup is gone), which left the heading
+ * pointing at something that was not on the page. For an expired run the
+ * heading says what the run bar under it says: RUN EXPIRED.
+ */
+describe('ConnectScreen · the section 03 heading on an expired run', () => {
+  const ticket = (expiresAt: string) => ({
+    runId: 'run-1',
+    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+    token: 'mcpwn_rt_secret',
+    expiresAt,
+    category: 'ASI06' as const,
+    kind: 'malicious' as const,
+    taskGoal: 'Do the thing.',
+    promptName: 'session_brief',
+  });
+
+  const actions = (expiresAt: string) => {
+    let issued = 0;
+    return {
+      // The first run carries the given expiry; a fresh one after it is live.
+      start: vi.fn(async () => ({
+        ok: true as const,
+        value: ticket(issued++ === 0 ? expiresAt : '2999-01-01T00:00:00.000Z'),
+      })),
+      status: vi.fn(async () => ({
+        ok: true as const,
+        value: {
+          runId: 'run-1',
+          phase: 'waiting' as const,
+          connectedAt: null,
+          lastSeenAt: null,
+          steps: 2,
+          toolCalls: 0,
+          finishedAt: null,
+        },
+      })),
+      finish: vi.fn(async () => ({
+        ok: false as const,
+        code: 'RUN_NOT_FOUND' as const,
+        message: 'That run was not found.',
+      })),
+      reattach: vi.fn(async () => ({
+        ok: false as const,
+        code: 'RUN_NOT_FOUND' as const,
+        message: 'That run was not found.',
+      })),
+    };
+  };
+
+  const PAST = '2000-01-01T00:00:00.000Z';
+  const FUTURE = '2999-01-01T00:00:00.000Z';
+  // The heading of section 03, whatever it currently says.
+  const heading = () => document.getElementById('connect-run-head')!;
+  const issue = async (user: ReturnType<typeof userEvent.setup>) => {
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  };
+
+  it('reads RUN EXPIRED, the wording of the run bar, and names no endpoint', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions(PAST)} />);
+    await issue(user);
+    const bar = await screen.findByRole('region', { name: /what we have actually seen/i });
+    await within(bar).findByText('RUN EXPIRED');
+
+    await waitFor(() => expect(heading()).toHaveTextContent('RUN EXPIRED'));
+    expect(heading()).not.toHaveTextContent(/YOUR RUN ENDPOINT/i);
+    expect(heading()).not.toHaveTextContent(/endpoint/i);
+    // The same words as the bar, so the two cannot drift apart.
+    expect(heading()).toHaveTextContent(within(bar).getByText('RUN EXPIRED').textContent!);
+    // Still the third step of the setup.
+    expect(heading()).toHaveTextContent(/^03/);
+  });
+
+  it('still reads YOUR RUN ENDPOINT for a run that has not expired', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions(FUTURE)} />);
+    await issue(user);
+    await screen.findByText('AWAITING AGENT');
+
+    expect(heading()).toHaveTextContent('YOUR RUN ENDPOINT');
+    expect(heading()).not.toHaveTextContent('RUN EXPIRED');
+  });
+
+  it('still reads YOUR RUN ENDPOINT before any run is issued', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions(PAST)} />);
+    await goLive(user);
+
+    expect(heading()).toHaveTextContent('YOUR RUN ENDPOINT');
+  });
+
+  it('goes back to YOUR RUN ENDPOINT once the expired run is let go for a fresh one', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions(PAST)} />);
+    await issue(user);
+    await waitFor(() => expect(heading()).toHaveTextContent('RUN EXPIRED'));
+
+    await user.click(screen.getByRole('button', { name: /issue a fresh run/i }));
+
+    await waitFor(() => expect(heading()).toHaveTextContent('YOUR RUN ENDPOINT'));
+    expect(heading()).not.toHaveTextContent('RUN EXPIRED');
+  });
+
+  it('reads RECORDED PLAYBACK in sample mode even while an expired run is held', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions(PAST)} />);
+    await issue(user);
+    await waitFor(() => expect(heading()).toHaveTextContent('RUN EXPIRED'));
+
+    await user.click(screen.getByRole('button', { name: /SAMPLE · no sign-in/i }));
+
+    expect(heading()).toHaveTextContent('RECORDED PLAYBACK');
+  });
+});
