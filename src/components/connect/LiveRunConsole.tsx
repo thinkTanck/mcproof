@@ -189,6 +189,12 @@ function phaseLine(status: LiveRunStatusView, result: RunResultState): string {
     : 'Your agent is calling tools, and every call it makes is being recorded.';
 }
 
+/**
+ * What an expired run is called. One string for the run bar and for the section
+ * heading above it (`ConnectScreen`), so the two cannot come to disagree.
+ */
+export const RUN_EXPIRED_LABEL = 'RUN EXPIRED';
+
 export function LiveRunConsole({
   port = notWiredLiveRunPort,
   category,
@@ -199,7 +205,14 @@ export function LiveRunConsole({
   reattachRunId,
   onRunChange,
   onRunOver,
+  onExpiredChange,
 }: {
+  /**
+   * Told whether the run on show has expired without finishing. The screen
+   * uses it for the section heading, which must not name an endpoint once an
+   * expired run has stopped drawing one. `false` whenever there is no such run.
+   */
+  onExpiredChange?: (expired: boolean) => void;
   /**
    * A run to reopen by id, when this console has none of its own. It comes from
    * the URL, so it is the one thing that survives a reload.
@@ -430,6 +443,14 @@ export function LiveRunConsole({
       clearInterval(timer);
     };
   }, [port, runId, done, pollIntervalMs, now, expiresAt]);
+
+  // The same reading the render below calls `lapsed`, reported upward. Reset on
+  // the way out, so a console that is unmounted leaves no stale claim behind.
+  const runLapsed = run !== null && expired && summary === null && status?.phase !== 'finished';
+  useEffect(() => {
+    onExpiredChange?.(runLapsed);
+    return () => onExpiredChange?.(false);
+  }, [runLapsed, onExpiredChange]);
 
   if (!signedIn) return <SignInGate />;
 
@@ -1010,7 +1031,11 @@ function Connection({
               className="font-mono text-[13px] tracking-[0.08em]"
               style={live ? undefined : { color: 'var(--status-inert)' }}
             >
-              {lapsed ? 'RUN EXPIRED' : phase === null ? 'READING RUN STATE' : PHASE_LABELS[phase]}
+              {lapsed
+                ? RUN_EXPIRED_LABEL
+                : phase === null
+                  ? 'READING RUN STATE'
+                  : PHASE_LABELS[phase]}
             </span>
             {status !== null && (
               <span className="flex items-baseline gap-2">
