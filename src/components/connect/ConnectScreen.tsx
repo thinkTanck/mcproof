@@ -60,6 +60,15 @@ type Mode = 'sample' | 'live';
 /** Which recorded run each category plays. Resolved on the server; see the route. */
 export type SampleRunIds = Partial<Record<Category, string>>;
 
+/**
+ * The task each category's live run hands the agent, as plain strings.
+ *
+ * Built on the server (see the route) and handed down, never looked up here:
+ * the goals live beside the poisoned payloads and the trace builders, and
+ * importing those into this client component would ship them to the browser.
+ */
+export type CategoryGoals = Partial<Record<Category, string>>;
+
 /** The sample the screens ship with, when no per-category id was resolved. */
 const CANONICAL_SAMPLE = 'sample';
 
@@ -168,6 +177,7 @@ const LockIcon = () => (
 export function ConnectScreen({
   signedIn = false,
   sampleRunIds,
+  categoryGoals,
   sampleProvenance,
   liveActions,
   livePort,
@@ -182,6 +192,8 @@ export function ConnectScreen({
   initialRunId?: string;
   /** Category to recorded-run id. Absent entries fall back to the canonical sample. */
   sampleRunIds?: SampleRunIds;
+  /** Category to the task its live run serves. Absent means no preview is drawn. */
+  categoryGoals?: CategoryGoals;
   /** What the sample IS, in the sample library's own words. */
   sampleProvenance?: string;
   /**
@@ -279,6 +291,8 @@ export function ConnectScreen({
 
   const live = mode === 'live';
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
+  const previewGoal = categoryGoals?.[category];
+  const hasRun = activeRunId !== null && activeRunId !== settledRunId;
 
   return (
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
@@ -355,6 +369,35 @@ export function ConnectScreen({
             />
           ))}
         </div>
+
+        {/* THE TASK PREVIEW. The category decides what the agent is asked to do,
+            so the task is shown where the category is chosen and follows every
+            change of the picker. It always describes the SELECTION, never the
+            issued run: a run keeps the goal the server gave it, printed with its
+            copy control in the last step, and this lines up the next one. There
+            is no copy control here on purpose. Nothing can use the goal until a
+            run exists, and one place to copy it from is one place to trust. */}
+        {previewGoal !== undefined && (
+          <div
+            role="group"
+            aria-labelledby="connect-task-preview"
+            className="mt-4 rounded-lg border border-line bg-panel/60 px-4 py-3.5"
+          >
+            <p id="connect-task-preview" className="micro-label mb-2">
+              TASK PREVIEW
+            </p>
+            <p className="reading max-w-[68ch]" aria-live="polite">
+              {previewGoal}
+            </p>
+            <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+              {!live
+                ? 'A live run of this category gives your agent this task.'
+                : hasRun
+                  ? 'Lined up for your next run. The run you issued keeps its own task, shown in the last step.'
+                  : 'Issue a run to get your endpoint and token.'}
+            </p>
+          </div>
+        )}
 
         {/* THE CONTROL RUN. Live only, because every recorded sample IS an attack
             run: offering a control the sample library cannot play would be a

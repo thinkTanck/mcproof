@@ -5,10 +5,15 @@ import {
   getLiveRunStatus,
   startLiveRun,
 } from '@/app/actions/live-run';
-import { ConnectScreen, type SampleRunIds } from '@/components/connect/ConnectScreen';
+import {
+  ConnectScreen,
+  type CategoryGoals,
+  type SampleRunIds,
+} from '@/components/connect/ConnectScreen';
 import { CategorySchema } from '@/contract';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { sampleRun } from '@/data/source';
+import { buildHostedSurface } from '@/harness/server/surfaces';
 import { getUser } from '@/lib/auth/user';
 
 export const metadata: Metadata = {
@@ -21,13 +26,16 @@ export const metadata: Metadata = {
  * Connect / Run Setup route.
  *
  * The console itself is a Client Component, so this server route resolves the
- * three things it cannot know on its own:
+ * four things it cannot know on its own:
  *
  *   1. THE REAL SESSION. Live runs are gated; sample playback is not.
  *   2. WHICH RECORDED RUN each category plays, so the sample launch goes to the
  *      run the user actually picked rather than always to the hero one.
  *   3. WHAT THE SAMPLE IS, in the sample library's own provenance words. A
  *      constructed demonstration must never travel without that label.
+ *   4. THE TASK EACH CATEGORY SERVES, for the preview under the picker. The
+ *      goals live with the attack modules, which must never reach the browser,
+ *      so they are read here and only the strings are handed down.
  *
  * ── THE LIVE PORT IS BOUND HERE, AND ONLY HERE ──
  *
@@ -72,11 +80,23 @@ export default async function ConnectPage({
     CategorySchema.options.map((category) => [category, sampleRun(category).runId]),
   );
 
+  // The same lookup the live pipeline makes when it mints a run, so the preview
+  // is the sentence the endpoint will serve. Keyed by category alone because the
+  // attack run and the control run share one goal (asserted in
+  // tests/unit/app/connect-task-preview.test.tsx). Only the strings go down.
+  const categoryGoals: CategoryGoals = Object.fromEntries(
+    CategorySchema.options.map((category) => [
+      category,
+      buildHostedSurface(category, 'malicious').taskGoal,
+    ]),
+  );
+
   return (
     <ConnectScreen
       signedIn={user !== null}
       initialRunId={runId}
       sampleRunIds={sampleRunIds}
+      categoryGoals={categoryGoals}
       sampleProvenance={SAMPLE_VERDICT_PROVENANCE}
       liveActions={{
         start: startLiveRun,
