@@ -180,19 +180,20 @@ const Code = ({ children }: { children: ReactNode }) => <span className="readout
 /**
  * One numbered step. The sentence is READING; whatever the step needs the reader
  * to copy sits inside the same list item, so "step 2" and its value never drift
- * apart.
+ * apart. Only the sentence takes the reading measure: the snippet under it is a
+ * copy-out box, and those keep the width of the list.
  */
 function Step({ children, snippets }: { children: ReactNode; snippets?: ReactNode }) {
   return (
     <li className="reading pl-1.5">
-      {children}
+      <div className="measure">{children}</div>
       {snippets && <div className="mt-2.5 flex flex-col gap-2.5">{snippets}</div>}
     </li>
   );
 }
 
 /** A numbered list of steps. Real numerals, kept as list semantics. */
-const STEP_LIST = 'max-w-[72ch] list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal';
+const STEP_LIST = 'list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal';
 
 /** The snippet label for a command that is the same in both shells (rule 2). */
 const BOTH_SHELLS = 'BASH AND POWERSHELL';
@@ -225,7 +226,7 @@ function ClientSteps({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <p className="reading max-w-[68ch]">{intro}</p>
+      <p className="reading measure">{intro}</p>
       <div>
         {route && <p className="micro-label">{route.mainLabel}</p>}
         <ol className={cn(STEP_LIST, route && 'mt-3')}>{children}</ol>
@@ -238,9 +239,9 @@ function ClientSteps({
       )}
       <div>
         <p className="micro-label">KEEP IN MIND</p>
-        <ul className="mt-2 max-w-[68ch] list-disc space-y-1.5 pl-6 marker:text-ink-faint">
+        <ul className="mt-2 list-disc space-y-1.5 pl-6 marker:text-ink-faint">
           {caveats.map((caveat, i) => (
-            <li key={i} className="reading pl-1 text-ink-muted">
+            <li key={i} className="reading measure pl-1 text-ink-muted">
               {caveat}
             </li>
           ))}
@@ -272,7 +273,7 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
           <WarningIcon />
           ATTACH NOTHING ELSE
         </p>
-        <p className="reading mt-2 max-w-[68ch]">
+        <p className="reading mt-2 measure">
           Connect an agent that has no other tools attached. A run here can carry an instruction
           aimed at whatever your agent can reach, so if the same agent is also holding a live
           connector for mail, files, a browser or a cloud account, an instruction it takes on this
@@ -312,7 +313,7 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
 
       <div id={PANEL_ID} className="mt-1">
         {client === null && (
-          <p className="reading max-w-[68ch] text-ink-muted">
+          <p className="reading measure text-ink-muted">
             Pick the client your agent runs in to see its steps.
           </p>
         )}
@@ -543,7 +544,7 @@ function Verify() {
   return (
     <div className="mt-1">
       <p className="micro-label">CHECK IT TOOK</p>
-      <p className="reading mt-2 max-w-[68ch]">
+      <p className="reading mt-2 measure">
         In any client, the reading that settles it is the connection panel on this screen. It stays
         on AWAITING AGENT until your agent really reaches this endpoint, and it moves to AGENT
         CONNECTED the first time it does.

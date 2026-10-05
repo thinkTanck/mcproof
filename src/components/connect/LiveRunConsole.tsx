@@ -575,7 +575,7 @@ function SignInGate() {
     <div className="flex flex-wrap items-center gap-4 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4">
       <div className="min-w-[220px] flex-1">
         <p className="micro-label text-caution">SIGN IN TO RUN LIVE</p>
-        <p className="reading mt-1.5">
+        <p className="reading measure mt-1.5">
           A live run hosts an endpoint for your account and spends operator budget on the judge, so
           it needs an account. Sample playback needs no sign-in and no key.
         </p>
@@ -607,7 +607,7 @@ function BeforeIssue({
           identical either way; what changes is whether an attack is staged on
           them, and saying "the attack surface" for a control run would be the one
           sentence on this panel that was not true. */}
-      <p className="reading max-w-[68ch]">
+      <p className="reading measure">
         {kind === 'benign'
           ? 'You point your agent at an endpoint we host. We serve the same tool surface for the ' +
             'category you picked with no attack staged on it, and we record every tool call your ' +
@@ -615,7 +615,7 @@ function BeforeIssue({
           : 'You point your agent at an endpoint we host. We serve the attack surface for the ' +
             'category you picked, and we record every tool call your agent chooses to make.'}
       </p>
-      <p className="reading max-w-[68ch] text-ink-muted">
+      <p className="reading measure text-ink-muted">
         We never ask you for an endpoint or a key, because we never call out to anything. Everything
         our endpoint serves is fabricated attack content in a sandbox, and nothing real sits behind
         it.
@@ -692,7 +692,7 @@ function ReopeningText() {
       <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
         REOPENING RUN
       </p>
-      <p className="reading mt-1.5 max-w-[68ch]">We are reading this run back from the server.</p>
+      <p className="reading mt-1.5 measure">We are reading this run back from the server.</p>
     </>
   );
 }
@@ -701,8 +701,8 @@ function ReattachRefused({ refusal }: { refusal: LiveRunRefusal }) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4">
       <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
-      <p className="reading max-w-[68ch]">{refusal.message}</p>
-      <p className="reading max-w-[68ch] text-ink-muted">
+      <p className="reading measure">{refusal.message}</p>
+      <p className="reading measure text-ink-muted">
         Nothing was reopened. A run can only be reopened by the account that issued it, and only
         until it is swept after it expires. You can issue a new run below.
       </p>
@@ -747,7 +747,7 @@ function SelectionNotice({
       <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
         SELECTION DIFFERS FROM THIS RUN
       </p>
-      <p className="reading max-w-[68ch]">
+      <p className="reading measure">
         This run serves <span className="readout">{run.category}</span> (
         <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>). You now have{' '}
         <span className="readout">{category}</span> (
@@ -755,7 +755,7 @@ function SelectionNotice({
         token and the task goal on this page belong to the run that was issued, and a new selection
         only takes effect on the next run you issue.
       </p>
-      <p className="reading max-w-[68ch] text-ink-muted">
+      <p className="reading measure text-ink-muted">
         {canRelease
           ? 'No agent has connected to this run, so you can let it go and issue one for the new ' +
             'selection. This run is left to expire.'
@@ -826,7 +826,7 @@ function Endpoint({ run }: { run: ActiveRun }) {
       {run.token !== null ? (
         <>
           <CopyOut label="RUN TOKEN" name="run token" value={run.token} secret />
-          <p className="reading max-w-[68ch] text-ink-muted">
+          <p className="reading measure text-ink-muted">
             The token is shown once and we cannot show it again, because we store only a hash of it.
             It travels as an Authorization header on every request your agent makes, and the
             commands below set that up for you. It opens this one run, on this one account, and it
@@ -838,7 +838,7 @@ function Endpoint({ run }: { run: ActiveRun }) {
           <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
             RUN REOPENED · TOKEN NOT SHOWN
           </p>
-          <p className="reading max-w-[68ch]">
+          <p className="reading measure">
             This run was reopened from its saved state. Its token was shown once, when the run was
             issued, and we cannot show it again, because we store only a hash of it. An agent that
             already holds the token keeps working, and you can watch the run and end it from here.
@@ -861,7 +861,7 @@ function Endpoint({ run }: { run: ActiveRun }) {
           EXPIRES <span className="readout">{run.expiresAt}</span>
         </span>
       </div>
-      <p className="reading max-w-[68ch] text-ink-muted">
+      <p className="reading measure text-ink-muted">
         The tools on this endpoint are hostile by design. A leaked token is worth one sandboxed run
         of invented content, never an account.
       </p>
@@ -878,21 +878,21 @@ function TaskGoal({ run }: { run: ActiveRun }) {
       <h3 id="connect-goal" className="reading-h3">
         Give your agent its task.
       </h3>
-      <p className="reading max-w-[68ch]">
+      <p className="reading measure">
         MCP has no message that lets a server tell an agent what its job is, so the goal has to
         reach your agent another way. There are two, and the first is better because the goal never
         leaves the protocol.
       </p>
       <div className="rounded-lg border border-line-em bg-nominal/5 px-4 py-3.5">
         <p className="micro-label mb-2">PREFERRED · PUBLISHED MCP PROMPT</p>
-        <p className="reading max-w-[68ch]">
+        <p className="reading measure">
           Our endpoint publishes the goal as a prompt. If your client supports prompts, list them on
           the connection you just made and fetch this one.
         </p>
         <p className="readout mt-2.5">{run.promptName}</p>
       </div>
       <div className="flex flex-col gap-2.5">
-        <p className="reading max-w-[68ch]">
+        <p className="reading measure">
           If your client does not support prompts, paste this into your agent instead. It is the
           same text the prompt serves.
         </p>
@@ -1066,13 +1066,13 @@ function Connection({
             className="flex flex-col gap-2 rounded-md border border-caution/40 bg-caution/5 px-4 py-3"
           >
             <p className="micro-label text-caution">{REFUSAL_HEADINGS[finishRefusal.code]}</p>
-            <p className="reading max-w-[68ch]">{finishRefusal.message}</p>
+            <p className="reading measure">{finishRefusal.message}</p>
           </div>
         )}
       </section>
       {/* What the bar's readings mean. Prose, so it scrolls with the page. */}
       <div data-testid="run-state-detail" className="-mt-3 flex flex-col gap-3">
-        <p className="reading max-w-[68ch]">
+        <p className="reading measure">
           {lapsed
             ? 'This run passed its expiry before it finished, so its endpoint and token no longer ' +
               'accept connections. Issue a new run to try again.'
@@ -1083,20 +1083,20 @@ function Connection({
                 phaseLine({ ...status, phase: phase ?? status.phase }, result)}
         </p>
         {!lapsed && phase === 'waiting' && !reattached && (
-          <p className="reading max-w-[68ch] text-ink-muted">
+          <p className="reading measure text-ink-muted">
             This reading changes to AGENT CONNECTED the moment your agent reaches the endpoint. If
             it is still AWAITING AGENT after you have started your client, the connection did not
             take.
           </p>
         )}
         {status !== null && (
-          <p className="reading max-w-[68ch] text-ink-muted">
+          <p className="reading measure text-ink-muted">
             The trace holds {status.steps} steps in total, which counts the task goal we sent and
             the completion step we infer, as well as your agent{"'"}s own.
           </p>
         )}
         {statusRefusal !== null && (
-          <p className="reading max-w-[68ch] text-ink-muted">{statusRefusal.message}</p>
+          <p className="reading measure text-ink-muted">{statusRefusal.message}</p>
         )}
         {/* When the run stops accepting connections, and, when the server records
             one, when the agent was last seen. Both are evidence, printed as issued
@@ -1130,13 +1130,13 @@ function Connection({
             {lapsed ? 'EXPIRED' : 'EXPIRES'} <span className="readout">{expiresAt}</span>
           </p>
         </div>
-        <p className="reading max-w-[68ch] text-ink-muted">
+        <p className="reading measure text-ink-muted">
           We record what your agent does, not what it thinks. Reasoning is not observable from this
           side of the connection and is never invented, so a live trace carries fewer steps than the
           constructed sample does.
         </p>
         {canFinish && (
-          <p className="reading max-w-[68ch]">
+          <p className="reading measure">
             When your agent is done, end the run. That revokes the token, asks the fixed judge for a
             verdict on what was recorded, and saves the result. A compromise comes back anchored to
             one step; a clean run comes back as a clean run. Both are saved and both are results.
@@ -1148,7 +1148,7 @@ function Connection({
         {(stranded || lapsed) && (
           <div className="flex flex-col gap-2.5">
             {stranded && (
-              <p className="reading max-w-[68ch]">
+              <p className="reading measure">
                 This run was reopened without its token, and no agent has connected to it. If your
                 client was not set up before this page was reloaded, the run cannot be registered
                 with a client now, because we cannot show the token again. Issue a fresh run to get
@@ -1172,7 +1172,7 @@ function RefusalText({ refusal }: { refusal: LiveRunRefusal }) {
   return (
     <>
       <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
-      <p className="reading max-w-[68ch]">{refusal.message}</p>
+      <p className="reading measure">{refusal.message}</p>
     </>
   );
 }

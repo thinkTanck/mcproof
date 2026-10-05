@@ -34,7 +34,7 @@ export default async function ThreatsPage() {
 
       <h1 className="reading-h1 mt-3 max-w-[20ch]">What we test. And what we honestly can’t.</h1>
 
-      <p className="reading-lead mt-5">
+      <p className="reading-lead measure mt-5">
         All ten OWASP Agentic categories, stated plainly. Seven are observable inside a single run,
         so we test them. Three complete somewhere our trace cannot see, so we say so rather than
         fake a verdict.
@@ -49,7 +49,7 @@ export default async function ThreatsPage() {
         <span className="mt-0.5 text-nominal">
           <CoverageIcon kind="covered" size={16} />
         </span>
-        <p className="reading" style={{ maxInlineSize: '72ch' }}>
+        <p className="reading measure">
           A category is <span className="text-readout">testable</span> only if the compromise is
           observable in the agent’s own steps, inside one bounded run, with a crisp{' '}
           <span className="font-mono text-nominal">compromised at step N, or not</span>.

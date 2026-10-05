@@ -137,7 +137,7 @@ export function CopyOut({
         </p>
       )}
       {copyFailed && (
-        <p className="reading mt-2 text-ink-muted">
+        <p className="reading measure mt-2 text-ink-muted">
           Copying did not work in this browser. Reveal the value and select it by hand.
         </p>
       )}

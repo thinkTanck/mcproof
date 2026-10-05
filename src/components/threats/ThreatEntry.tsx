@@ -62,23 +62,23 @@ export function ThreatEntry({
 
       {/* Right column — the editorial explanation (READING roles) */}
       <div className="flex min-w-0 flex-col gap-5">
-        <p className="reading-lead">{threat.plain}</p>
+        <p className="reading-lead measure">{threat.plain}</p>
 
         <div>
           <div className="micro-label mb-1.5">HOW IT WORKS</div>
-          <p className="reading">{threat.how}</p>
+          <p className="reading measure">{threat.how}</p>
         </div>
 
         <div>
           <div className="micro-label mb-1.5">EXAMPLE</div>
-          <p className="reading">{threat.example}</p>
+          <p className="reading measure">{threat.example}</p>
         </div>
 
         <div className="rounded-md border border-line bg-base/40 px-4 py-3">
           <div className="micro-label mb-1.5" style={covered ? undefined : stateStyle}>
             {coverLabel}
           </div>
-          <p className="reading">{threat.coverText}</p>
+          <p className="reading measure">{threat.coverText}</p>
         </div>
 
         {/* A MEASURED caveat, where one was measured. Inert token, no glow,
@@ -96,7 +96,7 @@ export function ThreatEntry({
               <CoverageIcon kind="inert" size={12} />
               {threat.caveat.label}
             </div>
-            <p className="reading">{threat.caveat.text}</p>
+            <p className="reading measure">{threat.caveat.text}</p>
             <p className="instrument-faint mt-2">{threat.caveat.provenance}</p>
           </div>
         )}

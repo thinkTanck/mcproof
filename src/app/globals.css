@@ -530,3 +530,21 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* =========================================================================
+ * THE READING MEASURE. An OPT-IN utility for body paragraphs, not part of the
+ * READING role: the role still pins no measure (see the note on --reading-font,
+ * and the token test that asserts it), because a cap on the role fought the
+ * design's own columns. A paragraph asks for the measure by name; headings,
+ * labels, readouts, copy-out boxes and grids never do, and keep their width.
+ *
+ * It is a fixed 34rem (544px), not a `ch` count, on purpose. `ch` is the width
+ * of the digit zero, and Geist's zero is much wider than its average letter, so
+ * the `max-w-[68ch]` this replaces held about 97 characters a line, and a
+ * different number again in the fallback font. 34rem holds about 66 characters
+ * on a typical line in both (measured: tests/e2e/reading-measure.spec.ts).
+ * The block stays left-aligned, so prose and the boxes share one left edge.
+ * ========================================================================= */
+@utility measure {
+  max-width: 34rem;
+}
