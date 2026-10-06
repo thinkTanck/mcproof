@@ -7,7 +7,7 @@ import { suppressBootSplash } from './support/screen';
  * Two things move in the hero box besides the breach marker. The sweep: a pulse
  * of light that travels down the trace rail in about a second and repeats every
  * 3.2. And the frame accent: one dim cyan light that goes round the box's border
- * once every 14.4 seconds, the cue that this is a readout and not a picture.
+ * once every 9.6 seconds, the cue that this is a readout and not a picture.
  *
  * Both are ambience and neither may cost anything. The box is exactly the size
  * it is without them, nothing on the page shifts while they run, and under
@@ -126,20 +126,25 @@ for (const [width, height] of [
       expect(m.lightName).toBe('hero-frame-lap');
       expect(m.lightIteration).toBe('infinite');
       expect(m.lightTiming).toBe('linear');
-      // One lap on a calm interval: slower than the header pulse's 12s cycle.
-      expect(m.lightSeconds).toBeGreaterThanOrEqual(12);
+      // One lap in 9.6 seconds: three times the length of a sweep loop, so the
+      // frame is still the slowest thing moving in the box.
+      expect(m.lightSeconds).toBe(9.6);
+      expect(m.lightSeconds).toBeGreaterThanOrEqual(m.sweepSeconds * 3);
       // A light, not an outline: one sliver of a conic gradient.
       expect(m.lightBackground).toContain('conic-gradient');
     });
 
-    test('the accent is subordinate to the breach marker: one pixel, no glow', async ({ page }) => {
+    test('the accent is subordinate to the breach marker: two pixels, no glow', async ({
+      page,
+    }) => {
       await home(page);
       const m = await measure(page);
 
-      expect(m.accentThickness).toBe(1);
+      expect(m.accentThickness).toBe(2);
       expect(m.lightGlow).toBe('none none');
       expect(m.markerSize).toBe(18);
-      expect(m.markerSize).toBeGreaterThan(m.accentThickness! * 10);
+      // Still a line beside a marker: the marker is nine times its thickness.
+      expect(m.markerSize).toBeGreaterThanOrEqual(m.accentThickness! * 9);
     });
 
     test('the accent costs the box nothing: same size with it and without it', async ({ page }) => {

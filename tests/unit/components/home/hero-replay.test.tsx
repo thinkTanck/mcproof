@@ -256,7 +256,7 @@ describe('HeroReplay · sweep timing', () => {
 
 /**
  * THE FRAME ACCENT: one dim cyan light that goes round the box's border, once
- * every 14.4 seconds. It is the cue that the box is a readout and not a picture.
+ * every 9.6 seconds. It is the cue that the box is a readout and not a picture.
  *
  * It is deliberately small. The breach marker is the one loud thing in this box
  * and has to stay that: the accent is a single pixel thick, a sliver of the
@@ -305,10 +305,12 @@ describe('HeroReplay · the frame accent', () => {
     expect(accent).toMatch(/border-radius:\s*inherit/);
   });
 
-  it('shows only a one-pixel ring of itself: the border, not the box', () => {
+  it('shows only a two-pixel ring of itself: the border, not the box', () => {
     const accent = rule(/\.hero-frame-accent\s*\{([^}]*)\}/);
 
-    expect(accent).toMatch(/padding:\s*1px/);
+    // 2px, up from 1: at one pixel the light was correct and hard to find.
+    expect(accent).toMatch(/padding:\s*2px/);
+    expect(accent).not.toMatch(/padding:\s*1px/);
     expect(accent).toMatch(/mask-composite:\s*exclude/);
     expect(accent).toMatch(/overflow:\s*hidden/);
   });
@@ -327,12 +329,13 @@ describe('HeroReplay · the frame accent', () => {
     expect(light).not.toMatch(/breach|caution|red-|amber-/);
   });
 
-  it('goes round once every 14.4 seconds at a constant rate, moving by transform only', () => {
+  it('goes round once every 9.6 seconds at a constant rate, moving by transform only', () => {
     const light = rule(/\.hero-frame-accent-light\s*\{([^}]*)\}/);
     const frames = rule(/@keyframes hero-frame-lap\s*\{([\s\S]*?\})\s*\}/);
 
     expect(light).toMatch(
-      /animation:\s*hero-frame-lap calc\(var\(--motion-sweep\) \* 12\) linear infinite/,
+      // Eight sweeps: 9.6s a lap, down from 14.4s.
+      /animation:\s*hero-frame-lap calc\(var\(--motion-sweep\) \* 8\) linear infinite/,
     );
     expect(frames).not.toBe('');
     const properties = [...new Set([...frames.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]))];
