@@ -147,7 +147,7 @@ export function HeroReplay({
                       className="hero-sweep absolute inset-[-5px] rounded-full"
                       style={{
                         background:
-                          'radial-gradient(circle, color-mix(in srgb, var(--cyan-400) 70%, transparent), transparent 70%)',
+                          'radial-gradient(circle, color-mix(in srgb, var(--cyan-300) 70%, transparent), transparent 70%)',
                         animationDelay: delay,
                       }}
                     />
