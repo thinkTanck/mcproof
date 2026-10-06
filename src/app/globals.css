@@ -545,7 +545,11 @@ body {
   animation: verdict-in var(--motion-slow) var(--ease-emphasized) both;
   will-change: transform, opacity;
 }
+/* Dark at rest. The glow is only for while the sweep is passing: without this
+ * it sat fully lit wherever the animation was not running, which is every node
+ * still inside its stagger delay and every node under reduced motion. */
 .hero-sweep {
+  opacity: 0;
   animation: hero-sweep 3.2s var(--ease-emphasized) infinite;
   will-change: opacity, transform;
 }
