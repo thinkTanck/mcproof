@@ -215,7 +215,8 @@ describe('HeroReplay · sweep timing', () => {
     rows.forEach((row, i) => {
       // The breach row has no sweep, but it still takes its turn in the count.
       if (row.dataset.breach === 'true') expect(delays[i]).toBeUndefined();
-      else expect(delays[i]).toBe(`${(i * 0.15).toFixed(2)}s`);
+      // Compared as a number: the DOM hands "0.00s" back as "0s".
+      else expect(parseFloat(delays[i]!)).toBeCloseTo(i * 0.15, 5);
     });
     // Top to bottom in about a second.
     expect((rows.length - 1) * 0.15).toBeLessThan(1.2);
@@ -231,12 +232,18 @@ describe('HeroReplay · sweep timing', () => {
   it('lights each node briefly, so the light reads as one pulse with a short tail', () => {
     const frames = /@keyframes hero-sweep\s*\{([\s\S]*?\})\s*\}/.exec(css)?.[1] ?? '';
     // The last stop at which the glow is still fading out: by then it is dark.
-    const stops = [...frames.matchAll(/(\d+)%\s*\{[^}]*opacity:\s*([\d.]+)/g)].map((m) => ({
-      at: Number(m[1]),
-      opacity: Number(m[2]),
-    }));
+    // Every stop with its opacity, in order. One block can name several stops
+    // ("0%, 40%, 100%"), and blocks are not written in time order.
+    const stops = [...frames.matchAll(/((?:\d+%\s*,?\s*)+)\{[^}]*opacity:\s*([\d.]+)/g)]
+      .flatMap((m) =>
+        [...m[1]!.matchAll(/(\d+)%/g)].map((stop) => ({
+          at: Number(stop[1]),
+          opacity: Number(m[2]),
+        })),
+      )
+      .sort((a, b) => a.at - b.at);
     const peak = stops.find((s) => s.opacity > 0)!;
-    const dark = stops.filter((s) => s.at > peak.at && s.opacity === 0)[0]!;
+    const dark = stops.find((s) => s.at > peak.at && s.opacity === 0)!;
 
     // Lit for under a fifth of the loop: about half a second of 3.2.
     expect(peak.at).toBeLessThanOrEqual(8);
