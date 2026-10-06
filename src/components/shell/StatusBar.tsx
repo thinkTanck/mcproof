@@ -89,7 +89,31 @@ export function StatusBar({
         </>
       )}
 
-      <div className="hidden flex-1 min-[420px]:block" />
+      {/* THE BLANK PART OF THE BAR, AND THE PULSE THAT CROSSES IT. This is the
+          spacer the header always had; it now also holds a one-pixel track that
+          a slow line of light travels along, left to right (`.header-pulse` in
+          globals.css). CSS only, so the shell still ships no client JS.
+
+          The pulse says what the chip says, as colour: brighter nominal over a
+          live run, quieter over a sample, a neutral line tone where there is no
+          run. Where a chip follows, the track simply ends at it; where none
+          does, it fades out before the right edge. It is decoration, never the
+          only signal, so it is hidden from assistive technology.
+
+          It cannot move the layout. The track is 1px tall inside a 72px bar,
+          its width is whatever the flex row has left over, and only transform
+          and opacity are animated. Below 420px the spacer used to be hidden and
+          the chip pushed itself right; it is shown at every width now, and the
+          negative margin gives back the one extra gap that would cost, so the
+          row needs exactly the width it did (#176, #178). */}
+      <div
+        aria-hidden="true"
+        data-header-pulse={mode ?? 'neutral'}
+        data-pulse-ends={mode ? 'chip' : 'edge'}
+        className="header-pulse -ml-1 h-px min-w-0 flex-1 min-[360px]:-ml-2 min-[420px]:ml-0"
+      >
+        <span className="header-pulse-glint" />
+      </div>
 
       {runContext && (
         <div className="hidden items-center gap-3 min-[1100px]:flex">
