@@ -191,9 +191,11 @@ describe('header pulse · the stylesheet', () => {
     const sample = block(/\.header-pulse\[data-header-pulse='sample'\]\s*\{([^}]*)\}/);
     const live = block(/\.header-pulse\[data-header-pulse='live'\]\s*\{([^}]*)\}/);
 
-    expect(neutral).toMatch(/--header-pulse-color:[^;]*var\(--status-inert\)/);
-    expect(sample).toMatch(/--header-pulse-color:[^;]*var\(--status-nominal\)/);
-    expect(live).toMatch(/--header-pulse-color:[^;]*var\(--status-nominal\)/);
+    // The track sets `color`, and the glint paints with `currentColor`.
+    expect(neutral).toMatch(/\bcolor:[^;]*var\(--status-inert\)/);
+    expect(sample).toMatch(/\bcolor:[^;]*var\(--status-nominal\)/);
+    expect(live).toMatch(/\bcolor:[^;]*var\(--status-nominal\)/);
+    expect(block(/\.header-pulse-glint\s*\{([^}]*)\}/)).toMatch(/currentColor/);
     // Sample is the same hue, mixed down. Live is not mixed down as far.
     const share = (rule: string) =>
       Number(/var\(--status-nominal\)\s+(\d+)%/.exec(rule)?.[1] ?? 100);

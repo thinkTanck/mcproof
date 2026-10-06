@@ -112,9 +112,11 @@ test.describe('header at 1280x900 is unchanged', () => {
         const logo = el.querySelector('a[aria-label="MCPwn home"]') as HTMLElement;
         const spacer = [...el.children].find((c) => c.classList.contains('flex-1')) as HTMLElement;
         // The chip is the pill that holds the mode word, when the screen has one.
-        const word = [...el.querySelectorAll('span')].find((n) =>
-          /^(SAMPLE|LIVE)$/.test(n.textContent ?? ''),
-        );
+        // The pill and the word inside it both read SAMPLE or LIVE: take the word,
+        // the innermost match, so its parent is the pill.
+        const word = [...el.querySelectorAll('span')]
+          .filter((n) => /^(SAMPLE|LIVE)$/.test(n.textContent ?? ''))
+          .pop();
         const chip = (word?.parentElement ?? null) as HTMLElement | null;
         const chipCs = chip ? getComputedStyle(chip) : null;
         return {

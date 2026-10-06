@@ -39,9 +39,11 @@ const measure = (page: Page) =>
     const header = document.querySelector('header')!;
     const pulse = header.querySelector<HTMLElement>('[data-header-pulse]');
     const glint = pulse?.firstElementChild as HTMLElement | null;
-    const word = [...header.querySelectorAll('span')].find((n) =>
-      /^(SAMPLE|LIVE)$/.test(n.textContent ?? ''),
-    );
+    // The pill and the word inside it both read SAMPLE or LIVE: take the word,
+    // the innermost match, so its parent is the pill.
+    const word = [...header.querySelectorAll('span')]
+      .filter((n) => /^(SAMPLE|LIVE)$/.test(n.textContent ?? ''))
+      .pop();
     const chip = word?.parentElement ?? null;
     const hs = getComputedStyle(header);
     const hr = header.getBoundingClientRect();
@@ -65,10 +67,7 @@ const measure = (page: Page) =>
       durationSeconds: gs ? parseFloat(gs.animationDuration) : null,
       clipped: pulse ? getComputedStyle(pulse).overflowX : null,
       mask: pulse ? getComputedStyle(pulse).maskImage : null,
-      color: pulse ? getComputedStyle(pulse).getPropertyValue('--header-pulse-color').trim() : null,
-      nominal: getComputedStyle(document.documentElement)
-        .getPropertyValue('--status-nominal')
-        .trim(),
+      color: pulse ? getComputedStyle(pulse).color : null,
     };
   });
 
@@ -145,7 +144,6 @@ test.describe('header pulse · the three colours', () => {
     page,
   }) => {
     const colors: Record<string, string> = {};
-    let nominal = '';
     for (const mode of ['live', 'sample', 'neutral'] as const) {
       await open(page, `${FIXTURE}?mode=${mode}`);
       const m = await measure(page);
@@ -153,17 +151,23 @@ test.describe('header pulse · the three colours', () => {
       expect(m.ends, mode).toBe(mode === 'neutral' ? 'edge' : 'chip');
       expect(m.headerHeight, mode).toBe(72);
       colors[mode] = m.color!;
-      nominal = m.nominal;
     }
 
-    // The computed custom property has its tokens substituted, so the nominal
-    // colour shows up in it by value.
-    expect(nominal).not.toBe('');
+    // The track's computed colour, as `color(srgb r g b / a)`: the channels are
+    // the hue and the last number is how strongly it is mixed in.
+    const parts = (c: string) => (c.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? []).map(Number);
+    const hue = (c: string) =>
+      parts(c)
+        .slice(0, 3)
+        .map((n) => n.toFixed(2))
+        .join(' ');
+    const strength = (c: string) => parts(c)[3] ?? 1;
+
     expect(new Set(Object.values(colors)).size).toBe(3);
-    expect(colors.live).toContain(nominal);
-    expect(colors.sample).toContain(nominal);
-    expect(colors.sample).toContain('color-mix');
-    expect(colors.neutral).not.toContain(nominal);
+    // Sample and live are one hue at two strengths; neutral is another hue.
+    expect(hue(colors.sample!)).toBe(hue(colors.live!));
+    expect(strength(colors.sample!)).toBeLessThan(strength(colors.live!));
+    expect(hue(colors.neutral!)).not.toBe(hue(colors.live!));
   });
 
   for (const [width, height] of [
