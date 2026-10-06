@@ -543,7 +543,6 @@ body {
  * the nominal hue mixed well down, a live run is the nominal hue near full. It
  * is never caution or breach, because a pulse is ambience and not a status. */
 .header-pulse {
-  position: relative;
   overflow: hidden;
   color: color-mix(in srgb, var(--status-inert) 55%, transparent);
 }
