@@ -17,17 +17,25 @@ import { suppressBootSplash } from './support/screen';
  * 320x568 is the WCAG 1.4.10 Reflow case: a 1280px window at 400% zoom lays out
  * at 320 CSS px, and content has to reflow there without a sideways scroll. In
  * the fallback font the header needed 351px at that width, 31px too many.
+ *
+ * THE MODE CHIP IS ONLY ON RUN-SCOPED SCREENS NOW. It says where a run came
+ * from (SAMPLE or LIVE), so it appears on the replay and the fix report and
+ * nowhere else. Every screen is still held to no sideways scroll and a header
+ * inside the viewport; the chip assertions apply to the two screens that draw it,
+ * and the rest are held to drawing none.
  */
 
-const SCREENS: { name: string; path: string; shell: boolean }[] = [
-  { name: 'home', path: '/', shell: true },
-  { name: 'sign-in', path: '/sign-in', shell: false },
-  { name: 'connect', path: '/connect', shell: true },
-  { name: 'replay', path: '/runs/sample', shell: true },
-  { name: 'findings', path: '/findings/sample', shell: true },
-  { name: 'leaderboard', path: '/leaderboard', shell: true },
-  { name: 'threats', path: '/threats', shell: true },
+const SCREENS: { name: string; path: string; shell: boolean; chip: boolean }[] = [
+  { name: 'home', path: '/', shell: true, chip: false },
+  { name: 'sign-in', path: '/sign-in', shell: false, chip: false },
+  { name: 'connect', path: '/connect', shell: true, chip: false },
+  { name: 'replay', path: '/runs/sample', shell: true, chip: true },
+  { name: 'findings', path: '/findings/sample', shell: true, chip: true },
+  { name: 'leaderboard', path: '/leaderboard', shell: true, chip: false },
+  { name: 'threats', path: '/threats', shell: true, chip: false },
 ];
+
+const chipIn = (page: Page) => header(page).getByText(/^(SAMPLE|LIVE)$/);
 
 const header = (page: Page) => page.locator('header').first();
 
@@ -47,7 +55,7 @@ for (const [width, height] of [
     test.use({ viewport: { width, height } });
 
     for (const screen of SCREENS) {
-      test(`${screen.name}: no sideways scroll, header inside the viewport, SAMPLE visible`, async ({
+      test(`${screen.name}: no sideways scroll, header inside the viewport, ${screen.chip ? 'SAMPLE visible' : 'no mode chip'}`, async ({
         page,
       }) => {
         await openInFallbackFont(page, screen.path);
@@ -76,6 +84,12 @@ for (const [width, height] of [
         });
         expect(outside, 'header items past the viewport edge').toEqual([]);
 
+        if (!screen.chip) {
+          // No run on this screen, so nothing to say about where one came from.
+          await expect(chipIn(page)).toHaveCount(0);
+          return;
+        }
+
         // The mode chip keeps its full word, fully on screen.
         const chip = header(page).getByText('SAMPLE', { exact: true });
         await expect(chip).toBeVisible();
@@ -96,9 +110,13 @@ test.describe('header at 1280x900 is unchanged', () => {
       const m = await header(page).evaluate((el) => {
         const cs = getComputedStyle(el);
         const logo = el.querySelector('a[aria-label="MCPwn home"]') as HTMLElement;
-        const chip = el.lastElementChild as HTMLElement;
         const spacer = [...el.children].find((c) => c.classList.contains('flex-1')) as HTMLElement;
-        const chipCs = getComputedStyle(chip);
+        // The chip is the pill that holds the mode word, when the screen has one.
+        const word = [...el.querySelectorAll('span')].find((n) =>
+          /^(SAMPLE|LIVE)$/.test(n.textContent ?? ''),
+        );
+        const chip = (word?.parentElement ?? null) as HTMLElement | null;
+        const chipCs = chip ? getComputedStyle(chip) : null;
         return {
           padding: `${cs.paddingLeft} ${cs.paddingRight}`,
           gap: cs.columnGap,
@@ -106,13 +124,19 @@ test.describe('header at 1280x900 is unchanged', () => {
           logoLeft: Math.round(logo.getBoundingClientRect().left),
           logoGap: getComputedStyle(logo).columnGap,
           spacerShown: getComputedStyle(spacer).display !== 'none',
-          chipRight: Math.round(chip.getBoundingClientRect().right),
-          chipPadding: `${chipCs.paddingLeft} ${chipCs.paddingRight}`,
-          chipGap: chipCs.columnGap,
-          chipMargin: chipCs.marginLeft,
+          chip:
+            chip && chipCs
+              ? {
+                  right: Math.round(chip.getBoundingClientRect().right),
+                  padding: `${chipCs.paddingLeft} ${chipCs.paddingRight}`,
+                  gap: chipCs.columnGap,
+                  margin: chipCs.marginLeft,
+                }
+              : null,
         };
       });
-      // The values the desktop header had before #176, measured in the fallback font.
+      // The values the desktop header had before #176, measured in the fallback
+      // font. The chip's own values hold on the screens that draw it.
       expect(m, screen.path).toEqual({
         padding: '18px 18px',
         gap: '16px',
@@ -120,10 +144,7 @@ test.describe('header at 1280x900 is unchanged', () => {
         logoLeft: 18,
         logoGap: '10px',
         spacerShown: true,
-        chipRight: 1262,
-        chipPadding: '12px 12px',
-        chipGap: '8px',
-        chipMargin: '0px',
+        chip: screen.chip ? { right: 1262, padding: '12px 12px', gap: '8px', margin: '0px' } : null,
       });
     }
   });
