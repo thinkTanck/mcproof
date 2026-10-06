@@ -69,8 +69,21 @@ export function HeroReplay({
     <div
       role="img"
       aria-label={summary}
-      className="overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
+      className="relative overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
     >
+      {/* THE FRAME ACCENT. One dim cyan light that goes round the box's border,
+          once every 14.4 seconds: the cue that this is a readout and not a
+          picture. It is kept well under the breach marker, which is the one loud
+          thing in this box: a single pixel thick, a sliver of the border and
+          never an outline of it, the nominal cyan mixed down, no glow.
+
+          It is laid over the box, out of the flow, so it cannot change the box's
+          size, and it moves by transform alone. Under reduced motion it is not
+          drawn at all (`.hero-frame-accent` in globals.css). */}
+      <span aria-hidden="true" data-testid="hero-frame-accent" className="hero-frame-accent">
+        <span className="hero-frame-accent-light" />
+      </span>
+
       {/* Honest eyebrow: this is a RECORDED constructed sample, never a live run.
           No green "live" dot, consistent with how the rest of the site labels a
           constructed demonstration. */}

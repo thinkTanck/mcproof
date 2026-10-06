@@ -487,6 +487,17 @@ body {
     transform: scale(1.15);
   }
 }
+/* Hero frame accent: one lap of the box's border. The light is a square far
+ * larger than the box, turning about the box's centre; only the sliver of it
+ * that crosses the one-pixel ring is ever seen (see .hero-frame-accent). */
+@keyframes hero-frame-lap {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
 /* Terminal caret — a hard on/off block blink (steps, not a fade), the way a
  * real console cursor behaves. Used by the replay transcript's active line. */
 @keyframes cursor-blink {
@@ -542,6 +553,42 @@ body {
   animation: breach-pulse 2.4s ease-in-out infinite;
 }
 
+/* The hero box's frame accent. The element covers the box and is masked down to
+ * a ring one pixel wide (its padding): the two mask layers are the whole box and
+ * the box minus that padding, and `exclude` keeps only the difference. A mask
+ * reads alpha alone, so the opaque base surface token stands in for "solid".
+ * Inside it, one large square carries a conic gradient that is transparent for
+ * eleven twelfths of the turn and brightens to a dim cyan head: as it turns, a
+ * short light with a fading tail runs round the ring. No glow, on purpose: the
+ * breach marker is the thing in this box that glows. */
+.hero-frame-accent {
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  mask:
+    linear-gradient(var(--surface-base) 0 0) content-box,
+    linear-gradient(var(--surface-base) 0 0);
+  mask-composite: exclude;
+}
+.hero-frame-accent-light {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300%;
+  aspect-ratio: 1;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 330deg,
+    color-mix(in srgb, var(--status-nominal) 60%, transparent) 356deg,
+    transparent 360deg
+  );
+  animation: hero-frame-lap calc(var(--motion-sweep) * 12) linear infinite;
+  will-change: transform;
+}
+
 /* The header pulse track (see StatusBar). The colour is the mode, from the
  * status tokens and never a new one: no run is the inert line tone, a sample is
  * the nominal hue mixed well down, a live run is the nominal hue near full. It
@@ -591,8 +638,14 @@ body {
   .verdict-in,
   .hero-sweep,
   .hero-breach-dot,
-  .header-pulse-glint {
+  .header-pulse-glint,
+  .hero-frame-accent-light {
     animation: none;
+  }
+  /* A light that does not travel is just a bright spot on the border, so with
+   * motion off the frame accent is not drawn at all. */
+  .hero-frame-accent {
+    display: none;
   }
   *,
   *::before,
