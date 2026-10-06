@@ -43,6 +43,10 @@ const measure = (page: Page) =>
       sweepDelays: sweeps.map((s) => (s ? parseFloat(getComputedStyle(s).animationDelay) : null)),
       sweepSeconds: parseFloat(getComputedStyle(sweeps.find((s) => s !== null)!).animationDuration),
       sweepName: getComputedStyle(sweeps.find((s) => s !== null)!).animationName,
+      // How lit each glow is right now, top to bottom (the breach row has none).
+      sweepOpacities: sweeps
+        .filter((s) => s !== null)
+        .map((s) => Number(getComputedStyle(s!).opacity)),
       accents: box.querySelectorAll('[data-testid="hero-frame-accent"]').length,
       accentDisplay: as?.display ?? null,
       accentHidden: accent?.getAttribute('aria-hidden') ?? null,
@@ -89,6 +93,28 @@ for (const [width, height] of [
       const travel = Math.max(...m.sweepDelays.filter((d): d is number => d !== null));
       expect(travel).toBeLessThan(1.2);
       expect(travel).toBeLessThan(m.sweepSeconds / 2);
+    });
+
+    test('a glow that has not been reached yet is dark, not lit', async ({ page }) => {
+      await home(page);
+      // Hold every sweep at the very start of its own timeline: each node is
+      // then still inside its stagger delay, where only the resting style shows.
+      const waiting = await page.evaluate(() => {
+        const out: number[] = [];
+        for (const a of document.getAnimations()) {
+          const css = a as CSSAnimation;
+          if (css.animationName !== 'hero-sweep') continue;
+          const target = (css.effect as KeyframeEffect).target as HTMLElement;
+          if (parseFloat(getComputedStyle(target).animationDelay) === 0) continue;
+          css.pause();
+          css.currentTime = 0;
+          out.push(Number(getComputedStyle(target).opacity));
+        }
+        return out;
+      });
+
+      expect(waiting.length).toBeGreaterThan(0);
+      expect(waiting.every((o) => o === 0)).toBe(true);
     });
 
     test('one frame accent goes round the border, slowly, at a constant rate', async ({ page }) => {
@@ -165,6 +191,8 @@ for (const [width, height] of [
       const m = await measure(page);
 
       expect(m.sweepName).toBe('none');
+      // At rest the trace is plain: no glow left lit on any node.
+      expect(m.sweepOpacities.every((o) => o === 0)).toBe(true);
       expect(m.accentDisplay).toBe('none');
       expect(m.lightName).toBe('none');
       // The box is the same size it is with motion on. Same page, no reload, so

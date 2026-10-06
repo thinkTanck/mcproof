@@ -350,3 +350,33 @@ describe('HeroReplay · the frame accent', () => {
     expect(reduce).toMatch(/\.hero-frame-accent-light[^{]*\{[^}]*animation:\s*none/);
   });
 });
+
+/**
+ * THE GLOW RESTS DARK.
+ *
+ * The sweep's glow is only meant to be seen while it is passing. It had no
+ * resting opacity, so wherever the animation was not running it sat fully lit:
+ * on every node still waiting out its stagger delay after the page loads, and on
+ * every node, permanently, under `prefers-reduced-motion`. Nobody saw that while
+ * the glow named a colour that did not exist; once it had a real colour (#183)
+ * the resting trace was a column of lit halos.
+ */
+describe('HeroReplay · the sweep glow at rest', () => {
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+
+  it('is dark unless the animation is lighting it', () => {
+    const rule = /\.hero-sweep\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+
+    expect(rule).toMatch(/\bopacity:\s*0\b/);
+  });
+
+  it('starts dark and ends dark in the animation too, so the loop joins cleanly', () => {
+    const frames = /@keyframes hero-sweep\s*\{([\s\S]*?\})\s*\}/.exec(css)?.[1] ?? '';
+    const ends = /0%,[\s\S]*?100%\s*\{([^}]*)\}/.exec(frames)?.[1] ?? '';
+
+    expect(ends).toMatch(/opacity:\s*0\b/);
+  });
+});
