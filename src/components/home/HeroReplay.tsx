@@ -72,9 +72,9 @@ export function HeroReplay({
       className="relative overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
     >
       {/* THE FRAME ACCENT. One dim cyan light that goes round the box's border,
-          once every 14.4 seconds: the cue that this is a readout and not a
+          once every 9.6 seconds: the cue that this is a readout and not a
           picture. It is kept well under the breach marker, which is the one loud
-          thing in this box: a single pixel thick, a sliver of the border and
+          thing in this box: two pixels thick, a sliver of the border and
           never an outline of it, the nominal cyan mixed down, no glow.
 
           It is laid over the box, out of the flow, so it cannot change the box's

@@ -489,7 +489,7 @@ body {
 }
 /* Hero frame accent: one lap of the box's border. The light is a square far
  * larger than the box, turning about the box's centre; only the sliver of it
- * that crosses the one-pixel ring is ever seen (see .hero-frame-accent). */
+ * that crosses the two-pixel ring is ever seen (see .hero-frame-accent). */
 @keyframes hero-frame-lap {
   from {
     transform: translate(-50%, -50%) rotate(0deg);
@@ -558,7 +558,7 @@ body {
 }
 
 /* The hero box's frame accent. The element covers the box and is masked down to
- * a ring one pixel wide (its padding): the two mask layers are the whole box and
+ * a ring two pixels wide (its padding): the two mask layers are the whole box and
  * the box minus that padding, and `exclude` keeps only the difference. A mask
  * reads alpha alone, so the opaque base surface token stands in for "solid".
  * Inside it, one large square carries a conic gradient that is transparent for
@@ -568,7 +568,7 @@ body {
 .hero-frame-accent {
   position: absolute;
   inset: 0;
-  padding: 1px;
+  padding: 2px;
   border-radius: inherit;
   overflow: hidden;
   pointer-events: none;
@@ -589,7 +589,7 @@ body {
     color-mix(in srgb, var(--status-nominal) 60%, transparent) 356deg,
     transparent 360deg
   );
-  animation: hero-frame-lap calc(var(--motion-sweep) * 12) linear infinite;
+  animation: hero-frame-lap calc(var(--motion-sweep) * 8) linear infinite;
   will-change: transform;
 }
 
