@@ -23,6 +23,9 @@ import type { Step } from '@/contract';
  * animated (they are evidence, not a magnitude).
  */
 
+/** How long after the node above it each node lights, in seconds. */
+const SWEEP_STAGGER_SECONDS = 0.15;
+
 /** A reader-locatable label for a step: the tool it called, or the kind of step. */
 function label(step: Step): string {
   switch (step.type) {
@@ -89,9 +92,13 @@ export function HeroReplay({
           const id = `s${i + 1}`;
           const isFirst = i === 0;
           const isLast = i === total - 1;
-          // Stagger the sweep so a highlight travels down the rail; the delay is
-          // the only per-node inline style, and it does nothing under reduced motion.
-          const delay = `${(i * 0.42).toFixed(2)}s`;
+          // Stagger the sweep so one pulse of light travels down the rail: each
+          // node lights 0.15s after the one above it, so eight nodes take about
+          // a second, and the loop (3.2s, in globals.css) rests for as long
+          // again. It was 0.42s on a 4.6s loop, which read as nodes blinking in
+          // turn. The delay is the only per-node inline style, and it does
+          // nothing under reduced motion.
+          const delay = `${(i * SWEEP_STAGGER_SECONDS).toFixed(2)}s`;
           // The spine segment for this row, capped cleanly at the first/last node.
           const spine =
             total === 1

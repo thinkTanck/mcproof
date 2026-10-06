@@ -466,19 +466,23 @@ body {
 /* Hero micro-replay — a highlight sweep travels down the trace rail (staggered
  * per node by an inline animation-delay), a soft "live" pulse, and the breach
  * node's own pulse. Resting state (reduced motion, below) is the whole trace
- * legible with the breach lit; the sweep only adds a traveling emphasis. */
+ * legible with the breach lit; the sweep only adds a traveling emphasis.
+ *
+ * Each node is lit for about a sixth of the 3.2s loop (half a second), and the
+ * nodes are 0.15s apart, so three or four are lit at once: one pulse with a
+ * short tail that crosses the rail in about a second, then rests. */
 @keyframes hero-sweep {
   0%,
-  55%,
+  40%,
   100% {
     opacity: 0;
     transform: scale(0.5);
   }
-  10% {
+  6% {
     opacity: 0.9;
     transform: scale(1);
   }
-  25% {
+  16% {
     opacity: 0;
     transform: scale(1.15);
   }
@@ -531,7 +535,7 @@ body {
   will-change: transform, opacity;
 }
 .hero-sweep {
-  animation: hero-sweep 4.6s var(--ease-emphasized) infinite;
+  animation: hero-sweep 3.2s var(--ease-emphasized) infinite;
   will-change: opacity, transform;
 }
 .hero-breach-dot {
