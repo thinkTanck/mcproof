@@ -50,8 +50,8 @@ export default async function AccountPage() {
 
       {runs.length === 0 ? (
         <div className="mt-8 rounded-lg border border-line bg-panel px-6 py-10 text-center">
-          <p className="reading text-ink-muted">No runs yet.</p>
-          <p className="reading mt-2 text-ink-faint">
+          <p className="reading measure text-ink-muted">No runs yet.</p>
+          <p className="reading measure mt-2 text-ink-faint">
             Point MCPwn at your own MCP agent to run your first live red-team.
           </p>
           <Link

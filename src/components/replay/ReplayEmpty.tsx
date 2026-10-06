@@ -15,7 +15,7 @@ export function ReplayEmpty({ id }: { id: string }) {
     <section aria-label="Live Attack Replay" className="mx-auto max-w-[720px] px-6 py-16">
       <p className="micro-label text-ink-faint">Live Attack Replay</p>
       <h1 className="reading-h2 mt-3">No run to replay.</h1>
-      <p className="reading mt-3 text-ink-muted">
+      <p className="reading measure mt-3 text-ink-muted">
         There is no run for <span className="readout text-readout">{id}</span>. It may be an
         unfinished run, a run on another account, or the id may be wrong.
       </p>

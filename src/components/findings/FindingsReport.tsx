@@ -82,7 +82,7 @@ export function FindingsReport({
           {/* A run with no finding is a RESULT, and the headline says which
               result it is. "No findings" reads like an absence, and the absence
               of a compromise on a hostile surface is the agent doing its job. */}
-          <h1 className="reading-h1 mt-3 max-w-[640px]">
+          <h1 className="reading-h1 mt-3 measure">
             {finding
               ? unreliable
                 ? 'Compromise confirmed'
@@ -156,14 +156,14 @@ export function FindingsReport({
 
             <section aria-label="Summary">
               <SectionHeading>Summary</SectionHeading>
-              <p className="reading mt-2">{report.summary}</p>
+              <p className="reading measure mt-2">{report.summary}</p>
             </section>
           </div>
 
           {/* Detector rationale (prose, quoted from the judge) */}
           <section aria-label="Detector rationale" className="mt-7 border-t border-breach/30 pt-5">
             <SectionHeading tone="breach">Detector rationale</SectionHeading>
-            <p className="reading mt-2">{finding.rationale}</p>
+            <p className="reading measure mt-2">{finding.rationale}</p>
           </section>
 
           {/* Remediation — an ordered sequence, so numbering is meaningful.
@@ -177,7 +177,7 @@ export function FindingsReport({
               <SectionHeading tone="cyan">Remediation</SectionHeading>
 
               <div data-testid="classification-caveat" className="mt-3">
-                <p className="reading">
+                <p className="reading measure">
                   The category above is the detector’s own blind classification of the trace, and
                   these steps follow from it. Measured accuracy on our labeled set is{' '}
                   {classification.accuracy.toFixed(2)}, so confirm the category against the
@@ -198,7 +198,7 @@ export function FindingsReport({
                     >
                       {i + 1}
                     </span>
-                    <p className="reading">{remedy}</p>
+                    <p className="reading measure">{remedy}</p>
                   </li>
                 ))}
               </ol>
@@ -215,7 +215,7 @@ export function FindingsReport({
             >
               <SectionHeading>Remediation withheld</SectionHeading>
               <div data-testid="classification-unreliable" className="mt-3">
-                <p className="reading max-w-[72ch]">{classification.note}</p>
+                <p className="reading measure">{classification.note}</p>
                 <p className="instrument mt-3">
                   <span style={{ color: 'var(--status-inert)' }}>
                     {classification.staged} {classification.stagedTitle} filed correctly{' '}
@@ -239,8 +239,8 @@ export function FindingsReport({
           className="mt-8 border-t border-line pt-6"
         >
           <SectionHeading tone="cyan">Result</SectionHeading>
-          <p className="reading mt-2 max-w-[640px]">{report.summary}</p>
-          <p className="reading mt-3 max-w-[640px] text-ink-muted">
+          <p className="reading mt-2 measure">{report.summary}</p>
+          <p className="reading mt-3 measure text-ink-muted">
             This run finished and the detector judged it. A run with no findings is a result, not a
             missing report: there is nothing here to fix.
           </p>
@@ -249,7 +249,7 @@ export function FindingsReport({
               clean run ended nowhere, which quietly ranked it below the other
               outcome. It ends on the leaderboard, which is what a clean run is
               evidence for. */}
-          <p className="reading mt-3 max-w-[640px]">
+          <p className="reading mt-3 measure">
             <Link
               href="/leaderboard"
               className="text-nominal underline underline-offset-2 hover:text-readout"
@@ -259,7 +259,7 @@ export function FindingsReport({
           </p>
           {/* And back to the evidence: the replay of this same run, step by step. */}
           {routeId ? (
-            <p className="reading mt-3 max-w-[640px]">
+            <p className="reading mt-3 measure">
               <Link
                 href={`/runs/${routeId}`}
                 className="text-nominal underline underline-offset-2 hover:text-readout"

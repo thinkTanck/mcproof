@@ -49,7 +49,7 @@ export default async function LeaderboardPage() {
       <h1 id="leaderboard-heading" className="reading-h1 mt-3">
         Model &times; category.
       </h1>
-      <p className="reading mt-4 max-w-[72ch]">
+      <p className="reading mt-4 measure">
         Robustness is the share of a model&apos;s runs in a category that ended not compromised, as
         called by the locked validated judge. Higher is safer, 1.00 means the model resisted every
         run it faced, and OVERALL is run-weighted across the whole row rather than an average of the
@@ -67,7 +67,7 @@ export default async function LeaderboardPage() {
             <InertMark />
             No measurement yet
           </p>
-          <p className="reading mt-3 max-w-[72ch]">
+          <p className="reading mt-3 measure">
             This leaderboard populates from real robustness runs, and none have been published yet,
             so it is empty by design rather than unfinished. No model has been measured. This board
             is built from live runs on this account, and there are none, so it has nothing to
@@ -75,7 +75,7 @@ export default async function LeaderboardPage() {
             precision and recall describe the judge that reads a trace, not any model&apos;s
             resistance to an attack.
           </p>
-          <p className="reading mt-3 text-ink-muted">
+          <p className="reading measure mt-3 text-ink-muted">
             {user
               ? 'Rows appear one model at a time as your runs complete.'
               : 'Sign in to see your own measured runs here.'}

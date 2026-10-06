@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
-import { LiveRunConsole } from './LiveRunConsole';
+import { LiveRunConsole, RUN_EXPIRED_LABEL } from './LiveRunConsole';
 import { readActiveRunId, subscribeActiveRunId, writeActiveRunId } from './active-run-store';
 import {
   createConnectLiveRunPort,
@@ -327,6 +327,9 @@ export function ConnectScreen({
   );
 
   const live = mode === 'live';
+  // Whether the run on show has expired, as the console reports it. An expired
+  // run draws no endpoint, so section 03 must not be headed as if it did.
+  const [runExpired, setRunExpired] = useState(false);
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
   const previewGoal = categoryGoals?.[category];
   const hasRun = activeRunId !== null && activeRunId !== settledRunId;
@@ -335,7 +338,7 @@ export function ConnectScreen({
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
       <p className="micro-label mb-2.5 tracking-[0.18em] text-nominal">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
-      <p className="reading-lead mb-4 max-w-[68ch]">
+      <p className="reading-lead mb-4 measure">
         Watch a recorded sample, or run live: you point your own MCP agent at an endpoint we host,
         and we record every tool call it chooses to make. The same fixed, blind detector judges
         either trace.
@@ -344,7 +347,7 @@ export function ConnectScreen({
           because a console that only ever describes the compromise path teaches the
           reader that a clean run is a non-result. It is the other half of the
           measurement, and it is what the leaderboard is made of. */}
-      <p className="reading mb-7 max-w-[68ch] text-ink-muted">
+      <p className="reading mb-7 measure text-ink-muted">
         The verdict comes back one of two ways: a compromise anchored to the step it happened at,
         which becomes a fix report, or a clean run, which becomes a robustness result. We measure
         which one you get. We do not predict it.
@@ -374,7 +377,7 @@ export function ConnectScreen({
             );
           })}
         </div>
-        <p className="reading mt-3 text-ink-muted">
+        <p className="reading measure mt-3 text-ink-muted">
           Sample playback needs no sign-in and no key. A live run hosts an endpoint for your account
           and asks the judge a question, so it is gated.
         </p>
@@ -387,7 +390,7 @@ export function ConnectScreen({
           n="02"
           label="ATTACK CATEGORY · OWASP AGENTIC TOP-10"
         />
-        <p className="reading mb-4 max-w-[68ch]">
+        <p className="reading mb-4 measure">
           One run serves one attack surface, because the surface is the attack. Pick the one you
           want to test.
         </p>
@@ -424,10 +427,10 @@ export function ConnectScreen({
             <p id="connect-task-preview" className="micro-label mb-2">
               TASK PREVIEW
             </p>
-            <p className="reading max-w-[68ch]" aria-live="polite">
+            <p className="reading measure" aria-live="polite">
               {previewGoal}
             </p>
-            <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+            <p className="reading mt-2 measure text-ink-muted">
               {!live
                 ? 'A live run of this category gives your agent this task.'
                 : !signedIn
@@ -472,17 +475,17 @@ export function ConnectScreen({
                 />
               ))}
             </div>
-            <p className="reading mt-4 max-w-[68ch]">
+            <p className="reading mt-4 measure">
               Both runs serve the same tools, with the same capability. The control run is not a
               safer sandbox and not a weaker attack: it is the same surface with no attack staged on
               it.
             </p>
-            <p className="reading mt-2 max-w-[68ch]">
+            <p className="reading mt-2 measure">
               Run the control to see how your agent behaves there when nothing is trying to hijack
               it, which is the only way to tell an agent that refuses everything apart from one
               using judgment.
             </p>
-            <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+            <p className="reading mt-2 measure text-ink-muted">
               In our own docs and in the measured results these two are the malicious realization
               and the benign control.
             </p>
@@ -511,7 +514,7 @@ export function ConnectScreen({
               LOCKED
             </span>
           </div>
-          <p className="reading">
+          <p className="reading measure">
             One fixed, validated judge, never user-swappable. There is no picker here because the
             measured accuracy only holds for this exact configuration, and it reads the trace
             without ever seeing which attack we staged.
@@ -524,7 +527,7 @@ export function ConnectScreen({
         <SectionHead
           id="connect-run-head"
           n="03"
-          label={live ? 'YOUR RUN ENDPOINT' : 'RECORDED PLAYBACK'}
+          label={!live ? 'RECORDED PLAYBACK' : runExpired ? RUN_EXPIRED_LABEL : 'YOUR RUN ENDPOINT'}
         />
         {live ? (
           <LiveRunConsole
@@ -535,10 +538,11 @@ export function ConnectScreen({
             reattachRunId={activeRunId ?? undefined}
             onRunChange={onRunChange}
             onRunOver={forgetRun}
+            onExpiredChange={setRunExpired}
           />
         ) : (
           <div className="flex flex-col gap-4">
-            <p className="reading max-w-[68ch]">
+            <p className="reading measure">
               The sample is a constructed run judged by the real frozen detector. It shows what a
               finding looks like; it is not a capture of a live agent, and it never claims to be.
             </p>
