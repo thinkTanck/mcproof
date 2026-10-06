@@ -82,8 +82,9 @@ export function StatusBar({
       {/* THE BAR: everything between the wordmark and the mode chip, and the
           pulse that crosses it. The bar takes whatever width the row has left
           and is as tall as the header, so its bottom edge IS the header's
-          bottom border from the wordmark to the chip. The pulse is a one-pixel
-          track laid on that edge, with a slow line of light travelling along it
+          bottom border from the wordmark to the chip. The pulse is a 2.5px line
+          laid on that edge (its track hangs 5px below the bar: one pixel so the
+          line covers the border, four of padding for the glow), with a slow line of light travelling along it
           left to right (`.header-pulse` in globals.css). CSS only, so the
           shell still ships no client JS.
 
@@ -156,7 +157,7 @@ export function StatusBar({
           aria-hidden="true"
           data-header-pulse={mode ?? 'neutral'}
           data-pulse-ends={mode ? 'chip' : 'edge'}
-          className="header-pulse absolute inset-x-0 -bottom-px h-px"
+          className="header-pulse absolute inset-x-0 -bottom-[5px]"
         >
           <span className="header-pulse-glint" />
         </div>
