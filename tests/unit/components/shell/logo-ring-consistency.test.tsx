@@ -109,7 +109,8 @@ describe('logo ring · one definition', () => {
     (file) => {
       const code = readFileSync(join(root, file), 'utf8');
 
-      expect(code).toMatch(/<LogoRing\b/);
+      // Directly, or through the lockup that wraps it.
+      expect(code).toMatch(/<Logo(?:Ring|Lockup)\b/);
       // No hand-drawn ring left behind: the arc's dash pattern is the tell.
       expect(code).not.toMatch(/strokeDasharray/);
     },
@@ -118,6 +119,81 @@ describe('logo ring · one definition', () => {
   it('keeps the old thin arc out of the source entirely', () => {
     const stale = sourceFiles(SRC)
       .filter((file) => /strokeDasharray="6 44"/.test(readFileSync(file, 'utf8')))
+      .map(show);
+
+    expect(stale).toEqual([]);
+  });
+});
+
+/**
+ * THE WORDMARK BESIDE THE RING MATCHES TOO.
+ *
+ * With the ring shared, the lockups still differed by a pixel: the wordmark was
+ * 21px in the status bar and 20px on sign-in and the not-found page. The ring
+ * and the wordmark are one mark, so they are one component now, `LogoLockup`,
+ * and no screen writes the wordmark out for itself.
+ */
+function wordmarkIn(container: HTMLElement) {
+  const link = within(container).getByRole('link', { name: 'MCPwn home' });
+  const word = link.querySelector(':scope > span')!;
+  return {
+    text: word.textContent,
+    className: word.getAttribute('class'),
+    size: /\btext-\[(\d+)px\]/.exec(word.getAttribute('class') ?? '')?.[1] ?? null,
+    accent: word.querySelector('span')?.getAttribute('class') ?? null,
+    accentText: word.querySelector('span')?.textContent ?? null,
+    // The ring comes first, then the word.
+    order: [...link.children].map((child) => child.tagName.toLowerCase()),
+  };
+}
+
+describe('logo lockup · the wordmark matches everywhere', () => {
+  const statusBarWordmark = () => wordmarkIn(render(<StatusBar pathname="/" />).container);
+
+  it('the status bar sets it at 21px', () => {
+    const word = statusBarWordmark();
+
+    expect(word.size).toBe('21');
+    expect(word.text).toBe('MCPwn');
+    expect(word.accentText).toBe('wn');
+    expect(word.order).toEqual(['svg', 'span']);
+  });
+
+  it('sign-in sets the same wordmark: same size, weight, tracking and colours', async () => {
+    const expected = statusBarWordmark();
+    const signIn = wordmarkIn(
+      render(await SignIn({ searchParams: Promise.resolve({}) })).container,
+    );
+
+    expect(signIn).toEqual(expected);
+  });
+
+  it('not-found sets the same wordmark: same size, weight, tracking and colours', async () => {
+    const expected = statusBarWordmark();
+    const notFound = wordmarkIn(render(await NotFound()).container);
+
+    expect(notFound).toEqual(expected);
+  });
+});
+
+describe('logo lockup · one definition', () => {
+  it.each(lockupFiles.map(show))('%s uses the shared LogoLockup', (file) => {
+    const code = readFileSync(join(root, file), 'utf8');
+
+    expect(code).toMatch(/<LogoLockup\b/);
+  });
+
+  it('writes the wordmark out in exactly one file, the shared component', () => {
+    const writers = sourceFiles(SRC)
+      .filter((file) => /MCP<span/.test(readFileSync(file, 'utf8')))
+      .map(show);
+
+    expect(writers).toEqual(['src/components/shell/LogoRing.tsx']);
+  });
+
+  it('leaves no 20px wordmark behind', () => {
+    const stale = lockupFiles
+      .filter((file) => /text-\[20px\][^"]*tracking-\[0\.09em\]/.test(readFileSync(file, 'utf8')))
       .map(show);
 
     expect(stale).toEqual([]);
