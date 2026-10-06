@@ -19,12 +19,14 @@ import { suppressBootSplash } from './support/screen';
  * Chromium.
  */
 
-// Measured on main (9d81568) before any of this changed.
+// Measured on main (9d81568) before any of this changed. The rail's rows and
+// the list that holds them are what a larger node could push; the panel around
+// them is not pinned here, because its heading wraps or not with the font the
+// visit happened to get (Geist is `display: 'optional'`), which is not this.
 const BASELINE = {
   rowHeight: 25.5,
   breachRowHeight: 36,
   listHeight: 214.5,
-  panelHeight: { 1280: 280.5, 390: 280.5, 320: 292.5 },
 } as const;
 
 async function home(page: Page) {
@@ -53,7 +55,6 @@ const measure = (page: Page) =>
       rowHeights: [...new Set(plain.map((r) => r2(r.getBoundingClientRect().height)))],
       breachRowHeight: r2(breach.getBoundingClientRect().height),
       listHeight: r2(list.getBoundingClientRect().height),
-      panelHeight: r2(list.parentElement!.getBoundingClientRect().height),
       dot: r2(dot.getBoundingClientRect().width),
       reticle: r2(marker.getBoundingClientRect().width),
       sweepBackground: sweepStyle.backgroundImage,
@@ -111,7 +112,6 @@ for (const [width, height] of [
       expect(m.rowHeights).toEqual([BASELINE.rowHeight]);
       expect(m.breachRowHeight).toBe(BASELINE.breachRowHeight);
       expect(m.listHeight).toBe(BASELINE.listHeight);
-      expect(m.panelHeight).toBe(BASELINE.panelHeight[width]);
     });
 
     test('the logo ring is larger where there is room, with a visible arc, turning faster', async ({
