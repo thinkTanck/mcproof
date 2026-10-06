@@ -496,6 +496,31 @@ body {
   }
 }
 
+/* Header pulse: a line of light crosses the blank part of the status bar, then
+ * the bar rests. One sweep takes three tenths of the cycle; the other seven are
+ * still, so it reads as an instrument idling and not as a loading bar. The glint
+ * is as wide as its track with the light in its middle third, so the same two
+ * translate values carry it fully off both ends whatever the track's width.
+ * Transform and opacity only: nothing here can cause layout. */
+@keyframes header-pulse {
+  0% {
+    opacity: 0;
+    transform: translateX(-66%);
+  }
+  4% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+    transform: translateX(66%);
+  }
+  34%,
+  100% {
+    opacity: 0;
+    transform: translateX(66%);
+  }
+}
+
 /* Dimensional panel entrance — panels push/open toward the viewer */
 .panel-in {
   animation: panel-in var(--motion-slow) var(--ease-emphasized) both;
@@ -513,13 +538,45 @@ body {
   animation: breach-pulse 2.4s ease-in-out infinite;
 }
 
+/* The header pulse track (see StatusBar). The colour is the mode, from the
+ * status tokens and never a new one: no run is the inert line tone, a sample is
+ * the nominal hue mixed well down, a live run is the nominal hue near full. It
+ * is never caution or breach, because a pulse is ambience and not a status. */
+.header-pulse {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--status-inert) 55%, transparent);
+}
+.header-pulse[data-header-pulse='sample'] {
+  color: color-mix(in srgb, var(--status-nominal) 45%, transparent);
+}
+.header-pulse[data-header-pulse='live'] {
+  color: color-mix(in srgb, var(--status-nominal) 95%, transparent);
+}
+/* No chip to run up to: let the line die away before the edge of the bar. */
+.header-pulse[data-pulse-ends='edge'] {
+  /* A mask reads only alpha, so any opaque colour does: the base surface token,
+   * to keep literal colours out of the stylesheet. */
+  mask-image: linear-gradient(90deg, var(--surface-base) 55%, transparent);
+}
+/* Rests invisible, so with the animation off there is nothing left on screen. */
+.header-pulse-glint {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent 34%, currentColor 50%, transparent 66%);
+  animation: header-pulse calc(var(--motion-sweep) * 10) var(--ease-emphasized) infinite;
+  will-change: transform, opacity;
+}
+
 /* Reduced motion / low-power: no push/zoom/pulse — resting state is final and
  * fully visible, per design-system §6 ("instant state"). */
 @media (prefers-reduced-motion: reduce) {
   .panel-in,
   .verdict-in,
   .hero-sweep,
-  .hero-breach-dot {
+  .hero-breach-dot,
+  .header-pulse-glint {
     animation: none;
   }
   *,

@@ -97,6 +97,66 @@ describe('AppShell run context', () => {
     render(await AppShell({ children: <p>screen content</p> }));
     const banner = screen.getByRole('banner');
     expect(within(banner).queryByText(/^RUN /)).not.toBeInTheDocument();
-    expect(within(banner).getByText('SAMPLE')).toBeInTheDocument();
+  });
+});
+
+/**
+ * THE MODE CHIP IS PROVENANCE, SO IT ONLY APPEARS WHERE THERE IS A RUN.
+ *
+ * The chip used to default to SAMPLE, so every screen with no run on it (home,
+ * connect, the leaderboard, the threat model, the account page) printed SAMPLE
+ * over nothing. A label that says where a run came from has no business on a
+ * screen that is not showing one. It now appears on the two run-scoped screens,
+ * the replay and the fix report, and says what that run's origin is.
+ *
+ * Both screens resolve the id through the same resolver the shell uses, so the
+ * chrome and the screen cannot disagree about which run is on show.
+ */
+describe('AppShell mode chip', () => {
+  const chip = () => within(screen.getByRole('banner')).queryByText(/^(SAMPLE|LIVE)$/);
+  const shell = async (path: string) => {
+    pathname.current = path;
+    render(await AppShell({ children: <p>screen content</p> }));
+  };
+
+  it.each(['/runs/sample', '/findings/sample'])('says SAMPLE on %s', async (path) => {
+    await shell(path);
+
+    expect(chip()).toHaveTextContent('SAMPLE');
+  });
+
+  it.each(['/runs/row-uuid-5555', '/findings/row-uuid-5555'])(
+    'says LIVE on %s, a run of the signed-in account',
+    async (path) => {
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      await shell(path);
+
+      expect(chip()).toHaveTextContent('LIVE');
+    },
+  );
+
+  it.each(['/', '/connect', '/leaderboard', '/threats', '/account'])(
+    'renders no chip on %s, which shows no run',
+    async (path) => {
+      await shell(path);
+
+      expect(chip()).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(['/runs/no-such-run', '/findings/no-such-run'])(
+    'renders no chip on %s, an id that resolves to nothing',
+    async (path) => {
+      await shell(path);
+
+      expect(chip()).not.toBeInTheDocument();
+    },
+  );
+
+  it('does not treat a live run as live for someone who does not own it', async () => {
+    asMock(getUser).mockResolvedValue({ id: 'someone-else' } as never);
+    await shell('/findings/row-uuid-5555');
+
+    expect(chip()).not.toBeInTheDocument();
   });
 });

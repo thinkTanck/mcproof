@@ -111,3 +111,13 @@ describe('Sign-in screen', () => {
     expect(screen.getByRole('button', { name: /continue with google/i })).toBeDisabled();
   });
 });
+
+// Sign-in sits outside the HUD shell: it has no status bar, so it has no mode chip.
+describe('Sign-in page · no shell chrome', () => {
+  it('renders no banner and no mode chip', async () => {
+    render(await SignIn({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^(SAMPLE|LIVE)$/)).not.toBeInTheDocument();
+  });
+});

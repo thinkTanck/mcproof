@@ -1,14 +1,33 @@
 import { render, screen } from '@testing-library/react';
 import { ModeBadge } from '@/components/shell/ModeBadge';
+import { StatusBar } from '@/components/shell/StatusBar';
 import { stepColorToken } from '@/lib/hud/trace-view';
 import RunReplay from '@/app/(hud)/runs/[id]/page';
 
 describe('ModeBadge', () => {
-  it('names SAMPLE by default and LIVE when live', () => {
-    const { rerender } = render(<ModeBadge />);
+  it('names the mode it is given: SAMPLE or LIVE', () => {
+    const { rerender } = render(<ModeBadge mode="sample" />);
     expect(screen.getByText('SAMPLE')).toBeInTheDocument();
     rerender(<ModeBadge mode="live" />);
     expect(screen.getByText('LIVE')).toBeInTheDocument();
+  });
+});
+
+describe('StatusBar mode chip', () => {
+  // No default: a bar that is told nothing about a run says nothing about one.
+  it('renders no chip when it is given no mode', () => {
+    render(<StatusBar pathname="/" />);
+
+    expect(screen.queryByText(/^(SAMPLE|LIVE)$/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['sample', 'SAMPLE'],
+    ['live', 'LIVE'],
+  ] as const)('renders the %s chip when it is given that mode', (mode, label) => {
+    render(<StatusBar pathname="/runs/x" mode={mode} />);
+
+    expect(screen.getByText(label)).toBeInTheDocument();
   });
 });
 

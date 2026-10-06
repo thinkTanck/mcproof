@@ -21,9 +21,13 @@ export async function AppShell({ children }: { children: ReactNode }) {
   // screen can never disagree about which run is on show: reading the sample
   // library alone left a persisted live run with no telemetry at all, and left
   // the mode badge saying SAMPLE over a run that was not one.
-  const runId = /^\/runs\/([^/]+)/.exec(pathname)?.[1];
+  //
+  // The fix report is run-scoped too, and resolves its id through this same
+  // resolver, so it is resolved here as well. The RUN telemetry stays with the
+  // replay: the report states all of it in its own header.
+  const [, scope, runId] = /^\/(runs|findings)\/([^/]+)/.exec(pathname) ?? [];
   const view = runId ? await resolveRun(runId) : null;
-  const run = view?.run;
+  const run = scope === 'runs' ? view?.run : undefined;
   const runContext = run
     ? {
         runId: run.runId,
@@ -33,8 +37,11 @@ export async function AppShell({ children }: { children: ReactNode }) {
         compromised: run.verdict.compromised,
       }
     : undefined;
-  // The badge is provenance, so it follows the run rather than a default.
-  const mode = view?.origin === 'live' ? 'live' : 'sample';
+  // The badge is provenance: it says where the run on show came from. A screen
+  // with no run, or an id that resolves to nothing, has no origin to state, so
+  // it gets no badge. It used to default to SAMPLE, which printed SAMPLE over
+  // every screen that was not showing a run at all.
+  const mode = view?.origin;
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
       {/* Skip link (WCAG 2.4.1) — first focusable element, so a keyboard user can

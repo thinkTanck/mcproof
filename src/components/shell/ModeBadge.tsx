@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 export type Mode = 'sample' | 'live';
 
 /** Run-mode indicator in the status bar. The label names the mode (SAMPLE / LIVE) — never color-only. */
-export function ModeBadge({ mode = 'sample' }: { mode?: Mode }) {
+export function ModeBadge({ mode }: { mode: Mode }) {
   const live = mode === 'live';
   return (
     <span
