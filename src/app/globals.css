@@ -512,22 +512,28 @@ body {
 }
 
 /* Header pulse: a line of light crosses the status bar's bottom edge at a
- * constant rate. The whole cycle is the crossing: it enters, fades up over the
- * first twelfth, travels, and fades out over the last twelfth as it leaves. The
- * glint is as wide as its track with the light in its middle third, so the same
- * two translate values carry it fully off both ends whatever the track's width.
- * Transform and opacity only: nothing here can cause layout. */
+ * constant rate, and then the bar rests. The crossing is the first half of the
+ * cycle: it enters, fades up, travels, and fades out as it leaves. The second
+ * half is empty. It had been two glints with one always in view, which read as
+ * decoration that never settles; one crossing and a rest of equal length reads
+ * as an instrument idling.
+ *
+ * The glint is as wide as its track with the light in its middle third, so the
+ * same two translate values carry it fully off both ends whatever the track's
+ * width. Only the two ends name a position, so the travel between them is one
+ * constant speed. Transform and opacity only: nothing here can cause layout. */
 @keyframes header-pulse {
   0% {
     opacity: 0;
     transform: translateX(-66%);
   }
-  8% {
+  4% {
     opacity: 1;
   }
-  92% {
+  46% {
     opacity: 1;
   }
+  50%,
   100% {
     opacity: 0;
     transform: translateX(66%);
@@ -600,8 +606,6 @@ body {
  * box, so the glow is kept while the travelling light is still clipped at the
  * track's ends. Content-box sizing, so `height` is the line itself. */
 .header-pulse {
-  /* One cell, so the two glints share the line and do not stack. */
-  display: grid;
   box-sizing: content-box;
   height: 2.5px;
   padding-block: 4px;
@@ -622,7 +626,7 @@ body {
 }
 /* Rests invisible, so with the animation off there is nothing left on screen. */
 .header-pulse-glint {
-  grid-area: 1 / 1;
+  display: block;
   width: 100%;
   height: 100%;
   opacity: 0;
@@ -631,16 +635,10 @@ body {
    * drop-shadow follows the gradient's alpha: it glows where the light is and
    * nowhere else. Static, so the animation still moves transform and opacity only. */
   filter: drop-shadow(0 0 3px currentColor);
-  /* 8.4s to cross, at a constant rate so the eye can follow it. It used to
-   * cross in about three seconds with the emphasized easing, then leave the bar
-   * empty for nine. */
-  animation: header-pulse calc(var(--motion-sweep) * 7) linear infinite;
+  /* A 16.8s cycle at a constant rate: 8.4s to cross, slow enough for the eye
+   * to follow, then 8.4s of rest (see the keyframes). */
+  animation: header-pulse calc(var(--motion-sweep) * 14) linear infinite;
   will-change: transform, opacity;
-}
-/* The second glint, half a cycle behind the first: one sets off every 4.2s. The
- * delay is negative so it is already mid-bar when the page loads. */
-.header-pulse-glint-late {
-  animation-delay: calc(var(--motion-sweep) * -3.5);
 }
 
 /* Reduced motion / low-power: no push/zoom/pulse — resting state is final and
