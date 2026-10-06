@@ -38,3 +38,21 @@ export function LogoRing() {
     </svg>
   );
 }
+
+/**
+ * THE LOCKUP: the ring and the MCPwn wordmark beside it, as one mark. Every
+ * screen that shows the logo renders this inside its own home link, so the link
+ * keeps its own spacing and the mark inside it is identical everywhere. The
+ * wordmark was written out three times and had drifted to 21px in the status bar
+ * and 20px on sign-in and the not-found page; it is 21px, here, once.
+ */
+export function LogoLockup() {
+  return (
+    <>
+      <LogoRing />
+      <span className="font-mono text-[21px] font-semibold tracking-[0.09em] text-ink-hi">
+        MCP<span className="text-nominal">wn</span>
+      </span>
+    </>
+  );
+}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { LogoRing } from './LogoRing';
+import { LogoLockup } from './LogoRing';
 import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
 
@@ -50,10 +50,7 @@ export function StatusBar({
         aria-label="MCPwn home"
         className="flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
       >
-        <LogoRing />
-        <span className="font-mono text-[21px] font-semibold tracking-[0.09em] text-ink-hi">
-          MCP<span className="text-nominal">wn</span>
-        </span>
+        <LogoLockup />
       </Link>
       {/* THE BAR: everything between the wordmark and the mode chip, and the
           pulse that crosses it. The bar takes whatever width the row has left

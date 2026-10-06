@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LogoRing } from '@/components/shell/LogoRing';
+import { LogoLockup } from '@/components/shell/LogoRing';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
@@ -52,10 +52,7 @@ export default async function NotFound() {
           aria-label="MCPwn home"
           className="mb-7 inline-flex min-h-11 items-center gap-2.5 rounded-md"
         >
-          <LogoRing />
-          <span className="font-mono text-[20px] font-semibold tracking-[0.09em] text-ink-hi">
-            MCP<span className="text-nominal">wn</span>
-          </span>
+          <LogoLockup />
         </Link>
 
         {/* The console. */}

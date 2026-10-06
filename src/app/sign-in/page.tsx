@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LogoRing } from '@/components/shell/LogoRing';
+import { LogoLockup } from '@/components/shell/LogoRing';
 import { SignInPanel } from '@/components/signin/SignInPanel';
 import { getEmailOtpLength, isAuthEnabled, isGithubOAuthEnabled } from '@/config/env';
 
@@ -46,10 +46,7 @@ export default async function SignIn({
         aria-label="MCPwn home"
         className="relative mb-9 inline-flex min-h-11 items-center gap-2.5 rounded-md"
       >
-        <LogoRing />
-        <span className="font-mono text-[20px] font-semibold tracking-[0.09em] text-ink-hi">
-          MCP<span className="text-nominal">wn</span>
-        </span>
+        <LogoLockup />
       </Link>
 
       {/* The panel column is its OWN query container, so `--reading-h1`'s `5cqi`
