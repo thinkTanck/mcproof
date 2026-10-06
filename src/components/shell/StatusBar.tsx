@@ -49,12 +49,18 @@ export function StatusBar({
         aria-label="MCPwn home"
         className="flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
       >
+        {/* THE RING. A faint full ring with one bright arc that turns. It is 34px
+            where the header has room and keeps 30px below 360px, where a run
+            screen's header has 5px to spare (#178). The arc is two units thick
+            and 14 long on a ring 56.55 round (r = 9), with a gap that completes
+            exactly one lap: one arc, about a quarter of the ring, and no second
+            stub where a shorter pattern used to repeat. One turn takes 13s. */}
         <svg
-          width="30"
-          height="30"
+          width="34"
+          height="34"
           viewBox="0 0 24 24"
           aria-hidden="true"
-          className="shrink-0 animate-[spin_22s_linear_infinite]"
+          className="h-[30px] w-[30px] shrink-0 animate-[spin_13s_linear_infinite] min-[360px]:h-[34px] min-[360px]:w-[34px]"
         >
           <circle cx="12" cy="12" r="9" fill="none" stroke="var(--line-emphasis)" strokeWidth="1" />
           <circle
@@ -63,8 +69,9 @@ export function StatusBar({
             r="9"
             fill="none"
             stroke="var(--status-nominal)"
-            strokeWidth="1.4"
-            strokeDasharray="6 44"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray="14 42.55"
           />
           <circle cx="12" cy="12" r="2.2" fill="var(--status-nominal)" />
         </svg>
