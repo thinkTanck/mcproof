@@ -132,8 +132,8 @@ export function StatusBar({
           data-pulse-ends={mode ? 'chip' : 'edge'}
           className="header-pulse absolute inset-x-0 -bottom-[5px]"
         >
-          {/* Two glints, half a cycle apart. Each takes 7.2s to cross, so one
-              sets off every 3.6s and there is always one in view. */}
+          {/* Two glints, half a cycle apart. Each takes 8.4s to cross, so one
+              sets off every 4.2s and there is always one in view. */}
           <span className="header-pulse-glint" />
           <span className="header-pulse-glint header-pulse-glint-late" />
         </div>

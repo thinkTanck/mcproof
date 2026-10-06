@@ -631,16 +631,16 @@ body {
    * drop-shadow follows the gradient's alpha: it glows where the light is and
    * nowhere else. Static, so the animation still moves transform and opacity only. */
   filter: drop-shadow(0 0 3px currentColor);
-  /* 7.2s to cross, at a constant rate so the eye can follow it. It used to
+  /* 8.4s to cross, at a constant rate so the eye can follow it. It used to
    * cross in about three seconds with the emphasized easing, then leave the bar
    * empty for nine. */
-  animation: header-pulse calc(var(--motion-sweep) * 6) linear infinite;
+  animation: header-pulse calc(var(--motion-sweep) * 7) linear infinite;
   will-change: transform, opacity;
 }
-/* The second glint, half a cycle behind the first: one sets off every 3.6s. The
+/* The second glint, half a cycle behind the first: one sets off every 4.2s. The
  * delay is negative so it is already mid-bar when the page loads. */
 .header-pulse-glint-late {
-  animation-delay: calc(var(--motion-sweep) * -3);
+  animation-delay: calc(var(--motion-sweep) * -3.5);
 }
 
 /* Reduced motion / low-power: no push/zoom/pulse — resting state is final and
