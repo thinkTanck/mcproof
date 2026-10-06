@@ -111,18 +111,19 @@ for (const [width, height] of [
         expect(m.clipped).toBe('hidden');
         expect(m.pulse!.left).toBeGreaterThanOrEqual(0);
         expect(m.pulse!.right).toBeLessThanOrEqual(m.contentRight + 0.5);
-        // It runs for ever, at a constant rate, and takes 7.2 seconds to cross.
+        // It runs for ever, at a constant rate, and takes 8.4 seconds to cross.
         expect(m.animationName).toBe('header-pulse');
         expect(m.iteration).toBe('infinite');
         expect(m.timing).toBe('linear');
-        expect(m.durationSeconds).toBe(7.2);
-        // Two glints, half a cycle apart: one sets off every 3.6 seconds.
+        expect(m.durationSeconds).toBeCloseTo(8.4, 5);
+        // Two glints, half a cycle apart: one sets off every 4.2 seconds.
         expect(m.glints).toHaveLength(2);
         expect(m.glints.map((g) => g.name)).toEqual(['header-pulse', 'header-pulse']);
-        expect(m.glints.map((g) => g.seconds)).toEqual([7.2, 7.2]);
-        expect(m.glints.map((g) => g.delay)).toEqual([0, -3.6]);
+        for (const glint of m.glints) expect(glint.seconds).toBeCloseTo(8.4, 5);
+        expect(m.glints[0]!.delay).toBe(0);
+        expect(m.glints[1]!.delay).toBeCloseTo(-4.2, 5);
         const interval = m.glints[0]!.seconds / m.glints.length;
-        expect(interval).toBe(3.6);
+        expect(interval).toBeCloseTo(4.2, 5);
         // Both on the one 2.5px line, not stacked.
         expect(m.glints[0]!.top).toBe(m.glints[1]!.top);
         expect(m.glints.map((g) => g.height)).toEqual([2.5, 2.5]);

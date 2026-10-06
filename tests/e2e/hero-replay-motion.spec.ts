@@ -128,8 +128,8 @@ for (const [width, height] of [
       expect(m.lightTiming).toBe('linear');
       // One lap in 9.6 seconds: three times the length of a sweep loop, so the
       // frame is still the slowest thing moving in the box.
-      expect(m.lightSeconds).toBe(9.6);
-      expect(m.lightSeconds).toBeGreaterThanOrEqual(m.sweepSeconds * 3);
+      expect(m.lightSeconds).toBeCloseTo(9.6, 5);
+      expect(m.lightSeconds! / m.sweepSeconds).toBeCloseTo(3, 5);
       // A light, not an outline: one sliver of a conic gradient.
       expect(m.lightBackground).toContain('conic-gradient');
     });

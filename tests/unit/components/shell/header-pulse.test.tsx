@@ -253,9 +253,9 @@ describe('header pulse · weight', () => {
     expect(glint).toMatch(/filter:\s*drop-shadow\([^)]*currentColor\)/);
   });
 
-  it('takes 7.2 seconds to cross: six sweeps, and the whole cycle is the crossing', () => {
+  it('takes 8.4 seconds to cross: seven sweeps, and the whole cycle is the crossing', () => {
     expect(glint).toMatch(
-      /animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 6\) linear infinite/,
+      /animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 7\) linear infinite/,
     );
     expect(glint).not.toMatch(/\* 10\)/);
   });
@@ -276,8 +276,8 @@ describe('header pulse · weight', () => {
  *
  * It used to cross in about three seconds, eased so most of that speed came at
  * the start, and then leave the bar empty for nine more. Too fast to follow and
- * mostly absent. Now a glint takes 7.2 seconds to cross at a constant rate, and
- * a new one sets off every 3.6 seconds: two glints, half a cycle apart, so one
+ * mostly absent. Now a glint takes 8.4 seconds to cross at a constant rate, and
+ * a new one sets off every 4.2 seconds: two glints, half a cycle apart, so one
  * is entering as the other passes the middle.
  */
 describe('header pulse · tempo', () => {
@@ -297,12 +297,12 @@ describe('header pulse · tempo', () => {
     expect(glints[1]).toHaveClass('header-pulse-glint-late');
   });
 
-  it('starts the late glint half a cycle in: one sets off every 3.6 seconds', () => {
+  it('starts the late glint half a cycle in: one sets off every 4.2 seconds', () => {
     const late = rule(/\.header-pulse-glint-late\s*\{([^}]*)\}/);
 
     // Negative, so it is already half way across when the page loads and not
-    // absent for the first 3.6 seconds.
-    expect(late).toMatch(/animation-delay:\s*calc\(var\(--motion-sweep\) \* -3\)/);
+    // absent for the first 4.2 seconds.
+    expect(late).toMatch(/animation-delay:\s*calc\(var\(--motion-sweep\) \* -3\.5\)/);
   });
 
   it('lays both glints on the one line, so two of them are not two lines', () => {
