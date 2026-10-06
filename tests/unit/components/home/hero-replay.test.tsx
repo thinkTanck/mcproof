@@ -107,3 +107,45 @@ describe('HeroReplay', () => {
     expect(markers).toHaveLength(1);
   });
 });
+
+async function renderHero() {
+  const run = await sampleRun();
+  const { index, tool } = compromise(run);
+  return render(
+    <HeroReplay
+      steps={run.trace.steps}
+      compromiseIndex={index}
+      offendingTool={tool}
+      category={run.category}
+    />,
+  );
+}
+
+/**
+ * The travelling sweep: a soft glow behind each ordinary step, lit in turn. Its
+ * colour has to be a token that exists. It named `--cyan-400`, which the ramp
+ * does not have, so the glow was an invalid declaration and painted nothing.
+ */
+describe('HeroReplay · the sweep glow', () => {
+  it('is coloured from the core cyan, a token the ramp really has', async () => {
+    const { container } = await renderHero();
+    const sweeps = [...container.querySelectorAll<HTMLElement>('.hero-sweep')];
+
+    expect(sweeps.length).toBeGreaterThan(0);
+    for (const sweep of sweeps) {
+      const background = sweep.getAttribute('style') ?? '';
+      expect(background).toContain('var(--cyan-300)');
+      expect(background).not.toContain('cyan-400');
+    }
+  });
+
+  it('sits behind every step except the breach, which has its own marker', async () => {
+    const { container } = await renderHero();
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-testid="hero-step"]')];
+    const breach = rows.filter((row) => row.dataset.breach === 'true');
+
+    expect(breach).toHaveLength(1);
+    expect(breach[0]!.querySelector('.hero-sweep')).toBeNull();
+    expect(container.querySelectorAll('.hero-sweep')).toHaveLength(rows.length - 1);
+  });
+});
