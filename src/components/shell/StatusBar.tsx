@@ -20,11 +20,12 @@ export type RunContext = {
  */
 export function StatusBar({
   pathname,
-  mode = 'sample',
+  mode,
   meta = 'SENTINEL FIELDS',
   runContext,
 }: {
   pathname: string;
+  /** Where the run on show came from. Absent on a screen that shows no run. */
   mode?: Mode;
   meta?: ReactNode;
   runContext?: RunContext;
@@ -117,7 +118,7 @@ export function StatusBar({
         </div>
       )}
 
-      <ModeBadge mode={mode} />
+      {mode && <ModeBadge mode={mode} />}
     </header>
   );
 }
