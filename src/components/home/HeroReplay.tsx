@@ -23,6 +23,9 @@ import type { Step } from '@/contract';
  * animated (they are evidence, not a magnitude).
  */
 
+/** How long after the node above it each node lights, in seconds. */
+const SWEEP_STAGGER_SECONDS = 0.15;
+
 /** A reader-locatable label for a step: the tool it called, or the kind of step. */
 function label(step: Step): string {
   switch (step.type) {
@@ -66,8 +69,21 @@ export function HeroReplay({
     <div
       role="img"
       aria-label={summary}
-      className="overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
+      className="relative overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
     >
+      {/* THE FRAME ACCENT. One dim cyan light that goes round the box's border,
+          once every 14.4 seconds: the cue that this is a readout and not a
+          picture. It is kept well under the breach marker, which is the one loud
+          thing in this box: a single pixel thick, a sliver of the border and
+          never an outline of it, the nominal cyan mixed down, no glow.
+
+          It is laid over the box, out of the flow, so it cannot change the box's
+          size, and it moves by transform alone. Under reduced motion it is not
+          drawn at all (`.hero-frame-accent` in globals.css). */}
+      <span aria-hidden="true" data-testid="hero-frame-accent" className="hero-frame-accent">
+        <span className="hero-frame-accent-light" />
+      </span>
+
       {/* Honest eyebrow: this is a RECORDED constructed sample, never a live run.
           No green "live" dot, consistent with how the rest of the site labels a
           constructed demonstration. */}
@@ -89,9 +105,13 @@ export function HeroReplay({
           const id = `s${i + 1}`;
           const isFirst = i === 0;
           const isLast = i === total - 1;
-          // Stagger the sweep so a highlight travels down the rail; the delay is
-          // the only per-node inline style, and it does nothing under reduced motion.
-          const delay = `${(i * 0.42).toFixed(2)}s`;
+          // Stagger the sweep so one pulse of light travels down the rail: each
+          // node lights 0.15s after the one above it, so eight nodes take about
+          // a second, and the loop (3.2s, in globals.css) rests for as long
+          // again. It was 0.42s on a 4.6s loop, which read as nodes blinking in
+          // turn. The delay is the only per-node inline style, and it does
+          // nothing under reduced motion.
+          const delay = `${(i * SWEEP_STAGGER_SECONDS).toFixed(2)}s`;
           // The spine segment for this row, capped cleanly at the first/last node.
           const spine =
             total === 1
