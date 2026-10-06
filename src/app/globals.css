@@ -554,7 +554,9 @@ body {
 }
 /* No chip to run up to: let the line die away before the edge of the bar. */
 .header-pulse[data-pulse-ends='edge'] {
-  mask-image: linear-gradient(90deg, #000 55%, transparent);
+  /* A mask reads only alpha, so any opaque colour does: the base surface token,
+   * to keep literal colours out of the stylesheet. */
+  mask-image: linear-gradient(90deg, var(--surface-base) 55%, transparent);
 }
 /* Rests invisible, so with the animation off there is nothing left on screen. */
 .header-pulse-glint {
