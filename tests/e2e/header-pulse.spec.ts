@@ -128,7 +128,7 @@ for (const [width, height] of [
         expect(m.glints.map((g) => g.height)).toEqual([2.5, 2.5]);
         // Followable: the light covers 1.32 track widths in a cycle, which at the
         // widest bar is under 200px a second (it was over 400 at its fastest).
-        expect((m.trackWidth * 1.32) / m.durationSeconds).toBeLessThan(200);
+        expect((m.trackWidth * 1.32) / m.durationSeconds!).toBeLessThan(200);
 
         if (screen.mode === 'neutral') {
           // No chip: it reaches the right edge of the bar and fades out there.
