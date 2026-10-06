@@ -542,7 +542,14 @@ body {
  * status tokens and never a new one: no run is the inert line tone, a sample is
  * the nominal hue mixed well down, a live run is the nominal hue near full. It
  * is never caution or breach, because a pulse is ambience and not a status. */
+/* The line is 2.5px. The 4px of padding above and below it is room for the
+ * glint's glow: `overflow: hidden` and the edge mask both act on the padded
+ * box, so the glow is kept while the travelling light is still clipped at the
+ * track's ends. Content-box sizing, so `height` is the line itself. */
 .header-pulse {
+  box-sizing: content-box;
+  height: 2.5px;
+  padding-block: 4px;
   overflow: hidden;
   color: color-mix(in srgb, var(--status-inert) 55%, transparent);
 }
@@ -565,6 +572,10 @@ body {
   height: 100%;
   opacity: 0;
   background: linear-gradient(90deg, transparent 34%, currentColor 50%, transparent 66%);
+  /* A small glow in the line's own colour, so it follows the mode as well. A
+   * drop-shadow follows the gradient's alpha: it glows where the light is and
+   * nowhere else. Static, so the animation still moves transform and opacity only. */
+  filter: drop-shadow(0 0 3px currentColor);
   animation: header-pulse calc(var(--motion-sweep) * 10) var(--ease-emphasized) infinite;
   will-change: transform, opacity;
 }

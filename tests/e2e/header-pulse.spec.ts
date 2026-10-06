@@ -58,6 +58,7 @@ const measure = (page: Page) =>
       mode: pulse?.getAttribute('data-header-pulse') ?? null,
       ends: pulse?.getAttribute('data-pulse-ends') ?? null,
       pulse: pr ? { left: round(pr.left), right: round(pr.right), height: round(pr.height) } : null,
+      lineHeight: glint ? round(glint.getBoundingClientRect().height) : null,
       // Whether anything visible in the header sits between the pulse and the chip
       // or the edge is not asserted: at wide widths the run telemetry does.
       chipLeft: chip ? round(chip.getBoundingClientRect().left) : null,
@@ -91,8 +92,10 @@ for (const [width, height] of [
         // The header is exactly what it was.
         expect(m.headerHeight).toBe(72);
         expect(m.pageOverflow).toBe(0);
-        // A hairline, clipped to its own track, so the light cannot spill out.
-        expect(m.pulse!.height).toBeLessThanOrEqual(2);
+        // A 2.5px line in a track padded 4px above and below for its glow,
+        // clipped to that track, so the light cannot spill out sideways.
+        expect(m.lineHeight).toBe(2.5);
+        expect(m.pulse!.height).toBe(10.5);
         expect(m.clipped).toBe('hidden');
         expect(m.pulse!.left).toBeGreaterThanOrEqual(0);
         expect(m.pulse!.right).toBeLessThanOrEqual(m.contentRight + 0.5);

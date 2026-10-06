@@ -218,3 +218,50 @@ describe('header pulse · the stylesheet', () => {
     expect(block(/\.header-pulse-glint\s*\{([^}]*)\}/)).toMatch(/opacity:\s*0/);
   });
 });
+
+/**
+ * THE PULSE IS A 2.5px LINE NOW, WITH A SOFT GLOW.
+ *
+ * At one pixel it was correct and close to invisible. The line is 2.5px, and
+ * the glint carries a small glow in its own colour. The glow needs somewhere to
+ * be painted, so the track has four pixels of padding above and below the line:
+ * its `overflow: hidden` and its edge mask both act on the padded box, so the
+ * glow is kept and nothing spills sideways. The interval is unchanged.
+ */
+describe('header pulse · weight', () => {
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  const rule = (re: RegExp) => re.exec(css)?.[1] ?? '';
+  const track = rule(/\.header-pulse\s*\{([^}]*)\}/);
+  const glint = rule(/\.header-pulse-glint\s*\{([^}]*)\}/);
+
+  it('draws the line 2.5px tall', () => {
+    expect(track).toMatch(/\bheight:\s*2\.5px/);
+    expect(track).toMatch(/box-sizing:\s*content-box/);
+  });
+
+  it('gives the glow room above and below the line, inside the clipped track', () => {
+    expect(track).toMatch(/padding-block:\s*4px/);
+    expect(track).toMatch(/overflow:\s*hidden/);
+  });
+
+  it('glows in its own colour, so the glow follows the mode like the line does', () => {
+    expect(glint).toMatch(/filter:\s*drop-shadow\([^)]*currentColor\)/);
+  });
+
+  it('keeps the same slow interval', () => {
+    expect(glint).toMatch(/animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 10\)/);
+  });
+
+  it('sits with the line on the header bottom edge, the padding hanging below it', async () => {
+    const banner = await shell('/');
+    const pulse = pulseIn(banner)!;
+
+    // 4px of padding below the line, and the line itself one pixel past the
+    // bar's edge so it covers the header's border.
+    expect(pulse).toHaveClass('-bottom-[5px]');
+    expect(pulse).not.toHaveClass('h-px');
+  });
+});

@@ -107,3 +107,83 @@ describe('HeroReplay', () => {
     expect(markers).toHaveLength(1);
   });
 });
+
+async function renderHero() {
+  const run = await sampleRun();
+  const { index, tool } = compromise(run);
+  return render(
+    <HeroReplay
+      steps={run.trace.steps}
+      compromiseIndex={index}
+      offendingTool={tool}
+      category={run.category}
+    />,
+  );
+}
+
+/**
+ * The travelling sweep: a soft glow behind each ordinary step, lit in turn. Its
+ * colour has to be a token that exists. It named `--cyan-400`, which the ramp
+ * does not have, so the glow was an invalid declaration and painted nothing.
+ */
+describe('HeroReplay · the sweep glow', () => {
+  it('is coloured from the core cyan, a token the ramp really has', async () => {
+    const { container } = await renderHero();
+    const sweeps = [...container.querySelectorAll<HTMLElement>('.hero-sweep')];
+
+    expect(sweeps.length).toBeGreaterThan(0);
+    for (const sweep of sweeps) {
+      const background = sweep.getAttribute('style') ?? '';
+      expect(background).toContain('var(--cyan-300)');
+      expect(background).not.toContain('cyan-400');
+    }
+  });
+
+  it('sits behind every step except the breach, which has its own marker', async () => {
+    const { container } = await renderHero();
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-testid="hero-step"]')];
+    const breach = rows.filter((row) => row.dataset.breach === 'true');
+
+    expect(breach).toHaveLength(1);
+    expect(breach[0]!.querySelector('.hero-sweep')).toBeNull();
+    expect(container.querySelectorAll('.hero-sweep')).toHaveLength(rows.length - 1);
+  });
+});
+
+/**
+ * The ordinary step nodes were 10px dots, small enough that the sweep passing
+ * over them barely registered. They are 13px now, with a wider glow. The breach
+ * reticle stays 18px: it is the one loud thing in the hero, and it must stay the
+ * largest node on the rail.
+ */
+describe('HeroReplay · node sizes', () => {
+  it('draws every ordinary node at 13px, inside a holder of the same size', async () => {
+    const { container } = await renderHero();
+    const sweeps = [...container.querySelectorAll<HTMLElement>('.hero-sweep')];
+
+    for (const sweep of sweeps) {
+      const holder = sweep.parentElement!;
+      const node = holder.lastElementChild!;
+      expect(holder).toHaveClass('h-[13px]', 'w-[13px]');
+      expect(node).toHaveClass('h-[13px]', 'w-[13px]');
+      expect(holder.className).not.toMatch(/\b[hw]-2\.5\b/);
+      expect(node.className).not.toMatch(/\b[hw]-2\.5\b/);
+    }
+  });
+
+  it('widens the sweep glow so it reads around the larger node', async () => {
+    const { container } = await renderHero();
+
+    for (const sweep of container.querySelectorAll<HTMLElement>('.hero-sweep')) {
+      expect(sweep).toHaveClass('inset-[-8px]');
+    }
+  });
+
+  it('keeps the breach reticle the largest node on the rail', async () => {
+    const { container } = await renderHero();
+    const marker = container.querySelector('[data-testid="hero-breach-marker"]')!;
+
+    expect(marker).toHaveClass('h-[18px]', 'w-[18px]');
+    expect(marker.querySelector('svg')).toHaveAttribute('width', '18');
+  });
+});

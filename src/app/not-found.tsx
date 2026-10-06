@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LogoLockup } from '@/components/shell/LogoRing';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
@@ -51,29 +52,7 @@ export default async function NotFound() {
           aria-label="MCPwn home"
           className="mb-7 inline-flex min-h-11 items-center gap-2.5 rounded-md"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="flex-none">
-            <circle
-              cx="12"
-              cy="12"
-              r="9"
-              fill="none"
-              stroke="var(--line-emphasis)"
-              strokeWidth="1"
-            />
-            <circle
-              cx="12"
-              cy="12"
-              r="9"
-              fill="none"
-              stroke="var(--status-nominal)"
-              strokeWidth="1.4"
-              strokeDasharray="6 44"
-            />
-            <circle cx="12" cy="12" r="2.2" fill="var(--status-nominal)" />
-          </svg>
-          <span className="font-mono text-[20px] font-semibold tracking-[0.09em] text-ink-hi">
-            MCP<span className="text-nominal">wn</span>
-          </span>
+          <LogoLockup />
         </Link>
 
         {/* The console. */}

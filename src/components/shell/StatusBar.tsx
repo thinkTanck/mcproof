@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { LogoLockup } from './LogoRing';
 import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
 
@@ -49,34 +50,14 @@ export function StatusBar({
         aria-label="MCPwn home"
         className="flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
       >
-        <svg
-          width="30"
-          height="30"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          className="shrink-0 animate-[spin_22s_linear_infinite]"
-        >
-          <circle cx="12" cy="12" r="9" fill="none" stroke="var(--line-emphasis)" strokeWidth="1" />
-          <circle
-            cx="12"
-            cy="12"
-            r="9"
-            fill="none"
-            stroke="var(--status-nominal)"
-            strokeWidth="1.4"
-            strokeDasharray="6 44"
-          />
-          <circle cx="12" cy="12" r="2.2" fill="var(--status-nominal)" />
-        </svg>
-        <span className="font-mono text-[21px] font-semibold tracking-[0.09em] text-ink-hi">
-          MCP<span className="text-nominal">wn</span>
-        </span>
+        <LogoLockup />
       </Link>
       {/* THE BAR: everything between the wordmark and the mode chip, and the
           pulse that crosses it. The bar takes whatever width the row has left
           and is as tall as the header, so its bottom edge IS the header's
-          bottom border from the wordmark to the chip. The pulse is a one-pixel
-          track laid on that edge, with a slow line of light travelling along it
+          bottom border from the wordmark to the chip. The pulse is a 2.5px line
+          laid on that edge (its track hangs 5px below the bar: one pixel so the
+          line covers the border, four of padding for the glow), with a slow line of light travelling along it
           left to right (`.header-pulse` in globals.css). CSS only, so the
           shell still ships no client JS.
 
@@ -149,7 +130,7 @@ export function StatusBar({
           aria-hidden="true"
           data-header-pulse={mode ?? 'neutral'}
           data-pulse-ends={mode ? 'chip' : 'edge'}
-          className="header-pulse absolute inset-x-0 -bottom-px h-px"
+          className="header-pulse absolute inset-x-0 -bottom-[5px]"
         >
           <span className="header-pulse-glint" />
         </div>

@@ -141,18 +141,22 @@ export function HeroReplay({
                     </svg>
                   </span>
                 ) : (
-                  <span className="relative z-10 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[var(--surface-base)]">
+                  // 13px, up from 10: large enough for the passing sweep to read.
+                  // Still well under the 18px breach reticle, which stays the one
+                  // loud node on the rail, and still shorter than the row's line
+                  // of text, so no row grows to hold it.
+                  <span className="relative z-10 flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[var(--surface-base)]">
                     <span
                       aria-hidden="true"
-                      className="hero-sweep absolute inset-[-5px] rounded-full"
+                      className="hero-sweep absolute inset-[-8px] rounded-full"
                       style={{
                         background:
-                          'radial-gradient(circle, color-mix(in srgb, var(--cyan-400) 70%, transparent), transparent 70%)',
+                          'radial-gradient(circle, color-mix(in srgb, var(--cyan-300) 70%, transparent), transparent 70%)',
                         animationDelay: delay,
                       }}
                     />
                     <span
-                      className="relative h-2.5 w-2.5 rounded-full"
+                      className="relative h-[13px] w-[13px] rounded-full"
                       style={{ background: stepColorToken(step.type) }}
                     />
                   </span>
