@@ -253,3 +253,100 @@ describe('HeroReplay · sweep timing', () => {
     expect(properties).toEqual(['opacity', 'transform']);
   });
 });
+
+/**
+ * THE FRAME ACCENT: one dim cyan light that goes round the box's border, once
+ * every 14.4 seconds. It is the cue that the box is a readout and not a picture.
+ *
+ * It is deliberately small. The breach marker is the one loud thing in this box
+ * and has to stay that: the accent is a single pixel thick, a sliver of the
+ * border and not an outline of it, in the nominal cyan mixed down, with no glow.
+ * It is decoration, so it is hidden from assistive technology and takes no
+ * clicks, and it is absolutely positioned so it cannot change the box's size.
+ */
+describe('HeroReplay · the frame accent', () => {
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  const rule = (re: RegExp) => re.exec(css)?.[1] ?? '';
+
+  it('renders exactly one accent, inside the box, hidden from assistive technology', async () => {
+    const { container } = await renderHero();
+    const box = screen.getByRole('img', { name: /sample replay/i });
+    const accents = container.querySelectorAll('[data-testid="hero-frame-accent"]');
+
+    expect(accents).toHaveLength(1);
+    expect(box).toContainElement(accents[0] as HTMLElement);
+    expect(accents[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(accents[0]).toHaveClass('hero-frame-accent');
+    expect(accents[0]).toHaveTextContent('');
+    // One moving light inside it, and nothing else.
+    expect(accents[0]!.children).toHaveLength(1);
+    expect(accents[0]!.firstElementChild).toHaveClass('hero-frame-accent-light');
+  });
+
+  it('does not change the labels or the breach it frames', async () => {
+    const { container } = await renderHero();
+
+    expect(container).toHaveTextContent(/sample replay/i);
+    expect(container).toHaveTextContent(/recorded/i);
+    const breach = container.querySelector('[data-testid="hero-step"][data-breach="true"]')!;
+    expect(breach).toHaveTextContent('s6');
+    expect(container.querySelectorAll('[data-testid="hero-breach-marker"]')).toHaveLength(1);
+  });
+
+  it('is laid over the box without taking part in its layout', () => {
+    const accent = rule(/\.hero-frame-accent\s*\{([^}]*)\}/);
+
+    expect(accent).toMatch(/position:\s*absolute/);
+    expect(accent).toMatch(/inset:\s*0/);
+    expect(accent).toMatch(/pointer-events:\s*none/);
+    expect(accent).toMatch(/border-radius:\s*inherit/);
+  });
+
+  it('shows only a one-pixel ring of itself: the border, not the box', () => {
+    const accent = rule(/\.hero-frame-accent\s*\{([^}]*)\}/);
+
+    expect(accent).toMatch(/padding:\s*1px/);
+    expect(accent).toMatch(/mask-composite:\s*exclude/);
+    expect(accent).toMatch(/overflow:\s*hidden/);
+  });
+
+  it('is one sliver of light in the nominal cyan, mixed down, with no glow', () => {
+    const light = rule(/\.hero-frame-accent-light\s*\{([^}]*)\}/);
+
+    expect(light).toMatch(/conic-gradient/);
+    const share = Number(/var\(--status-nominal\)\s+(\d+)%/.exec(light)?.[1]);
+    expect(share).toBeGreaterThan(0);
+    expect(share).toBeLessThanOrEqual(70);
+    // Transparent for most of the turn: a sliver, never a full outline.
+    const dark = Number(/transparent\s+0deg\s+(\d+)deg/.exec(light)?.[1]);
+    expect(dark).toBeGreaterThanOrEqual(300);
+    expect(light).not.toMatch(/box-shadow|drop-shadow|filter/);
+    expect(light).not.toMatch(/breach|caution|red-|amber-/);
+  });
+
+  it('goes round once every 14.4 seconds at a constant rate, moving by transform only', () => {
+    const light = rule(/\.hero-frame-accent-light\s*\{([^}]*)\}/);
+    const frames = rule(/@keyframes hero-frame-lap\s*\{([\s\S]*?\})\s*\}/);
+
+    expect(light).toMatch(
+      /animation:\s*hero-frame-lap calc\(var\(--motion-sweep\) \* 12\) linear infinite/,
+    );
+    expect(frames).not.toBe('');
+    const properties = [...new Set([...frames.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]))];
+    expect(properties).toEqual(['transform']);
+    expect(frames).toMatch(/rotate\(360deg\)/);
+  });
+
+  it('is not drawn at all under prefers-reduced-motion', () => {
+    const reduce =
+      /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*)\}\s*$/.exec(
+        css.slice(0, css.indexOf('@utility measure')),
+      )?.[1] ?? '';
+
+    expect(reduce).toMatch(/\.hero-frame-accent\s*\{[^}]*display:\s*none/);
+    expect(reduce).toMatch(/\.hero-frame-accent-light[^{]*\{[^}]*animation:\s*none/);
+  });
+});
