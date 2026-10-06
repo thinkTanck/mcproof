@@ -130,7 +130,7 @@ for (const [width, height] of [
       expect(m.pageOverflow).toBe(0);
     });
 
-    test('the header pulse is a 2.5px line with a soft glow, at the same slow interval', async ({
+    test('the header pulse is a 2.5px line with a soft glow, crossing in 7.2 seconds', async ({
       page,
     }) => {
       await home(page);
@@ -139,7 +139,7 @@ for (const [width, height] of [
       expect(m.glintHeight).toBe(2.5);
       expect(m.glintFilter).toContain('drop-shadow');
       expect(m.pulseAnimation).toBe('header-pulse');
-      expect(m.pulseSeconds).toBe(12);
+      expect(m.pulseSeconds).toBe(7.2);
       expect(m.headerHeight).toBe(72);
     });
 

@@ -64,6 +64,18 @@ const measure = (page: Page) =>
       chipLeft: chip ? round(chip.getBoundingClientRect().left) : null,
       chipRight: chip ? round(chip.getBoundingClientRect().right) : null,
       animationName: gs?.animationName ?? null,
+      timing: gs?.animationTimingFunction ?? null,
+      // Every glint in the track: when it starts within the cycle, and where it sits.
+      glints: pulse
+        ? [...pulse.children].map((child) => ({
+            name: getComputedStyle(child).animationName,
+            seconds: parseFloat(getComputedStyle(child).animationDuration),
+            delay: parseFloat(getComputedStyle(child).animationDelay),
+            top: round(child.getBoundingClientRect().top),
+            height: round(child.getBoundingClientRect().height),
+          }))
+        : [],
+      trackWidth: pr ? round(pr.width) : 0,
       iteration: gs?.animationIterationCount ?? null,
       durationSeconds: gs ? parseFloat(gs.animationDuration) : null,
       clipped: pulse ? getComputedStyle(pulse).overflowX : null,
@@ -99,10 +111,24 @@ for (const [width, height] of [
         expect(m.clipped).toBe('hidden');
         expect(m.pulse!.left).toBeGreaterThanOrEqual(0);
         expect(m.pulse!.right).toBeLessThanOrEqual(m.contentRight + 0.5);
-        // It runs, slowly, for ever.
+        // It runs for ever, at a constant rate, and takes 7.2 seconds to cross.
         expect(m.animationName).toBe('header-pulse');
         expect(m.iteration).toBe('infinite');
-        expect(m.durationSeconds).toBeGreaterThanOrEqual(8);
+        expect(m.timing).toBe('linear');
+        expect(m.durationSeconds).toBe(7.2);
+        // Two glints, half a cycle apart: one sets off every 3.6 seconds.
+        expect(m.glints).toHaveLength(2);
+        expect(m.glints.map((g) => g.name)).toEqual(['header-pulse', 'header-pulse']);
+        expect(m.glints.map((g) => g.seconds)).toEqual([7.2, 7.2]);
+        expect(m.glints.map((g) => g.delay)).toEqual([0, -3.6]);
+        const interval = m.glints[0]!.seconds / m.glints.length;
+        expect(interval).toBe(3.6);
+        // Both on the one 2.5px line, not stacked.
+        expect(m.glints[0]!.top).toBe(m.glints[1]!.top);
+        expect(m.glints.map((g) => g.height)).toEqual([2.5, 2.5]);
+        // Followable: the light covers 1.32 track widths in a cycle, which at the
+        // widest bar is under 200px a second (it was over 400 at its fastest).
+        expect((m.trackWidth * 1.32) / m.durationSeconds).toBeLessThan(200);
 
         if (screen.mode === 'neutral') {
           // No chip: it reaches the right edge of the bar and fades out there.
@@ -124,12 +150,17 @@ for (const [width, height] of [
       for (const screen of SCREENS) {
         await open(page, screen.path);
         const resting = await page.evaluate(() => {
-          const glint = document.querySelector('header [data-header-pulse]')!
-            .firstElementChild as HTMLElement;
-          const cs = getComputedStyle(glint);
-          return { animationName: cs.animationName, opacity: cs.opacity };
+          const glints = [...document.querySelector('header [data-header-pulse]')!.children];
+          return glints.map((glint) => {
+            const cs = getComputedStyle(glint);
+            return { animationName: cs.animationName, opacity: cs.opacity };
+          });
         });
-        expect(resting, screen.path).toEqual({ animationName: 'none', opacity: '0' });
+        // Both glints, not only the first.
+        expect(resting, screen.path).toEqual([
+          { animationName: 'none', opacity: '0' },
+          { animationName: 'none', opacity: '0' },
+        ]);
         expect((await measure(page)).headerHeight).toBe(72);
       }
     });

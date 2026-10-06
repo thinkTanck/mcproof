@@ -179,10 +179,12 @@ describe('header pulse · the stylesheet', () => {
     expect([...new Set(properties)].sort()).toEqual(['opacity', 'transform']);
   });
 
-  it('reuses the motion tokens: the sweep duration and the emphasized easing', () => {
+  it('reuses the sweep token for its timing, and travels at a constant rate', () => {
     const glint = block(/\.header-pulse-glint\s*\{([^}]*)\}/);
     expect(glint).toMatch(/animation:[^;]*header-pulse[^;]*var\(--motion-sweep\)/);
-    expect(glint).toMatch(/animation:[^;]*var\(--ease-emphasized\)/);
+    // Linear, so the eye can follow it: an eased crossing bunches its speed at one end.
+    expect(glint).toMatch(/animation:[^;]*\blinear\b/);
+    expect(glint).not.toMatch(/animation:[^;]*var\(--ease-emphasized\)/);
     expect(glint).toMatch(/animation:[^;]*infinite/);
   });
 
@@ -251,8 +253,11 @@ describe('header pulse · weight', () => {
     expect(glint).toMatch(/filter:\s*drop-shadow\([^)]*currentColor\)/);
   });
 
-  it('keeps the same slow interval', () => {
-    expect(glint).toMatch(/animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 10\)/);
+  it('takes 7.2 seconds to cross: six sweeps, and the whole cycle is the crossing', () => {
+    expect(glint).toMatch(
+      /animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 6\) linear infinite/,
+    );
+    expect(glint).not.toMatch(/\* 10\)/);
   });
 
   it('sits with the line on the header bottom edge, the padding hanging below it', async () => {
@@ -263,5 +268,78 @@ describe('header pulse · weight', () => {
     // bar's edge so it covers the header's border.
     expect(pulse).toHaveClass('-bottom-[5px]');
     expect(pulse).not.toHaveClass('h-px');
+  });
+});
+
+/**
+ * THE PULSE IS FOLLOWABLE, AND THERE IS ALWAYS ONE COMING.
+ *
+ * It used to cross in about three seconds, eased so most of that speed came at
+ * the start, and then leave the bar empty for nine more. Too fast to follow and
+ * mostly absent. Now a glint takes 7.2 seconds to cross at a constant rate, and
+ * a new one sets off every 3.6 seconds: two glints, half a cycle apart, so one
+ * is entering as the other passes the middle.
+ */
+describe('header pulse · tempo', () => {
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  const rule = (re: RegExp) => re.exec(css)?.[1] ?? '';
+
+  it('draws two glints in the track, the second marked as the late one', async () => {
+    const banner = await shell('/');
+    const glints = [...pulseIn(banner)!.children];
+
+    expect(glints).toHaveLength(2);
+    for (const glint of glints) expect(glint).toHaveClass('header-pulse-glint');
+    expect(glints[0]).not.toHaveClass('header-pulse-glint-late');
+    expect(glints[1]).toHaveClass('header-pulse-glint-late');
+  });
+
+  it('starts the late glint half a cycle in: one sets off every 3.6 seconds', () => {
+    const late = rule(/\.header-pulse-glint-late\s*\{([^}]*)\}/);
+
+    // Negative, so it is already half way across when the page loads and not
+    // absent for the first 3.6 seconds.
+    expect(late).toMatch(/animation-delay:\s*calc\(var\(--motion-sweep\) \* -3\)/);
+  });
+
+  it('lays both glints on the one line, so two of them are not two lines', () => {
+    const track = rule(/\.header-pulse\s*\{([^}]*)\}/);
+    const glint = rule(/\.header-pulse-glint\s*\{([^}]*)\}/);
+
+    expect(track).toMatch(/display:\s*grid/);
+    expect(glint).toMatch(/grid-area:\s*1\s*\/\s*1/);
+    expect(track).toMatch(/\bheight:\s*2\.5px/);
+  });
+
+  it('is lit for nearly the whole crossing, fading only as it enters and leaves', () => {
+    const frames = rule(/@keyframes header-pulse\s*\{([\s\S]*?\})\s*\}/);
+    const stops = [...frames.matchAll(/((?:\d+%\s*,?\s*)+)\{[^}]*opacity:\s*([\d.]+)/g)]
+      .flatMap((m) =>
+        [...m[1]!.matchAll(/(\d+)%/g)].map((stop) => ({
+          at: Number(stop[1]),
+          opacity: Number(m[2]),
+        })),
+      )
+      .sort((a, b) => a.at - b.at);
+    const lit = stops.filter((stop) => stop.opacity === 1).map((stop) => stop.at);
+
+    expect(stops[0]).toEqual({ at: 0, opacity: 0 });
+    expect(stops[stops.length - 1]).toEqual({ at: 100, opacity: 0 });
+    // Lit from within the first tenth to within the last tenth.
+    expect(Math.min(...lit)).toBeLessThanOrEqual(10);
+    expect(Math.max(...lit)).toBeGreaterThanOrEqual(90);
+    // It reaches the far end only at the very end of the cycle: no idle tail.
+    expect(/100%\s*\{[^}]*translateX\(66%\)/.test(frames)).toBe(true);
+  });
+
+  it('stops both glints under prefers-reduced-motion', () => {
+    const reduce = rule(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?animation: none;)/);
+
+    // The late glint carries the base class, so the one named rule covers both.
+    expect(reduce).toMatch(/\.header-pulse-glint\b/);
+    expect(rule(/\.header-pulse-glint\s*\{([^}]*)\}/)).toMatch(/opacity:\s*0/);
   });
 });
