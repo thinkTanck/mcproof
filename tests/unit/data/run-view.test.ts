@@ -154,7 +154,12 @@ describe('resolveRun — a persisted live run', () => {
 describe('resolveFixReport — module 6, over whichever run was resolved', () => {
   it('is exactly generateFixReport over the sample run (one canonical generator)', async () => {
     const view = await resolveFixReport('sample');
-    expect(view?.report).toEqual(generateFixReport(sampleRun('ASI02')));
+    // The report carries the provenance it was resolved with, so the copied
+    // ticket prints the same label the screen does.
+    expect(view?.report).toEqual(
+      generateFixReport(sampleRun('ASI02'), { provenance: SAMPLE_VERDICT_PROVENANCE }),
+    );
+    expect(view?.report.provenance).toBe(view?.provenance);
     expect(view?.provenance).toBe(SAMPLE_VERDICT_PROVENANCE);
   });
 
@@ -164,7 +169,8 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
     asMock(getRunRepository).mockResolvedValue(repoFor([storedRow(run)]));
 
     const view = await resolveFixReport('row-uuid-1234');
-    expect(view?.report).toEqual(generateFixReport(run));
+    expect(view?.report).toEqual(generateFixReport(run, { provenance: view?.provenance }));
+    expect(view?.report.provenance).toMatch(/^live run · /);
     expect(view?.report.finding?.stepId).toBe(run.verdict.stepId);
     expect(view?.origin).toBe('live');
   });

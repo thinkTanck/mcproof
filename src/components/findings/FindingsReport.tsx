@@ -37,24 +37,16 @@ function SectionHeading({
  * trace, and the prose blocks (rationale, remediation) render in the READING
  * register because they are sentences a human reads, not telemetry.
  *
- * `provenance` says where the verdict came from. It is optional because a live
- * run's provenance is not this component's to invent: the DataSource supplies it,
- * and when it cannot, nothing is claimed.
+ * `report.provenance` says where the verdict came from. It is read off the report,
+ * the same value the copied ticket prints, and it can be null: a run's provenance
+ * is not this component's to invent, so when none was resolved, nothing is claimed.
  *
  * `routeId` is the id this report was opened under, which is the id the replay
  * of the same run lives at. It is optional for the same reason: `report.runId` is
  * NOT that id for a saved live run, so when the page does not supply one, no
  * replay link is drawn rather than one guessed from the wrong id.
  */
-export function FindingsReport({
-  report,
-  routeId,
-  provenance,
-}: {
-  report: FixReport;
-  routeId?: string;
-  provenance?: string | null;
-}) {
+export function FindingsReport({ report, routeId }: { report: FixReport; routeId?: string }) {
   const finding = report.finding;
   const step = finding?.step;
   const classification = finding?.classification;
@@ -125,7 +117,9 @@ export function FindingsReport({
             <span aria-hidden="true"> · </span>
             model <span className="text-readout">{report.model}</span>
           </p>
-          {provenance ? <p className="instrument mt-1 text-ink-faint">{provenance}</p> : null}
+          {report.provenance ? (
+            <p className="instrument mt-1 text-ink-faint">{report.provenance}</p>
+          ) : null}
         </div>
         <CopyReportButton report={report} />
       </header>
@@ -177,12 +171,7 @@ export function FindingsReport({
               <SectionHeading tone="cyan">Remediation</SectionHeading>
 
               <div data-testid="classification-caveat" className="mt-3">
-                <p className="reading measure">
-                  The category above is the detector’s own blind classification of the trace, and
-                  these steps follow from it. Measured accuracy on our labeled set is{' '}
-                  {classification.accuracy.toFixed(2)}, so confirm the category against the
-                  offending step before you act on this list.
-                </p>
+                <p className="reading measure">{classification.caveat}</p>
                 <p className="instrument mt-2 text-ink-faint">{classification.provenance}</p>
               </div>
 

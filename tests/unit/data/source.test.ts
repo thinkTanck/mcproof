@@ -144,7 +144,8 @@ describe('DataSource — sample runs served from the real attack builders', () =
       const report = await ds.getFixReport(run.runId);
       // Identical to calling the generator directly: the screen reads the real
       // module, not a hand-authored fixture standing in for it.
-      expect(report).toEqual(generateFixReport(run));
+      // A sample report is labelled a sample wherever it is read from.
+      expect(report).toEqual(generateFixReport(run, { provenance: SAMPLE_VERDICT_PROVENANCE }));
       expect(report?.finding?.stepId).toBe(run.verdict.stepId);
       expect(run.trace.steps.map((s) => s.id)).toContain(report?.finding?.stepId);
     }
@@ -152,7 +153,9 @@ describe('DataSource — sample runs served from the real attack builders', () =
   });
 
   it('getFixReport resolves the "sample" alias to the canonical sample run', async () => {
-    expect(await ds.getFixReport('sample')).toEqual(generateFixReport(sampleRun('ASI02')));
+    expect(await ds.getFixReport('sample')).toEqual(
+      generateFixReport(sampleRun('ASI02'), { provenance: SAMPLE_VERDICT_PROVENANCE }),
+    );
   });
 
   it('getVerdictProvenance labels a sample verdict and returns null for an unknown run', async () => {
