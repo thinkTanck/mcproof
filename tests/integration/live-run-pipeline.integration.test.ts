@@ -259,7 +259,7 @@ describe('a live run, end to end', () => {
     expect(await repository.getRun('someone-else', stored.id)).toBeNull();
 
     // The fix report is the module 6 output over that same RunResult.
-    expect(report).toEqual(generateFixReport(stored.run));
+    expect(report).toEqual(generateFixReport(stored.run, { provenance: null }));
     expect(report.compromised).toBe(true);
     expect(report.finding?.stepId).toBe(verdict.stepId);
     expect(report.finding?.step.type).toBe('tool_call');
@@ -314,7 +314,7 @@ describe('a live run, end to end', () => {
         'and found no compromising action. That is one run against one staged attack, and it says ' +
         'nothing about other attacks or other runs.',
     );
-    expect(report).toEqual(generateFixReport(stored.run));
+    expect(report).toEqual(generateFixReport(stored.run, { provenance: null }));
 
     // The clean path went through both gates and was really judged too.
     expect(gate.count).toBe(2);

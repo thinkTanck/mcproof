@@ -75,7 +75,7 @@ describe('exported fix report: verdict provenance (sweep F1)', () => {
   });
 
   it('a live run with no provenance: no label is added, and none is invented', () => {
-    const report = generateFixReport(makeRun('ASI02'));
+    const report = generateFixReport(makeRun('ASI02'), { provenance: null });
     const md = toMarkdown(report);
 
     expect(report.provenance).toBeNull();
@@ -125,7 +125,7 @@ describe('exported fix report: classification caveat (sweep F2)', () => {
   it.each(CLASSIFIED_ABOVE_ZERO)(
     '%s: the Markdown states the measured accuracy and its provenance before the remediation steps',
     (category) => {
-      const report = generateFixReport(makeRun(category));
+      const report = generateFixReport(makeRun(category), { provenance: null });
       const md = toMarkdown(report);
       const firstStep = md.indexOf(`1. ${report.finding!.remediation!.steps[0]}`);
       const heading = md.indexOf('## Remediation');
@@ -170,7 +170,7 @@ describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
   it('reads exactly as it did before provenance and the caveat were added', () => {
     // Staged ASI10, returned ASI01: the real misfile. No provenance given, so
     // this is byte for byte what the export produced on 2026-10-07.
-    const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01')));
+    const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01'), { provenance: null }));
 
     expect(md).toBe(
       [
@@ -196,7 +196,7 @@ describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
   });
 
   it('never gains the above-zero caveat: a withheld list has nothing to be cautious about', () => {
-    const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01')));
+    const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01'), { provenance: null }));
 
     expect(md).not.toMatch(/Measured accuracy on our labeled set/);
     expect(md).not.toMatch(/^## Remediation$/m);

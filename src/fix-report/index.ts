@@ -275,12 +275,16 @@ function remediationFor(category: Category): Remediation {
  * Build an engineer-ready fix report from a live `RunResult`. Pure over
  * `RunResult`; never references `GroundTruth`.
  *
+ * `provenance` is REQUIRED, with no default. Every caller decides: the label
+ * the run was resolved with, or an explicit `null` where no reader will ever
+ * see the report. An optional argument is how the label went missing before.
+ *
  * @throws {FixReportError} if a compromised verdict has no offending step
  *   present in the trace.
  */
 export function generateFixReport(
   run: RunResult,
-  { provenance = null }: { provenance?: string | null } = {},
+  { provenance }: { provenance: string | null },
 ): FixReport {
   const { runId, target, model, trace, verdict } = run;
 

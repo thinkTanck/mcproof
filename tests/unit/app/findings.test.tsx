@@ -84,7 +84,7 @@ function customRun(compromised = true): RunResult {
   });
 }
 
-const customReport: FixReport = generateFixReport(customRun());
+const customReport: FixReport = generateFixReport(customRun(), { provenance: null });
 
 async function renderPage(id: string) {
   return render(await FindingsPage({ params: Promise.resolve({ id }) }));
@@ -166,7 +166,7 @@ describe('Findings / fix report screen', () => {
    * is a real report with no findings, never an empty state and never an error.
    */
   it('renders a clean run as a result that says the agent resisted', async () => {
-    const clean = generateFixReport(customRun(false));
+    const clean = generateFixReport(customRun(false), { provenance: null });
     render(<FindingsReport report={clean} />);
     expect(screen.getByRole('heading', { level: 1, name: /agent resisted/i })).toBeInTheDocument();
     expect(screen.getByText(clean.summary)).toBeInTheDocument();
@@ -179,7 +179,7 @@ describe('Findings / fix report screen', () => {
   });
 
   it('says plainly that a run with no findings is a result, not a missing report', async () => {
-    const clean = generateFixReport(customRun(false));
+    const clean = generateFixReport(customRun(false), { provenance: null });
     render(<FindingsReport report={clean} />);
     const panel = screen.getByTestId('clean-result');
     expect(panel).toHaveTextContent(/nothing here to fix/i);
@@ -189,7 +189,7 @@ describe('Findings / fix report screen', () => {
   it('offers no replay link when it is not told which route the run lives at', async () => {
     // The route id is the page's to supply. Guessing it from the report's run id
     // is the wrong id for every saved live run, so nothing is linked instead.
-    const clean = generateFixReport(customRun(false));
+    const clean = generateFixReport(customRun(false), { provenance: null });
     render(<FindingsReport report={clean} />);
     expect(screen.queryByRole('link', { name: /replay/i })).not.toBeInTheDocument();
   });
@@ -237,7 +237,7 @@ describe('Findings / fix report screen', () => {
   });
 
   it('does not claim a classification accuracy on a report with no category to classify', async () => {
-    const clean = generateFixReport(customRun(false));
+    const clean = generateFixReport(customRun(false), { provenance: null });
     render(<FindingsReport report={clean} />);
     expect(screen.queryByTestId('classification-caveat')).not.toBeInTheDocument();
   });

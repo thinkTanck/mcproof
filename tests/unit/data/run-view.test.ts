@@ -5,7 +5,7 @@ import { SAMPLE_RUN_ID, sampleRun } from '@/data/source';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { getUser } from '@/lib/auth/user';
 import { getRunRepository } from '@/data/run-repository.factory';
-import { resolveFixReport, resolveRun } from '@/data/run-view';
+import { liveVerdictProvenance, resolveFixReport, resolveRun } from '@/data/run-view';
 import type { StoredRun } from '@/data/run-repository';
 
 vi.mock('@/lib/auth/user', () => ({ getUser: vi.fn() }));
@@ -169,8 +169,11 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
     asMock(getRunRepository).mockResolvedValue(repoFor([storedRow(run)]));
 
     const view = await resolveFixReport('row-uuid-1234');
-    expect(view?.report).toEqual(generateFixReport(run, { provenance: view?.provenance }));
-    expect(view?.report.provenance).toMatch(/^live run · /);
+    // The expected label is computed from the stored row, not read back off the
+    // view, so the whole report is compared against an independent value.
+    const label = liveVerdictProvenance('2026-08-05T09:41:07.123456+00:00');
+    expect(label).toBe('live run · verdict from the locked validated judge · 2026-08-05');
+    expect(view?.report).toEqual(generateFixReport(run, { provenance: label }));
     expect(view?.report.finding?.stepId).toBe(run.verdict.stepId);
     expect(view?.origin).toBe('live');
   });
