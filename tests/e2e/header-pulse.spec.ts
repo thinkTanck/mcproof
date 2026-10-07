@@ -111,14 +111,15 @@ for (const [width, height] of [
         expect(m.clipped).toBe('hidden');
         expect(m.pulse!.left).toBeGreaterThanOrEqual(0);
         expect(m.pulse!.right).toBeLessThanOrEqual(m.contentRight + 0.5);
-        // It runs for ever, at a constant rate: a 16.8 second cycle, of which the
-        // first half is the crossing and the second half is rest.
+        // It runs for ever, at a constant rate: a 12 second cycle, of which the
+        // first seven tenths is the crossing and the last three tenths is rest.
         expect(m.animationName).toBe('header-pulse');
         expect(m.iteration).toBe('infinite');
         expect(m.timing).toBe('linear');
-        expect(m.durationSeconds).toBeCloseTo(16.8, 5);
-        const crossing = m.durationSeconds! / 2;
+        expect(m.durationSeconds).toBeCloseTo(12, 5);
+        const crossing = m.durationSeconds! * 0.7;
         expect(crossing).toBeCloseTo(8.4, 5);
+        expect(m.durationSeconds! - crossing).toBeCloseTo(3.6, 5);
         // One glint, starting with the cycle, 2.5px tall.
         expect(m.glints).toHaveLength(1);
         expect(m.glints[0]!.name).toBe('header-pulse');
@@ -156,7 +157,7 @@ for (const [width, height] of [
         const animation = glint.getAnimations()[0] as CSSAnimation;
         const cycle = Number(animation.effect!.getComputedTiming().duration);
         animation.pause();
-        for (const at of [0.05, 0.25, 0.45, 0.55, 0.75, 0.95]) {
+        for (const at of [0.08, 0.35, 0.62, 0.72, 0.85, 0.97]) {
           animation.currentTime = cycle * at;
           const track = pulse.getBoundingClientRect();
           const shift = new DOMMatrix(getComputedStyle(glint).transform).e;
@@ -171,17 +172,18 @@ for (const [width, height] of [
       });
       const reading = (at: number) => readings.find((r) => r.at === at)!;
 
-      // Crossing: fully lit, and the light moves left to right across the track.
-      expect(reading(0.05).opacity).toBe(1);
-      expect(reading(0.25).opacity).toBe(1);
-      expect(reading(0.45).opacity).toBe(1);
-      expect(reading(0.05).light).toBeLessThan(reading(0.25).light);
-      expect(reading(0.25).light).toBeLessThan(reading(0.45).light);
-      expect(reading(0.25).light).toBeCloseTo(0.5, 1);
-      // Rest: nothing lit for the whole second half of the cycle.
-      expect(reading(0.55).opacity).toBe(0);
-      expect(reading(0.75).opacity).toBe(0);
-      expect(reading(0.95).opacity).toBe(0);
+      // Crossing (the first 70% of the cycle): fully lit, and the light moves left
+      // to right across the track. At 35% it is half way.
+      expect(reading(0.08).opacity).toBe(1);
+      expect(reading(0.35).opacity).toBe(1);
+      expect(reading(0.62).opacity).toBe(1);
+      expect(reading(0.08).light).toBeLessThan(reading(0.35).light);
+      expect(reading(0.35).light).toBeLessThan(reading(0.62).light);
+      expect(reading(0.35).light).toBeCloseTo(0.5, 1);
+      // Rest (the last 30%, 3.6 seconds): nothing lit, from start to end.
+      expect(reading(0.72).opacity).toBe(0);
+      expect(reading(0.85).opacity).toBe(0);
+      expect(reading(0.97).opacity).toBe(0);
     });
 
     test('stops under prefers-reduced-motion, and leaves nothing on screen', async ({ page }) => {

@@ -512,11 +512,12 @@ body {
 }
 
 /* Header pulse: a line of light crosses the status bar's bottom edge at a
- * constant rate, and then the bar rests. The crossing is the first half of the
- * cycle: it enters, fades up, travels, and fades out as it leaves. The second
- * half is empty. It had been two glints with one always in view, which read as
- * decoration that never settles; one crossing and a rest of equal length reads
- * as an instrument idling.
+ * constant rate, and then the bar rests. The crossing is the first seven tenths
+ * of the cycle (8.4s of 12): it enters, fades up, travels, and fades out as it
+ * leaves. The last three tenths (3.6s) are empty. It had been two glints with
+ * one always in view, which read as decoration that never settles; and then one
+ * glint with a rest as long as the crossing, which left the bar empty too long.
+ * One crossing and a short rest reads as an instrument idling.
  *
  * The glint is as wide as its track with the light in its middle third, so the
  * same two translate values carry it fully off both ends whatever the track's
@@ -527,13 +528,13 @@ body {
     opacity: 0;
     transform: translateX(-66%);
   }
-  4% {
+  6% {
     opacity: 1;
   }
-  46% {
+  64% {
     opacity: 1;
   }
-  50%,
+  70%,
   100% {
     opacity: 0;
     transform: translateX(66%);
@@ -637,9 +638,9 @@ body {
    * drop-shadow follows the gradient's alpha: it glows where the light is and
    * nowhere else. Static, so the animation still moves transform and opacity only. */
   filter: drop-shadow(0 0 3px currentColor);
-  /* A 16.8s cycle at a constant rate: 8.4s to cross, slow enough for the eye
-   * to follow, then 8.4s of rest (see the keyframes). */
-  animation: header-pulse calc(var(--motion-sweep) * 14) linear infinite;
+  /* A 12s cycle at a constant rate: 8.4s to cross, slow enough for the eye to
+   * follow, then 3.6s of rest (see the keyframes). */
+  animation: header-pulse calc(var(--motion-sweep) * 10) linear infinite;
   will-change: transform, opacity;
 }
 
