@@ -217,11 +217,13 @@ describe('Findings / fix report screen', () => {
     expect(await screen.findByText(/copied/i)).toBeInTheDocument();
   });
 
-  it('shows a labelled empty state with the id and a link back when the report is not found', async () => {
-    await renderPage('no-such-run');
-    expect(screen.getByText(/no report for run/i)).toBeInTheDocument();
-    expect(screen.getByText('no-such-run')).toBeInTheDocument();
-    expect(screen.getByRole('link')).toBeInTheDocument();
+  it('answers 404 when the report is not found', async () => {
+    // The page no longer draws the empty state itself: it calls notFound(), and
+    // the route's not-found.tsx draws it under a 404. The copy (the id, the link
+    // back) is asserted in tests/unit/app/run-not-found.test.tsx.
+    await expect(renderPage('no-such-run')).rejects.toMatchObject({
+      digest: 'NEXT_HTTP_ERROR_FALLBACK;404',
+    });
   });
 
   it('states that the category is a blind classification, at its MEASURED accuracy', async () => {
@@ -314,7 +316,12 @@ describe('Findings / fix report screen', () => {
    */
   describe('a persisted live run', () => {
     function storedRow(run: RunResult, userId = 'user-1'): StoredRun {
-      return { id: 'row-uuid-4321', userId, createdAt: '2026-08-05T09:41:07.123456+00:00', run };
+      return {
+        id: '22222222-2222-4222-8222-222222224321',
+        userId,
+        createdAt: '2026-08-05T09:41:07.123456+00:00',
+        run,
+      };
     }
 
     it('reports on the run read from the repository, owner-scoped', async () => {
@@ -323,17 +330,17 @@ describe('Findings / fix report screen', () => {
       const repo = repoWith([storedRow(run)]);
       asMock(getRunRepository).mockResolvedValue(repo);
 
-      await renderPage('row-uuid-4321');
+      await renderPage('22222222-2222-4222-8222-222222224321');
       expect(screen.getByText(run.runId)).toBeInTheDocument();
       expect(screen.getByText(run.verdict.rationale)).toBeInTheDocument();
-      expect(repo.getRun).toHaveBeenCalledWith('user-1', 'row-uuid-4321');
+      expect(repo.getRun).toHaveBeenCalledWith('user-1', '22222222-2222-4222-8222-222222224321');
     });
 
     it('labels the live verdict as a live run, never as the constructed demonstration', async () => {
       asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
       asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun())]));
 
-      await renderPage('row-uuid-4321');
+      await renderPage('22222222-2222-4222-8222-222222224321');
       expect(screen.getByText(/live run/i)).toBeInTheDocument();
       expect(screen.queryByText(SAMPLE_VERDICT_PROVENANCE)).not.toBeInTheDocument();
     });
@@ -342,7 +349,7 @@ describe('Findings / fix report screen', () => {
       asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
       asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun(false))]));
 
-      await renderPage('row-uuid-4321');
+      await renderPage('22222222-2222-4222-8222-222222224321');
       expect(
         screen.getByRole('heading', { level: 1, name: /agent resisted/i }),
       ).toBeInTheDocument();
@@ -354,14 +361,14 @@ describe('Findings / fix report screen', () => {
       asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
       asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun(false))]));
 
-      await renderPage('row-uuid-4321');
+      await renderPage('22222222-2222-4222-8222-222222224321');
       // The clean result, never the missing-report state.
       const panel = screen.getByTestId('clean-result');
       expect(screen.queryByText(/no report for run/i)).not.toBeInTheDocument();
       // The replay lives at the STORED ROW id, not the run's own session id.
       expect(within(panel).getByRole('link', { name: /replay/i })).toHaveAttribute(
         'href',
-        '/runs/row-uuid-4321',
+        '/runs/22222222-2222-4222-8222-222222224321',
       );
       // The leaderboard off-ramp stays beside it.
       expect(within(panel).getByRole('link', { name: /leaderboard/i })).toHaveAttribute(
@@ -376,8 +383,10 @@ describe('Findings / fix report screen', () => {
         repoWith([storedRow(customRun(), 'someone-else')]),
       );
 
-      await renderPage('row-uuid-4321');
-      expect(screen.getByText(/no report for run/i)).toBeInTheDocument();
+      // The same 404 an unknown id gets, so the answer never says the run exists.
+      await expect(renderPage('22222222-2222-4222-8222-222222224321')).rejects.toMatchObject({
+        digest: 'NEXT_HTTP_ERROR_FALLBACK;404',
+      });
     });
   });
 

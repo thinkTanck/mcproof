@@ -85,8 +85,16 @@ async function sampleView(id: string): Promise<RunView | null> {
   return { run, origin: 'sample', provenance };
 }
 
+/** The shape of a stored run's address: `runs.id` is a uuid column. */
+const ROW_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** One of the signed-in user's own persisted runs, or nothing. */
 async function liveView(id: string): Promise<RunView | null> {
+  // An id that is not a uuid cannot be a row, so it is "nothing" without asking.
+  // Asked anyway, Postgres rejects the comparison and the adapter throws, which
+  // gave a signed-in visitor an error page for a mistyped id where a signed-out
+  // one got the not-found page.
+  if (!ROW_ID.test(id)) return null;
   const user = await getUser();
   if (!user) return null;
   const repository = await getRunRepository();

@@ -1,12 +1,14 @@
+import { notFound } from 'next/navigation';
 import { resolveFixReport } from '@/data/run-view';
-import { FindingsReport, FindingsEmpty } from '@/components/findings';
+import { FindingsReport } from '@/components/findings';
 
 /**
  * Findings / fix report screen (`/findings/[id]`). Reads through `resolveFixReport`,
  * so everything on the page — category, severity, run id, offending step, prose,
  * remediation — binds from module 6's real `generateFixReport` output over a real
- * `RunResult`. An id that resolves to nothing renders a labelled empty state, not
- * a 404.
+ * `RunResult`. An id that resolves to nothing is a 404, and the route's
+ * `not-found.tsx` draws the labelled empty state under it. A run on another
+ * account answers exactly as an id that never existed.
  *
  * The run behind the report is either the no-key sample (open to everyone) or one
  * of the signed-in user's own persisted live runs (owner-scoped at the repository
@@ -20,6 +22,6 @@ import { FindingsReport, FindingsEmpty } from '@/components/findings';
 export default async function FindingsScreen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const view = await resolveFixReport(id);
-  if (!view) return <FindingsEmpty id={id} />;
+  if (!view) notFound();
   return <FindingsReport report={view.report} routeId={id} />;
 }

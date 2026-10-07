@@ -58,7 +58,7 @@ function liveRun(compromised: boolean): RunResult {
 
 function stored(run: RunResult): StoredRun {
   return {
-    id: 'row-uuid-9876',
+    id: '44444444-4444-4444-8444-444444449876',
     userId: 'user-1',
     createdAt: '2026-08-05T09:41:07.123456+00:00',
     run,
@@ -110,7 +110,7 @@ describe('Live Attack Replay — the sample run', () => {
 describe('Live Attack Replay — a persisted live run', () => {
   it('renders the RunResult read from the repository, not the sample', async () => {
     signedInWith(liveRun(true));
-    await renderPage('row-uuid-9876');
+    await renderPage('44444444-4444-4444-8444-444444449876');
 
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveTextContent('ASI02');
@@ -123,20 +123,20 @@ describe('Live Attack Replay — a persisted live run', () => {
     // verdict is a different string that resolves to nothing there.
     expect(screen.getByRole('link', { name: /export fix report/i })).toHaveAttribute(
       'href',
-      '/findings/row-uuid-9876',
+      '/findings/44444444-4444-4444-8444-444444449876',
     );
   });
 
   it('labels a live verdict as a live run, never as the constructed demonstration', async () => {
     signedInWith(liveRun(true));
-    await renderPage('row-uuid-9876');
+    await renderPage('44444444-4444-4444-8444-444444449876');
     expect(screen.getByText(/live run/i)).toBeInTheDocument();
     expect(screen.queryByText(SAMPLE_VERDICT_PROVENANCE)).not.toBeInTheDocument();
   });
 
   it('states the compromise and the step it is anchored to', async () => {
     signedInWith(liveRun(true));
-    await renderPage('row-uuid-9876');
+    await renderPage('44444444-4444-4444-8444-444444449876');
     expect(screen.getByTestId('run-outcome')).toHaveTextContent(/compromised at step 2/i);
   });
 
@@ -147,7 +147,7 @@ describe('Live Attack Replay — a persisted live run', () => {
    */
   it('renders a run the agent resisted as a successful result, with no findings claimed', async () => {
     signedInWith(liveRun(false));
-    await renderPage('row-uuid-9876');
+    await renderPage('44444444-4444-4444-8444-444444449876');
 
     expect(screen.getByTestId('run-outcome')).toHaveTextContent(/agent resisted/i);
     // The whole replay is there: the transcript, the transport, the verdict.
@@ -163,12 +163,12 @@ describe('Live Attack Replay — a persisted live run', () => {
 
   it('points a resisted run at its own run result, by the row id in the URL', async () => {
     signedInWith(liveRun(false));
-    await renderPage('row-uuid-9876');
+    await renderPage('44444444-4444-4444-8444-444444449876');
     // The session run id would land a clean run on the missing-report state,
     // which reads as something going wrong for a run that went right.
     expect(screen.getByRole('link', { name: /export run result/i })).toHaveAttribute(
       'href',
-      '/findings/row-uuid-9876',
+      '/findings/44444444-4444-4444-8444-444444449876',
     );
   });
 });
@@ -176,13 +176,14 @@ describe('Live Attack Replay — a persisted live run', () => {
 describe('Live Attack Replay — an id that resolves to nothing', () => {
   it('states plainly that there is no such run, and never substitutes the sample', async () => {
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
-    await renderPage('no-such-run');
-
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/no run to replay/i);
-    expect(screen.getByText('no-such-run')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sample run/i })).toBeInTheDocument();
-    // Showing someone the ASI06 demonstration under their own run id would be
-    // presenting a constructed demonstration as their result.
+    // notFound(): a 404, with the empty state drawn by the route's not-found.tsx
+    // (its copy is asserted in tests/unit/app/run-not-found.test.tsx). Nothing
+    // is rendered here at all, so the sample cannot be substituted: showing
+    // someone a demonstration under their own run id would be presenting a
+    // constructed demonstration as their result.
+    await expect(renderPage('no-such-run')).rejects.toMatchObject({
+      digest: 'NEXT_HTTP_ERROR_FALLBACK;404',
+    });
     expect(screen.queryByText(SAMPLE_VERDICT_PROVENANCE)).not.toBeInTheDocument();
   });
 
@@ -191,7 +192,9 @@ describe('Live Attack Replay — an id that resolves to nothing', () => {
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     asMock(getRunRepository).mockResolvedValue(repoWith([other]));
 
-    await renderPage('row-uuid-9876');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/no run to replay/i);
+    // The same 404 an unknown id gets, so the answer never says the run exists.
+    await expect(renderPage('44444444-4444-4444-8444-444444449876')).rejects.toMatchObject({
+      digest: 'NEXT_HTTP_ERROR_FALLBACK;404',
+    });
   });
 });
