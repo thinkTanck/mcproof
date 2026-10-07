@@ -7,7 +7,7 @@ import { suppressBootSplash } from './support/screen';
  * Two things move in the hero box besides the breach marker. The sweep: a pulse
  * of light that travels down the trace rail in about a second and repeats every
  * 3.2. And the frame accent: one dim cyan light that goes round the box's border
- * once every 9.6 seconds, the cue that this is a readout and not a picture.
+ * once every 14.4 seconds, the cue that this is a readout and not a picture.
  *
  * Both are ambience and neither may cost anything. The box is exactly the size
  * it is without them, nothing on the page shifts while they run, and under
@@ -126,10 +126,10 @@ for (const [width, height] of [
       expect(m.lightName).toBe('hero-frame-lap');
       expect(m.lightIteration).toBe('infinite');
       expect(m.lightTiming).toBe('linear');
-      // One lap in 9.6 seconds: three times the length of a sweep loop, so the
-      // frame is still the slowest thing moving in the box.
-      expect(m.lightSeconds).toBeCloseTo(9.6, 5);
-      expect(m.lightSeconds! / m.sweepSeconds).toBeCloseTo(3, 5);
+      // One lap in 14.4 seconds: four and a half sweep loops, so the frame is by
+      // far the slowest thing moving in the box.
+      expect(m.lightSeconds).toBeCloseTo(14.4, 5);
+      expect(m.lightSeconds! / m.sweepSeconds).toBeCloseTo(4.5, 5);
       // A light, not an outline: one sliver of a conic gradient.
       expect(m.lightBackground).toContain('conic-gradient');
     });
