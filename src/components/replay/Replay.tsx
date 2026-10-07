@@ -105,7 +105,7 @@ export function Replay({
     : 'AGENT RESISTED';
 
   return (
-    <div className="flex min-h-[calc(100dvh-72px)] flex-col">
+    <div className="flex min-h-[calc(100dvh-var(--header-h))] flex-col">
       {/* Header — kicker + title + the run's outcome and provenance.
           THE OUTCOME IS STATED UP FRONT, both ways round. A compromise names the
           step it is anchored to; a run the agent resisted says so in the nominal

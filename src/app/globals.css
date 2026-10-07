@@ -109,6 +109,11 @@
 
   /* Focus — one ring, used everywhere */
   --focus-ring: var(--cyan-300);
+  /* The sticky header's height. Written once: the header is sized by it, the
+   * rail and the drawer hang from it, the pinned run bar sits 8px under it, and
+   * the document's scroll padding (below) is derived from it. */
+  --header-h: 72px;
+
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
@@ -390,6 +395,22 @@ body {
  * narrower inner column to scale a heading to that column instead. */
 .type-flow {
   container-type: inline-size;
+}
+
+/* =========================================================================
+ * Focus is never parked under the sticky header (WCAG 2.2, 2.4.11).
+ *
+ * When Tab or Shift+Tab brings a control to the top edge of the window, the
+ * browser used to put it at y=0, behind the header: focused and fully hidden.
+ * Scroll padding tells the browser where the usable top of the page is, so a
+ * control scrolled into view stops below the header, with an 8px gap.
+ *
+ * It ADDS to an element's own scroll margin. The Connect run column sets one
+ * (LiveRunConsole) to clear the pinned run bar as well; with this it only gains
+ * clearance.
+ * ========================================================================= */
+html {
+  scroll-padding-top: calc(var(--header-h) + 8px);
 }
 
 /* =========================================================================
