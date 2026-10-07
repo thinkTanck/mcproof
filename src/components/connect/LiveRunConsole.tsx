@@ -144,11 +144,17 @@ export const RESULT_PENDING_WINDOW_MS = 3 * 60_000;
 /** The production clock for the expiry check. See the `now` prop. */
 const systemNow = (): Date => new Date();
 
+/**
+ * What a finished run is called. One string for the run bar and for the section
+ * heading above it (`ConnectScreen`), so the two cannot come to disagree.
+ */
+export const RUN_FINISHED_LABEL = 'RUN FINISHED';
+
 /** What each observed phase means, in the words a person would use. */
 const PHASE_LABELS: Record<LiveRunPhase, string> = {
   waiting: 'AWAITING AGENT',
   connected: 'AGENT CONNECTED',
-  finished: 'RUN FINISHED',
+  finished: RUN_FINISHED_LABEL,
 };
 
 /**
@@ -206,7 +212,14 @@ export function LiveRunConsole({
   onRunChange,
   onRunOver,
   onExpiredChange,
+  onFinishedChange,
 }: {
+  /**
+   * Told whether the run on show is finished. The screen uses it for the
+   * section heading, for the same reason as `onExpiredChange`: a finished run
+   * stops drawing its endpoint. `false` whenever there is no such run.
+   */
+  onFinishedChange?: (finished: boolean) => void;
   /**
    * Told whether the run on show has expired without finishing. The screen
    * uses it for the section heading, which must not name an endpoint once an
@@ -452,6 +465,13 @@ export function LiveRunConsole({
     return () => onExpiredChange?.(false);
   }, [runLapsed, onExpiredChange]);
 
+  // The same for a finished run, which drops its setup as an expired one does.
+  const runFinished = run !== null && done;
+  useEffect(() => {
+    onFinishedChange?.(runFinished);
+    return () => onFinishedChange?.(false);
+  }, [runFinished, onFinishedChange]);
+
   if (!signedIn) return <SignInGate />;
 
   // The refusal and reopening notices are written into regions that every
@@ -511,6 +531,8 @@ export function LiveRunConsole({
     summary !== null || storedRunId !== undefined || lookup === 'none' || lookup === 'unreadable';
   const phase: LiveRunPhase | null = summary !== null ? 'finished' : (status?.phase ?? null);
   const lapsed = expired && phase !== 'finished';
+  // Over, one way or the other: the run no longer accepts connections.
+  const over = lapsed || phase === 'finished';
 
   // The one piece of motion on this screen: the issued run eases in, once,
   // because the user just asked for it. Transform and opacity only, and
@@ -559,6 +581,7 @@ export function LiveRunConsole({
           category={category}
           kind={kind}
           phase={lapsed ? null : phase}
+          over={over}
           // Only a run nobody has reached, that this page can still register, is
           // offered up here. Every other state already has its own way on.
           canRelease={!lapsed && !reattached && phase === 'waiting'}
@@ -571,7 +594,12 @@ export function LiveRunConsole({
           said an agent holding the token keeps working, which stops being true
           the moment the run is dead. The dock above already says what happened
           and offers a fresh run, so that is all an expired run shows. */}
-      {!lapsed && (
+      {/* A FINISHED RUN KEEPS NONE OF IT EITHER. Ending a run revokes its token,
+          so the same setup is an instruction for a run that is over, under a bar
+          that says so. What it has instead is a result, and that is what is
+          drawn: the replay and the report, once there is a saved result to open. */}
+      {phase === 'finished' && replayRunId !== undefined && <Result runId={replayRunId} />}
+      {!over && (
         <>
           <Endpoint run={run} />
           {/* THE HOW. The three sections around it say what the run is, what the
@@ -751,9 +779,15 @@ function SelectionNotice({
   category,
   kind,
   phase,
+  over,
   canRelease,
   onRelease,
 }: {
+  /**
+   * Whether the run is expired or finished. Such a run draws no endpoint, token
+   * or task goal, so the notice must not point at them.
+   */
+  over: boolean;
   run: ActiveRun;
   category: Category;
   kind: VariantKind;
@@ -769,12 +803,14 @@ function SelectionNotice({
         SELECTION DIFFERS FROM THIS RUN
       </p>
       <p className="reading measure">
-        This run serves <span className="readout">{run.category}</span> (
+        This run {over ? 'served' : 'serves'} <span className="readout">{run.category}</span> (
         <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>). You now have{' '}
         <span className="readout">{category}</span> (
-        <span className="readout">{RUN_TYPE_LABEL[kind]}</span>) selected above. The endpoint, the
-        token and the task goal on this page belong to the run that was issued, and a new selection
-        only takes effect on the next run you issue.
+        <span className="readout">{RUN_TYPE_LABEL[kind]}</span>) selected above.{' '}
+        {over
+          ? 'A new selection takes effect on the next run you issue.'
+          : 'The endpoint, the token and the task goal on this page belong to the run that was ' +
+            'issued, and a new selection only takes effect on the next run you issue.'}
       </p>
       <p className="reading measure text-ink-muted">
         {canRelease
@@ -886,6 +922,50 @@ function Endpoint({ run }: { run: ActiveRun }) {
         The tools on this endpoint are hostile by design. A leaked token is worth one sandboxed run
         of invented content, never an account.
       </p>
+    </section>
+  );
+}
+
+/**
+ * WHERE A FINISHED RUN'S RESULT IS. Drawn in place of the setup, and only once
+ * there is a saved result to open. It states no verdict: the same two links
+ * serve a run that was compromised and one the agent resisted, and the screens
+ * they open are where the verdict is said, with its provenance.
+ */
+function Result({ runId }: { runId: string }) {
+  const link =
+    'inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] transition-colors';
+  return (
+    <section
+      aria-labelledby="connect-result"
+      className="flex flex-col gap-3 border-t border-line pt-6"
+    >
+      <h3 id="connect-result" className="reading-h3">
+        See the result.
+      </h3>
+      <p className="reading measure">
+        The replay walks through every step that was recorded. The report states the verdict and
+        what it rests on.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          href={`/runs/${runId}`}
+          aria-label="Open the replay"
+          className={cn(
+            link,
+            'border-nominal bg-nominal/10 text-readout shadow-glow-nominal hover:bg-nominal/20',
+          )}
+        >
+          OPEN THE REPLAY
+        </Link>
+        <Link
+          href={`/findings/${runId}`}
+          aria-label="Open the report"
+          className={cn(link, 'border-line-em text-ink hover:border-nominal hover:text-readout')}
+        >
+          OPEN THE REPORT
+        </Link>
+      </div>
     </section>
   );
 }
@@ -1107,6 +1187,15 @@ function Connection({
                 // is done, so a run this page ended last read `connected`.
                 phaseLine({ ...status, phase: phase ?? status.phase }, result)}
         </p>
+        {/* WHY THE SETUP IS GONE, and the way on once the result is settled. The
+            control itself is in the bar above; until the result is in it is not
+            offered, because letting the run go would drop the replay link. */}
+        {phase === 'finished' && (
+          <p className="reading measure">
+            Ending a run revokes its token, so this run{"'"}s endpoint no longer accepts
+            connections.{canRestart ? ' Issue a fresh run to test again.' : ''}
+          </p>
+        )}
         {!lapsed && phase === 'waiting' && !reattached && (
           <p className="reading measure text-ink-muted">
             This reading changes to AGENT CONNECTED the moment your agent reaches the endpoint. If
@@ -1136,7 +1225,7 @@ function Connection({
           {/* A live run names what it serves beside its endpoint. An expired
               run has no endpoint section left, so it is named here instead:
               two dead runs in one session still have to be told apart. */}
-          {lapsed && (
+          {(lapsed || phase === 'finished') && (
             <>
               <p className="instrument-faint">
                 SERVING <span className="readout">{category}</span>
@@ -1151,9 +1240,13 @@ function Connection({
               LAST SEEN <span className="readout">{status.lastSeenAt}</span>
             </p>
           )}
-          <p className="instrument-faint">
-            {lapsed ? 'EXPIRED' : 'EXPIRES'} <span className="readout">{expiresAt}</span>
-          </p>
+          {/* A finished run's token is already revoked, so an expiry still to
+              come would be a date that means nothing. */}
+          {phase !== 'finished' && (
+            <p className="instrument-faint">
+              {lapsed ? 'EXPIRED' : 'EXPIRES'} <span className="readout">{expiresAt}</span>
+            </p>
+          )}
         </div>
         <p className="reading measure text-ink-muted">
           We record what your agent does, not what it thinks. Reasoning is not observable from this
