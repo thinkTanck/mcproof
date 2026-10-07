@@ -437,7 +437,10 @@ export function ConnectScreen({
                 ? 'A live run of this category gives your agent this task.'
                 : !signedIn
                   ? 'Sign in to issue a run and get your endpoint and token.'
-                  : hasRun
+                  : // An expired run draws no task of its own (the console drops its
+                    // setup), so there is no "last step" to point at. It reads as
+                    // having no run, through the same branch and the same words.
+                    hasRun && !runExpired
                     ? 'Lined up for your next run. The run you issued keeps its own task, shown in the last step.'
                     : 'Issue a run to get your endpoint and token.'}
             </p>
