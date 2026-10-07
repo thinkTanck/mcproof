@@ -112,7 +112,7 @@ export async function resolveFixReport(id: string): Promise<FixReportView | null
   const view = await resolveRun(id);
   if (!view) return null;
   return {
-    report: generateFixReport(view.run),
+    report: generateFixReport(view.run, { provenance: view.provenance }),
     origin: view.origin,
     provenance: view.provenance,
   };

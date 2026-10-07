@@ -21,5 +21,5 @@ export default async function FindingsScreen({ params }: { params: Promise<{ id:
   const { id } = await params;
   const view = await resolveFixReport(id);
   if (!view) return <FindingsEmpty id={id} />;
-  return <FindingsReport report={view.report} routeId={id} provenance={view.provenance} />;
+  return <FindingsReport report={view.report} routeId={id} />;
 }

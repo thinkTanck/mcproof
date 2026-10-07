@@ -157,7 +157,7 @@ describe('both results are named, and neither is the expected one', () => {
   });
 
   it('a clean run reads as a result with somewhere to go, not as an absence', () => {
-    const clean = generateFixReport(cleanRun());
+    const clean = generateFixReport(cleanRun(), { provenance: null });
     render(<FindingsReport report={clean} />);
     const panel = screen.getByTestId('clean-result');
     // It is a result of the run, and it has the clean result's own off-ramp
@@ -179,7 +179,7 @@ describe('module 6 writes a clean run up as a result, in both directions', () =>
    * clipboard, so the ticket and the screen either agree or the caveat only
    * survives on screen. Both strings are checked against both failures.
    */
-  const clean = generateFixReport(cleanRun());
+  const clean = generateFixReport(cleanRun(), { provenance: null });
   const artifacts: [string, string][] = [
     ['the generated summary', clean.summary],
     ['the exported Markdown', toMarkdown(clean)],

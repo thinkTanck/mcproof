@@ -930,7 +930,10 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
 
       // No branch on `verdict.compromised`: a clean run persists and reports too.
       const stored = await deps.repository.saveRun(userId, run);
-      const report = generateFixReport(run);
+      // Explicit null: nothing reads this report. The action, the reaper and the
+      // spike runner take `stored`, `verdict` and `trace`; a screen or an export
+      // builds its own through `resolveFixReport`, which labels it.
+      const report = generateFixReport(run, { provenance: null });
       logger?.info('live run finished', {
         runId,
         userId,

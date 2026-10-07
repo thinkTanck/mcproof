@@ -59,7 +59,7 @@ function makeRun(
 describe('generateFixReport — compromised run', () => {
   it('produces a finding with category, severity, offending stepId, rationale, remediation', () => {
     const run = makeRun(true);
-    const report = generateFixReport(run);
+    const report = generateFixReport(run, { provenance: null });
     expect(report.compromised).toBe(true);
     expect(report.runId).toBe('run-1');
     expect(report.finding).not.toBeNull();
@@ -76,19 +76,19 @@ describe('generateFixReport — compromised run', () => {
   it('throws FixReportError when the offending stepId is not present in the trace', () => {
     const run = makeRun(true);
     const bad = { ...run, verdict: { ...run.verdict, stepId: 'ghost-step' } };
-    expect(() => generateFixReport(bad)).toThrow(FixReportError);
+    expect(() => generateFixReport(bad, { provenance: null })).toThrow(FixReportError);
   });
 
   it('throws FixReportError when a compromised verdict has no stepId', () => {
     const run = makeRun(true);
     const bad = { ...run, verdict: { ...run.verdict, compromised: true, stepId: undefined } };
-    expect(() => generateFixReport(bad)).toThrow(FixReportError);
+    expect(() => generateFixReport(bad, { provenance: null })).toThrow(FixReportError);
   });
 
   it.each(CLASSIFIED_ABOVE_ZERO)(
     'carries the per-category OWASP remediation for %s',
     (category) => {
-      const f = generateFixReport(makeRun(true, category)).finding!;
+      const f = generateFixReport(makeRun(true, category), { provenance: null }).finding!;
       expect(f.category).toBe(category);
       expect(f.remediation!.category).toBe(category);
       expect(f.categoryTitle.length).toBeGreaterThan(0);
@@ -98,7 +98,7 @@ describe('generateFixReport — compromised run', () => {
   );
 
   it('produces an Identity and Privilege Abuse finding for a compromised ASI03 run', () => {
-    const f = generateFixReport(makeRun(true, 'ASI03')).finding!;
+    const f = generateFixReport(makeRun(true, 'ASI03'), { provenance: null }).finding!;
     expect(f.category).toBe('ASI03');
     expect(f.categoryTitle).toBe('Identity and Privilege Abuse');
     expect(f.remediation!.guidance.length).toBeGreaterThan(0);
@@ -106,7 +106,7 @@ describe('generateFixReport — compromised run', () => {
   });
 
   it('produces an Unexpected Code Execution (RCE) finding for a compromised ASI05 run', () => {
-    const f = generateFixReport(makeRun(true, 'ASI05')).finding!;
+    const f = generateFixReport(makeRun(true, 'ASI05'), { provenance: null }).finding!;
     expect(f.category).toBe('ASI05');
     expect(f.categoryTitle).toBe('Unexpected Code Execution (RCE)');
     expect(f.remediation!.guidance.length).toBeGreaterThan(0);
@@ -123,7 +123,7 @@ describe('generateFixReport — compromised run', () => {
  */
 describe('generateFixReport — a class whose classification measured zero (ASI10)', () => {
   const run = makeRun(true, 'ASI10', 'ASI01');
-  const report = generateFixReport(run);
+  const report = generateFixReport(run, { provenance: null });
   const finding = report.finding!;
 
   it('still reports what IS reliable: a confirmed compromise anchored to a real step', () => {
@@ -174,7 +174,7 @@ describe('generateFixReport — a class whose classification measured zero (ASI1
 });
 
 describe('generateFixReport — a class that classified above zero reads normally', () => {
-  const report = generateFixReport(makeRun(true, 'ASI02'));
+  const report = generateFixReport(makeRun(true, 'ASI02'), { provenance: null });
   const finding = report.finding!;
 
   it('keeps its category remediation and claims no special caveat', () => {
@@ -194,7 +194,7 @@ describe('generateFixReport — a class that classified above zero reads normall
 describe('generateFixReport — the offending step as evidence', () => {
   it('carries the OBSERVABLE offending step itself, at its 1-based position', () => {
     const run = makeRun(true);
-    const f = generateFixReport(run).finding!;
+    const f = generateFixReport(run, { provenance: null }).finding!;
     const index = run.trace.steps.findIndex((s) => s.id === f.stepId);
     expect(f.stepIndex).toBe(index + 1);
     expect(f.step).toEqual(run.trace.steps[index]);
@@ -205,7 +205,7 @@ describe('generateFixReport — the offending step as evidence', () => {
   it('never invents step evidence: the quoted step is identical to the trace step', () => {
     for (const category of CORE_7) {
       const run = makeRun(true, category);
-      const f = generateFixReport(run).finding!;
+      const f = generateFixReport(run, { provenance: null }).finding!;
       expect(run.trace.steps).toContainEqual(f.step);
     }
   });
@@ -213,7 +213,8 @@ describe('generateFixReport — the offending step as evidence', () => {
 
 describe('remediation — an ordered sequence of steps', () => {
   it.each(CLASSIFIED_ABOVE_ZERO)('%s remediation is a non-empty ordered list', (category) => {
-    const r = generateFixReport(makeRun(true, category)).finding!.remediation!;
+    const r = generateFixReport(makeRun(true, category), { provenance: null }).finding!
+      .remediation!;
     expect(r.steps.length).toBeGreaterThan(0);
     for (const step of r.steps) expect(step.length).toBeGreaterThan(10);
     // `guidance` stays the prose form of the same steps: one source of truth.
@@ -233,14 +234,14 @@ const CLEAN_RUN_SUMMARY =
 
 describe('generateFixReport — not-compromised run', () => {
   it('produces a robustness result, not an absence', () => {
-    const report = generateFixReport(makeRun(false));
+    const report = generateFixReport(makeRun(false), { provenance: null });
     expect(report.compromised).toBe(false);
     expect(report.finding).toBeNull();
     expect(report.summary).toBe(CLEAN_RUN_SUMMARY);
   });
 
   it('states what was established and bounds it to this one run', () => {
-    const { summary } = generateFixReport(makeRun(false));
+    const { summary } = generateFixReport(makeRun(false), { provenance: null });
     // The positive fact, attributed to the detector that produced it.
     expect(summary).toMatch(/not compromised in this run/i);
     expect(summary).toMatch(/locked validated judge/i);
@@ -255,7 +256,7 @@ describe('generateFixReport — not-compromised run', () => {
 
 describe('toMarkdown', () => {
   it('renders a compromised finding (category, severity, rationale, remediation, reference)', () => {
-    const md = toMarkdown(generateFixReport(makeRun(true)));
+    const md = toMarkdown(generateFixReport(makeRun(true), { provenance: null }));
     expect(md).toContain('ASI01');
     expect(md).toContain('Agent Goal Hijack');
     expect(md).toContain('High');
@@ -264,7 +265,7 @@ describe('toMarkdown', () => {
   });
 
   it('renders a clean run as a run result, headed like one', () => {
-    const md = toMarkdown(generateFixReport(makeRun(false)));
+    const md = toMarkdown(generateFixReport(makeRun(false), { provenance: null }));
     expect(md).toContain('# Run result · `run-1`');
     expect(md).toContain('## Robustness result');
     expect(md).toContain('**Compromised:** no');
@@ -280,16 +281,18 @@ describe('toMarkdown', () => {
 
 describe('toJSON', () => {
   it('round-trips a compromised report', () => {
-    const report = generateFixReport(makeRun(true));
+    const report = generateFixReport(makeRun(true), { provenance: null });
     expect(JSON.parse(toJSON(report))).toEqual(report);
   });
 
   it('round-trips a not-compromised report', () => {
-    const report = generateFixReport(makeRun(false));
+    const report = generateFixReport(makeRun(false), { provenance: null });
     expect(JSON.parse(toJSON(report))).toEqual(report);
   });
 
   it('never emits a groundTruth key (pure over RunResult; no GroundTruth)', () => {
-    expect(toJSON(generateFixReport(makeRun(true)))).not.toContain('groundTruth');
+    expect(toJSON(generateFixReport(makeRun(true), { provenance: null }))).not.toContain(
+      'groundTruth',
+    );
   });
 });

@@ -161,6 +161,13 @@ export interface Classification {
   reliable: boolean;
   /** Plain note stating what is withheld and why. Present iff `!reliable`. */
   note: string | null;
+  /**
+   * The sentence that qualifies a remediation list derived from the category.
+   * Present iff `reliable`. Built here, once, so the screen and the exported
+   * ticket print the same words: it used to be written in the screen alone, and
+   * the copied report shipped the list with nothing said about it.
+   */
+  caveat: string | null;
 }
 
 /** An engineer-ready finding for one compromised run. */
@@ -203,6 +210,14 @@ export interface FixReport {
   compromised: boolean;
   finding: Finding | null;
   summary: string;
+  /**
+   * Where this run's verdict came from, in the words of whoever resolved the run
+   * (a constructed demonstration, or a live run), or `null` when nobody said.
+   * It rides ON the report so the screen and the export read one value: it used
+   * to be handed to the screen beside the report, and the copied ticket lost it.
+   * Never authored here, and never a label on the trace.
+   */
+  provenance: string | null;
 }
 
 /**
@@ -226,6 +241,12 @@ function classificationFor(staged: Category): Classification {
         'offending step below is its own anchor.',
         'Category specific guidance for this class is pending a category-v2 rubric.',
       ].join(' ');
+  // No em dashes: this reaches both the findings screen and the exported ticket.
+  const caveat = r.reliable
+    ? 'The category above is the detector’s own blind classification of the trace, and these ' +
+      `steps follow from it. Measured accuracy on our labeled set is ${r.accuracy.toFixed(2)}, so ` +
+      'confirm the category against the offending step before you act on this list.'
+    : null;
   return {
     staged,
     stagedTitle,
@@ -235,6 +256,7 @@ function classificationFor(staged: Category): Classification {
     classScore: r.classScore,
     reliable: r.reliable,
     note,
+    caveat,
   };
 }
 
@@ -253,10 +275,17 @@ function remediationFor(category: Category): Remediation {
  * Build an engineer-ready fix report from a live `RunResult`. Pure over
  * `RunResult`; never references `GroundTruth`.
  *
+ * `provenance` is REQUIRED, with no default. Every caller decides: the label
+ * the run was resolved with, or an explicit `null` where no reader will ever
+ * see the report. An optional argument is how the label went missing before.
+ *
  * @throws {FixReportError} if a compromised verdict has no offending step
  *   present in the trace.
  */
-export function generateFixReport(run: RunResult): FixReport {
+export function generateFixReport(
+  run: RunResult,
+  { provenance }: { provenance: string | null },
+): FixReport {
   const { runId, target, model, trace, verdict } = run;
 
   if (!verdict.compromised) {
@@ -267,6 +296,7 @@ export function generateFixReport(run: RunResult): FixReport {
       compromised: false,
       finding: null,
       summary: CLEAN_RUN_SUMMARY,
+      provenance,
     };
   }
 
@@ -301,7 +331,12 @@ export function generateFixReport(run: RunResult): FixReport {
     ? `Compromised: ${verdict.category} (${finding.categoryTitle}), severity ${verdict.severity}. Offending step: ${stepId}.`
     : `Compromised: confirmed, severity ${verdict.severity}. Offending step: ${stepId}. Category classification is unreliable for ${classification.staged}, so category remediation is withheld.`;
 
-  return { runId, target, model, compromised: true, finding, summary };
+  return { runId, target, model, compromised: true, finding, summary, provenance };
+}
+
+/** The verdict's provenance as a header line, or nothing when none was given. */
+function provenanceLine(report: FixReport): string[] {
+  return report.provenance === null ? [] : [`**Verdict:** ${report.provenance}`];
 }
 
 /** Render a `FixReport` as engineer-ready Markdown. */
@@ -316,6 +351,7 @@ export function toMarkdown(report: FixReport): string {
       '',
       `**Target:** ${report.target} · **Model:** ${report.model}`,
       `**Compromised:** no`,
+      ...provenanceLine(report),
       '',
       '## Robustness result',
       '',
@@ -336,6 +372,10 @@ export function toMarkdown(report: FixReport): string {
     ? [
         '## Remediation',
         '',
+        c.caveat ?? '',
+        '',
+        `_Measured:_ ${c.provenance}`,
+        '',
         ...f.remediation.steps.map((step, i) => `${i + 1}. ${step}`),
         '',
         `_Category:_ ${f.remediation.category} · ${f.remediation.categoryTitle}. _Reference:_ ${f.remediation.reference}`,
@@ -353,6 +393,7 @@ export function toMarkdown(report: FixReport): string {
     c.reliable
       ? `**Category:** ${f.category} · ${f.categoryTitle}`
       : `**Category returned by the detector:** ${f.category} · ${f.categoryTitle} (classification unreliable for this class)`,
+    ...provenanceLine(report),
     '',
     '## Detector rationale',
     '',

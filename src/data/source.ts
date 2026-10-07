@@ -119,7 +119,9 @@ class InMemoryDataSource implements DataSource {
     const run = sampleRuns().find((r) => r.runId === wanted);
     // The REAL module-6 generator, over the run the replay screen shows. Every
     // Core-7 sample now has a fix report, not just the hero one.
-    return Promise.resolve(run ? generateFixReport(run) : null);
+    return Promise.resolve(
+      run ? generateFixReport(run, { provenance: SAMPLE_VERDICT_PROVENANCE }) : null,
+    );
   }
 
   getVerdictProvenance(id: string): Promise<string | null> {
