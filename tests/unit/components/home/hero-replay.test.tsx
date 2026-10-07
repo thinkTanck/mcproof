@@ -320,8 +320,10 @@ describe('HeroReplay · the frame accent', () => {
 
     expect(light).toMatch(/conic-gradient/);
     const share = Number(/var\(--status-nominal\)\s+(\d+)%/.exec(light)?.[1]);
-    expect(share).toBeGreaterThan(0);
-    expect(share).toBeLessThanOrEqual(70);
+    // 30%, down from 60. At two pixels and 60% the accent put slightly more
+    // light on screen than the breach marker it is meant to sit under; at 30%
+    // it puts on about what the one-pixel version did (measured, see #185).
+    expect(share).toBe(30);
     // Transparent for most of the turn: a sliver, never a full outline.
     const dark = Number(/transparent\s+0deg\s+(\d+)deg/.exec(light)?.[1]);
     expect(dark).toBeGreaterThanOrEqual(300);
