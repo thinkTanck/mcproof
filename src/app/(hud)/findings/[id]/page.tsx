@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { resolveFixReport } from '@/data/run-view';
-import { FindingsReport } from '@/components/findings';
+import type { Metadata } from 'next';
+import { FindingsReport, REPORT_NOT_FOUND_TITLE } from '@/components/findings';
 
 /**
  * Findings / fix report screen (`/findings/[id]`). Reads through `resolveFixReport`,
@@ -19,7 +20,20 @@ import { FindingsReport } from '@/components/findings';
  * The route `id` is handed to the report too, so a clean result can link back to
  * the replay of the same run at `/runs/[id]`. Both routes resolve that one id.
  */
-export default async function FindingsScreen({ params }: { params: Promise<{ id: string }> }) {
+type Props = { params: Promise<{ id: string }> };
+
+/**
+ * Only the not-found title is set here; a report that resolves keeps the site
+ * title it always had. It is set on the PAGE because the browser applies the
+ * metadata of the render that called `notFound()`, not the not-found file's.
+ * `resolveFixReport` reads through a resolver cached per request.
+ */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  return (await resolveFixReport(id)) ? {} : { title: REPORT_NOT_FOUND_TITLE };
+}
+
+export default async function FindingsScreen({ params }: Props) {
   const { id } = await params;
   const view = await resolveFixReport(id);
   if (!view) notFound();

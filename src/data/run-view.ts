@@ -1,6 +1,8 @@
+import { cache } from 'react';
 import type { RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
 import { getUser } from '@/lib/auth/user';
+import { isRowId } from '@/lib/run-id';
 import { getRunRepository } from './run-repository.factory';
 import { getDataSource } from './source';
 
@@ -85,16 +87,15 @@ async function sampleView(id: string): Promise<RunView | null> {
   return { run, origin: 'sample', provenance };
 }
 
-/** The shape of a stored run's address: `runs.id` is a uuid column. */
-const ROW_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** One of the signed-in user's own persisted runs, or nothing. */
 async function liveView(id: string): Promise<RunView | null> {
   // An id that is not a uuid cannot be a row, so it is "nothing" without asking.
   // Asked anyway, Postgres rejects the comparison and the adapter throws, which
   // gave a signed-in visitor an error page for a mistyped id where a signed-out
   // one got the not-found page.
-  if (!ROW_ID.test(id)) return null;
+  // The middleware already turns such ids away; this is the same check again,
+  // for every caller that is not a request through it.
+  if (!isRowId(id)) return null;
   const user = await getUser();
   if (!user) return null;
   const repository = await getRunRepository();
@@ -110,10 +111,16 @@ async function liveView(id: string): Promise<RunView | null> {
   };
 }
 
-/** The run behind an id: a sample first, then one of your own runs. */
-export async function resolveRun(id: string): Promise<RunView | null> {
-  return (await sampleView(id)) ?? (await liveView(id));
-}
+/**
+ * The run behind an id: a sample first, then one of your own runs.
+ *
+ * Cached for the life of one request (React `cache`), because one request asks
+ * three times: the shell for its mode chip, the page for its title, and the page
+ * for its screen. They get one lookup and, more to the point, one answer.
+ */
+export const resolveRun = cache(
+  async (id: string): Promise<RunView | null> => (await sampleView(id)) ?? (await liveView(id)),
+);
 
 /** Module 6's report over that run, carrying the same provenance. */
 export async function resolveFixReport(id: string): Promise<FixReportView | null> {

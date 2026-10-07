@@ -1,5 +1,5 @@
-import RunReplayPage from '@/app/(hud)/runs/[id]/page';
-import FindingsPage from '@/app/(hud)/findings/[id]/page';
+import RunReplayPage, { generateMetadata as runMetadata } from '@/app/(hud)/runs/[id]/page';
+import FindingsPage, { generateMetadata as reportMetadata } from '@/app/(hud)/findings/[id]/page';
 import { RunResultSchema, CategorySchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { sampleRun } from '@/data/source';
@@ -212,5 +212,40 @@ describe('the resolver: an id that cannot be a row id never reaches the database
 
     await expect(resolveRun(LIVE_ROW_ID)).resolves.toMatchObject({ origin: 'live' });
     expect(strict.getRun).toHaveBeenCalledWith(OWNER, LIVE_ROW_ID);
+  });
+});
+
+describe('the tab title follows the run', () => {
+  /**
+   * The browser ends up with the PAGE's metadata even when the page answers
+   * notFound(), so the page has to say "not found" itself. And it has to say it
+   * the same way for every id the viewer may not see.
+   */
+  const title = async (
+    metadata: typeof runMetadata | typeof reportMetadata,
+    id: string,
+  ): Promise<unknown> => (await metadata({ params: Promise.resolve({ id }) })).title;
+
+  it.each([
+    ['/runs/[id]', runMetadata, 'Run not found · MCPwn'],
+    ['/findings/[id]', reportMetadata, 'Report not found · MCPwn'],
+  ] as const)(
+    '%s: unknown, signed out and another account all get the same not-found title',
+    async (_route, metadata, expected) => {
+      const titles = [await title(metadata, NO_SUCH_ROW_ID), await title(metadata, LIVE_ROW_ID)];
+      viewer(STRANGER);
+      titles.push(await title(metadata, NO_SUCH_ROW_ID), await title(metadata, LIVE_ROW_ID));
+      titles.push(await title(metadata, 'does-not-exist'));
+
+      expect(new Set(titles)).toEqual(new Set([expected]));
+    },
+  );
+
+  it('a run that resolves keeps the titles it had', async () => {
+    expect(await title(runMetadata, 'sample')).toBe('Live Attack Replay · MCPwn');
+    expect(await title(reportMetadata, 'sample')).toBeUndefined();
+    viewer(OWNER);
+    expect(await title(runMetadata, LIVE_ROW_ID)).toBe('Live Attack Replay · MCPwn');
+    expect(await title(reportMetadata, LIVE_ROW_ID)).toBeUndefined();
   });
 });

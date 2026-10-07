@@ -1,11 +1,12 @@
-import { ReplayEmpty } from '@/components/replay';
-import { requestedRouteId } from '@/lib/route-id';
+import type { Metadata } from 'next';
+import { ReplayNotFound, RUN_NOT_FOUND_TITLE } from '@/components/replay';
+
+export const metadata: Metadata = { title: RUN_NOT_FOUND_TITLE };
 
 /**
- * What `/runs/[id]` answers, with a 404, for an id that resolves to no run the
- * viewer may see: an unknown id, an unfinished run, or a run on another account.
- * The words are the empty state this screen always had; the status is new.
+ * Drawn when the page calls `notFound()`: an id shaped like a row id that
+ * resolved to nothing. Next 16.3.7 sends this to the browser to render, not as
+ * HTML (issue #189). An id that cannot be a run never gets this far: the
+ * middleware answers it with the same component, server-rendered.
  */
-export default async function RunNotFound() {
-  return <ReplayEmpty id={await requestedRouteId('runs')} />;
-}
+export default ReplayNotFound;

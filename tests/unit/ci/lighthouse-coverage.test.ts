@@ -27,6 +27,8 @@ const NOT_COLLECTABLE: Record<string, string> = {
   // the account page's name. Its accessibility is covered instead by the
   // authenticated axe scan (`tests/e2e/authenticated.spec.ts`).
   '/account': 'needs a real session; measured screen would be /sign-in',
+  '/missing/run': 'not a page of its own: the 404 the middleware rewrites /runs/<id> to',
+  '/missing/report': 'not a page of its own: the 404 the middleware rewrites /findings/<id> to',
 };
 
 /**
