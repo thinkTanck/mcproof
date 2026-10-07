@@ -115,6 +115,16 @@ const findRunBar = async () =>
     'status',
   );
 
+/**
+ * The run bar's replay link. A finished run with a saved result also draws a
+ * second one in its result section, so the bar's is reached through the dock.
+ */
+const findReplayLink = async () =>
+  within(await screen.findByRole('region', { name: /what we have actually seen/i })).findByRole(
+    'link',
+    { name: /open the replay/i },
+  );
+
 const issue = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
@@ -514,10 +524,7 @@ describe('LiveRunConsole · ending the run and handing off', () => {
 
     expect(port.finish).toHaveBeenCalledWith({ runId: 'run-77' });
     // The replay is addressed by the PERSISTED row id, not the hosting run id.
-    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
-      'href',
-      '/runs/stored-77',
-    );
+    expect(await findReplayLink()).toHaveAttribute('href', '/runs/stored-77');
   });
 
   it('offers no replay link while the run is still open', async () => {
@@ -747,10 +754,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
 
     expect(port.finish).toHaveBeenCalledWith({ runId: 'run-77' });
-    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
-      'href',
-      '/runs/stored-77',
-    );
+    expect(await findReplayLink()).toHaveAttribute('href', '/runs/stored-77');
   });
 
   it('says a run nobody connected to cannot be registered again, and offers a fresh one', async () => {
@@ -875,10 +879,7 @@ describe('LiveRunConsole · a run that was ended somewhere else', () => {
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
 
-    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
-      'href',
-      '/runs/stored-91',
-    );
+    expect(await findReplayLink()).toHaveAttribute('href', '/runs/stored-91');
   });
 
   it('claims nothing about the result when the lookup itself fails', async () => {
@@ -978,7 +979,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     await issue(user);
     await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
 
-    const link = await screen.findByRole('link', { name: /open the replay/i });
+    const link = await findReplayLink();
     expect(dock()).toContainElement(link);
   });
 
@@ -1046,10 +1047,7 @@ describe('LiveRunConsole · a run that is ended but whose result is not saved ye
       />,
     );
 
-    expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
-      'href',
-      '/runs/stored-77',
-    );
+    expect(await findReplayLink()).toHaveAttribute('href', '/runs/stored-77');
   });
 
   it('says the run has no replay only once the judging window has passed', async () => {

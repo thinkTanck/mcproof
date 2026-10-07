@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
-import { LiveRunConsole, RUN_EXPIRED_LABEL } from './LiveRunConsole';
+import { LiveRunConsole, RUN_EXPIRED_LABEL, RUN_FINISHED_LABEL } from './LiveRunConsole';
 import { readActiveRunId, subscribeActiveRunId, writeActiveRunId } from './active-run-store';
 import {
   createConnectLiveRunPort,
@@ -330,6 +330,8 @@ export function ConnectScreen({
   // Whether the run on show has expired, as the console reports it. An expired
   // run draws no endpoint, so section 03 must not be headed as if it did.
   const [runExpired, setRunExpired] = useState(false);
+  // The same for a finished run, which drops its setup and shows its result.
+  const [runFinished, setRunFinished] = useState(false);
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
   const previewGoal = categoryGoals?.[category];
   const hasRun = activeRunId !== null && activeRunId !== settledRunId;
@@ -527,7 +529,15 @@ export function ConnectScreen({
         <SectionHead
           id="connect-run-head"
           n="03"
-          label={!live ? 'RECORDED PLAYBACK' : runExpired ? RUN_EXPIRED_LABEL : 'YOUR RUN ENDPOINT'}
+          label={
+            !live
+              ? 'RECORDED PLAYBACK'
+              : runExpired
+                ? RUN_EXPIRED_LABEL
+                : runFinished
+                  ? RUN_FINISHED_LABEL
+                  : 'YOUR RUN ENDPOINT'
+          }
         />
         {live ? (
           <LiveRunConsole
@@ -539,6 +549,7 @@ export function ConnectScreen({
             onRunChange={onRunChange}
             onRunOver={forgetRun}
             onExpiredChange={setRunExpired}
+            onFinishedChange={setRunFinished}
           />
         ) : (
           <div className="flex flex-col gap-4">

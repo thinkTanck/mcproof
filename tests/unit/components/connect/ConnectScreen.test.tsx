@@ -563,7 +563,10 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
     const first = render(<ConnectScreen signedIn liveActions={actions()} />);
     await issue(user);
     await user.click(screen.getByRole('button', { name: /end run and judge/i }));
-    await screen.findByRole('link', { name: /open the replay/i });
+    // The bar's link: the result section under it draws a second one.
+    await within(
+      await screen.findByRole('region', { name: /what we have actually seen/i }),
+    ).findByRole('link', { name: /open the replay/i });
 
     await waitFor(() => expect(stored()).toBeNull());
 
