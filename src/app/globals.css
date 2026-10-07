@@ -593,7 +593,9 @@ body {
     color-mix(in srgb, var(--status-nominal) 60%, transparent) 356deg,
     transparent 360deg
   );
-  animation: hero-frame-lap calc(var(--motion-sweep) * 8) linear infinite;
+  /* 14.4s a lap. At two pixels a 9.6s lap read as a border beam, so the lap is
+   * the slow one and the thickness is what was kept. */
+  animation: hero-frame-lap calc(var(--motion-sweep) * 12) linear infinite;
   will-change: transform;
 }
 
