@@ -54,7 +54,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
       </a>
       <Graticule />
       <StatusBar pathname={pathname} mode={mode} runContext={runContext} />
-      <div className="flex min-h-[calc(100dvh-72px)]">
+      <div className="flex min-h-[calc(100dvh-var(--header-h))]">
         <CommandDeck pathname={pathname} />
         <main
           id="main"

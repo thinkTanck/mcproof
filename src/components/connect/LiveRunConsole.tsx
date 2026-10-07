@@ -1098,7 +1098,7 @@ function Connection({
           transformed ancestor re-anchors `position: fixed`. */}
       <section
         aria-labelledby="connect-state"
-        className="sticky top-[80px] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
+        className="sticky top-[calc(var(--header-h)+8px)] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
       >
         <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3">
           <div role="status" className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2">
