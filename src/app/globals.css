@@ -590,7 +590,7 @@ body {
   background: conic-gradient(
     from 0deg,
     transparent 0deg 330deg,
-    color-mix(in srgb, var(--status-nominal) 60%, transparent) 356deg,
+    color-mix(in srgb, var(--status-nominal) 30%, transparent) 356deg,
     transparent 360deg
   );
   /* 14.4s a lap. At two pixels a 9.6s lap read as a border beam, so the lap is
