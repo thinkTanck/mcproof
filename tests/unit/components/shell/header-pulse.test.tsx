@@ -253,11 +253,11 @@ describe('header pulse · weight', () => {
     expect(glint).toMatch(/filter:\s*drop-shadow\([^)]*currentColor\)/);
   });
 
-  it('runs a 16.8 second cycle: fourteen sweeps, half of it crossing and half at rest', () => {
+  it('runs a 12 second cycle: ten sweeps, seven of them crossing and three at rest', () => {
     expect(glint).toMatch(
-      /animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 14\) linear infinite/,
+      /animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 10\) linear infinite/,
     );
-    expect(glint).not.toMatch(/\* 7\)/);
+    expect(glint).not.toMatch(/\* 14\)/);
   });
 
   it('sits with the line on the header bottom edge, the padding hanging below it', async () => {
@@ -277,8 +277,9 @@ describe('header pulse · weight', () => {
  * The pulse had become two glints, half a cycle apart, so there was always a
  * light moving in the bar: followable, and never still. An audit put that down
  * as decoration that does not rest. It is one glint again. It still takes 8.4
- * seconds to cross at a constant rate, and then the bar is empty for another 8.4
- * before the next one sets off.
+ * seconds to cross at a constant rate, and then the bar is empty for 3.6 seconds
+ * before the next one sets off: a crossing every 12 seconds. The rest was first
+ * set as long as the crossing (8.4s), which left the bar empty for too long.
  */
 describe('header pulse · tempo', () => {
   const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
@@ -312,14 +313,14 @@ describe('header pulse · tempo', () => {
     expect(rule(/\.header-pulse-glint\s*\{([^}]*)\}/)).not.toMatch(/animation-delay/);
   });
 
-  it('crosses in the first half of the cycle: 8.4 of 16.8 seconds', () => {
+  it('crosses in the first seven tenths of the cycle: 8.4 of 12 seconds', () => {
     const arrive = stops.find((stop) => stop.transform === 'translateX(66%)')!;
     const leave = stops.find((stop) => stop.transform === 'translateX(-66%)')!;
 
     expect(leave.at).toBe(0);
-    expect(arrive.at).toBe(50);
-    // Half of fourteen sweeps of 1.2s.
-    expect((14 * 1.2 * arrive.at) / 100).toBeCloseTo(8.4, 5);
+    expect(arrive.at).toBe(70);
+    // Seven tenths of ten sweeps of 1.2s: the crossing is as slow as it was.
+    expect((10 * 1.2 * arrive.at) / 100).toBeCloseTo(8.4, 5);
     // Nothing sets a position in between, so it travels at one constant rate.
     const between = stops.filter((stop) => stop.at > 0 && stop.at < arrive.at);
     expect(between.every((stop) => stop.transform === undefined)).toBe(true);
@@ -332,19 +333,22 @@ describe('header pulse · tempo', () => {
     expect(after.length).toBeGreaterThanOrEqual(2);
     expect(after.every((stop) => stop.opacity === '0')).toBe(true);
     expect(after[after.length - 1]!.at).toBe(100);
-    // A clear gap: the bar is empty for at least as long as a crossing takes.
-    const rest = 100 - arrive.at;
-    expect(rest).toBeGreaterThanOrEqual(arrive.at);
-    expect((14 * 1.2 * rest) / 100).toBeGreaterThanOrEqual(8);
+    // A clear gap, but a short one: about four seconds, down from 8.4.
+    const restSeconds = (10 * 1.2 * (100 - arrive.at)) / 100;
+    expect(restSeconds).toBeCloseTo(3.6, 5);
+    expect(restSeconds).toBeGreaterThanOrEqual(3);
+    expect(restSeconds).toBeLessThanOrEqual(4.5);
+    // So a new crossing sets off every 12 seconds.
+    expect(restSeconds + (10 * 1.2 * arrive.at) / 100).toBeCloseTo(12, 5);
   });
 
   it('is fully lit for most of the crossing, fading only as it enters and leaves', () => {
     const lit = stops.filter((stop) => stop.opacity === '1').map((stop) => stop.at);
 
     expect(stops[0]!.opacity).toBe('0');
-    expect(Math.min(...lit)).toBeLessThanOrEqual(5);
-    expect(Math.max(...lit)).toBeGreaterThanOrEqual(45);
-    expect(Math.max(...lit)).toBeLessThan(50);
+    expect(Math.min(...lit)).toBeLessThanOrEqual(6);
+    expect(Math.max(...lit)).toBeGreaterThanOrEqual(64);
+    expect(Math.max(...lit)).toBeLessThan(70);
   });
 
   it('stops under prefers-reduced-motion and rests invisible', () => {
