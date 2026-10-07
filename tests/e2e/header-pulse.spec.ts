@@ -64,6 +64,18 @@ const measure = (page: Page) =>
       chipLeft: chip ? round(chip.getBoundingClientRect().left) : null,
       chipRight: chip ? round(chip.getBoundingClientRect().right) : null,
       animationName: gs?.animationName ?? null,
+      timing: gs?.animationTimingFunction ?? null,
+      // Every glint in the track: when it starts within the cycle, and where it sits.
+      glints: pulse
+        ? [...pulse.children].map((child) => ({
+            name: getComputedStyle(child).animationName,
+            seconds: parseFloat(getComputedStyle(child).animationDuration),
+            delay: parseFloat(getComputedStyle(child).animationDelay),
+            top: round(child.getBoundingClientRect().top),
+            height: round(child.getBoundingClientRect().height),
+          }))
+        : [],
+      trackWidth: pr ? round(pr.width) : 0,
       iteration: gs?.animationIterationCount ?? null,
       durationSeconds: gs ? parseFloat(gs.animationDuration) : null,
       clipped: pulse ? getComputedStyle(pulse).overflowX : null,
@@ -99,10 +111,22 @@ for (const [width, height] of [
         expect(m.clipped).toBe('hidden');
         expect(m.pulse!.left).toBeGreaterThanOrEqual(0);
         expect(m.pulse!.right).toBeLessThanOrEqual(m.contentRight + 0.5);
-        // It runs, slowly, for ever.
+        // It runs for ever, at a constant rate: a 16.8 second cycle, of which the
+        // first half is the crossing and the second half is rest.
         expect(m.animationName).toBe('header-pulse');
         expect(m.iteration).toBe('infinite');
-        expect(m.durationSeconds).toBeGreaterThanOrEqual(8);
+        expect(m.timing).toBe('linear');
+        expect(m.durationSeconds).toBeCloseTo(16.8, 5);
+        const crossing = m.durationSeconds! / 2;
+        expect(crossing).toBeCloseTo(8.4, 5);
+        // One glint, starting with the cycle, 2.5px tall.
+        expect(m.glints).toHaveLength(1);
+        expect(m.glints[0]!.name).toBe('header-pulse');
+        expect(m.glints[0]!.delay).toBe(0);
+        expect(m.glints[0]!.height).toBe(2.5);
+        // Followable: the light covers 1.32 track widths in a crossing, which at
+        // the widest bar is under 200px a second (it was over 400 at its fastest).
+        expect((m.trackWidth * 1.32) / crossing).toBeLessThan(200);
 
         if (screen.mode === 'neutral') {
           // No chip: it reaches the right edge of the bar and fades out there.
@@ -119,17 +143,59 @@ for (const [width, height] of [
       });
     }
 
+    test('the bar rests between crossings: lit while the glint crosses, empty after', async ({
+      page,
+    }) => {
+      await open(page, '/');
+      // Hold the real animation at points across its cycle and read how lit the
+      // glint is and where its light sits relative to the track.
+      const readings = await page.evaluate(() => {
+        const out: { at: number; opacity: number; light: number }[] = [];
+        const pulse = document.querySelector<HTMLElement>('header [data-header-pulse]')!;
+        const glint = pulse.firstElementChild as HTMLElement;
+        const animation = glint.getAnimations()[0] as CSSAnimation;
+        const cycle = Number(animation.effect!.getComputedTiming().duration);
+        animation.pause();
+        for (const at of [0.05, 0.25, 0.45, 0.55, 0.75, 0.95]) {
+          animation.currentTime = cycle * at;
+          const track = pulse.getBoundingClientRect();
+          const shift = new DOMMatrix(getComputedStyle(glint).transform).e;
+          out.push({
+            at,
+            opacity: Number(getComputedStyle(glint).opacity),
+            // Where the centre of the light is, as a fraction of the track.
+            light: Math.round(((track.width / 2 + shift) / track.width) * 100) / 100,
+          });
+        }
+        return out;
+      });
+      const reading = (at: number) => readings.find((r) => r.at === at)!;
+
+      // Crossing: fully lit, and the light moves left to right across the track.
+      expect(reading(0.05).opacity).toBe(1);
+      expect(reading(0.25).opacity).toBe(1);
+      expect(reading(0.45).opacity).toBe(1);
+      expect(reading(0.05).light).toBeLessThan(reading(0.25).light);
+      expect(reading(0.25).light).toBeLessThan(reading(0.45).light);
+      expect(reading(0.25).light).toBeCloseTo(0.5, 1);
+      // Rest: nothing lit for the whole second half of the cycle.
+      expect(reading(0.55).opacity).toBe(0);
+      expect(reading(0.75).opacity).toBe(0);
+      expect(reading(0.95).opacity).toBe(0);
+    });
+
     test('stops under prefers-reduced-motion, and leaves nothing on screen', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       for (const screen of SCREENS) {
         await open(page, screen.path);
         const resting = await page.evaluate(() => {
-          const glint = document.querySelector('header [data-header-pulse]')!
-            .firstElementChild as HTMLElement;
-          const cs = getComputedStyle(glint);
-          return { animationName: cs.animationName, opacity: cs.opacity };
+          const glints = [...document.querySelector('header [data-header-pulse]')!.children];
+          return glints.map((glint) => {
+            const cs = getComputedStyle(glint);
+            return { animationName: cs.animationName, opacity: cs.opacity };
+          });
         });
-        expect(resting, screen.path).toEqual({ animationName: 'none', opacity: '0' });
+        expect(resting, screen.path).toEqual([{ animationName: 'none', opacity: '0' }]);
         expect((await measure(page)).headerHeight).toBe(72);
       }
     });

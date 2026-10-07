@@ -126,20 +126,25 @@ for (const [width, height] of [
       expect(m.lightName).toBe('hero-frame-lap');
       expect(m.lightIteration).toBe('infinite');
       expect(m.lightTiming).toBe('linear');
-      // One lap on a calm interval: slower than the header pulse's 12s cycle.
-      expect(m.lightSeconds).toBeGreaterThanOrEqual(12);
+      // One lap in 14.4 seconds: four and a half sweep loops, so the frame is by
+      // far the slowest thing moving in the box.
+      expect(m.lightSeconds).toBeCloseTo(14.4, 5);
+      expect(m.lightSeconds! / m.sweepSeconds).toBeCloseTo(4.5, 5);
       // A light, not an outline: one sliver of a conic gradient.
       expect(m.lightBackground).toContain('conic-gradient');
     });
 
-    test('the accent is subordinate to the breach marker: one pixel, no glow', async ({ page }) => {
+    test('the accent is subordinate to the breach marker: two pixels, no glow', async ({
+      page,
+    }) => {
       await home(page);
       const m = await measure(page);
 
-      expect(m.accentThickness).toBe(1);
+      expect(m.accentThickness).toBe(2);
       expect(m.lightGlow).toBe('none none');
       expect(m.markerSize).toBe(18);
-      expect(m.markerSize).toBeGreaterThan(m.accentThickness! * 10);
+      // Still a line beside a marker: the marker is nine times its thickness.
+      expect(m.markerSize).toBeGreaterThanOrEqual(m.accentThickness! * 9);
     });
 
     test('the accent costs the box nothing: same size with it and without it', async ({ page }) => {

@@ -305,10 +305,12 @@ describe('HeroReplay · the frame accent', () => {
     expect(accent).toMatch(/border-radius:\s*inherit/);
   });
 
-  it('shows only a one-pixel ring of itself: the border, not the box', () => {
+  it('shows only a two-pixel ring of itself: the border, not the box', () => {
     const accent = rule(/\.hero-frame-accent\s*\{([^}]*)\}/);
 
-    expect(accent).toMatch(/padding:\s*1px/);
+    // 2px, up from 1: at one pixel the light was correct and hard to find.
+    expect(accent).toMatch(/padding:\s*2px/);
+    expect(accent).not.toMatch(/padding:\s*1px/);
     expect(accent).toMatch(/mask-composite:\s*exclude/);
     expect(accent).toMatch(/overflow:\s*hidden/);
   });
@@ -318,8 +320,10 @@ describe('HeroReplay · the frame accent', () => {
 
     expect(light).toMatch(/conic-gradient/);
     const share = Number(/var\(--status-nominal\)\s+(\d+)%/.exec(light)?.[1]);
-    expect(share).toBeGreaterThan(0);
-    expect(share).toBeLessThanOrEqual(70);
+    // 30%, down from 60. At two pixels and 60% the accent put slightly more
+    // light on screen than the breach marker it is meant to sit under; at 30%
+    // it puts on about what the one-pixel version did (measured, see #185).
+    expect(share).toBe(30);
     // Transparent for most of the turn: a sliver, never a full outline.
     const dark = Number(/transparent\s+0deg\s+(\d+)deg/.exec(light)?.[1]);
     expect(dark).toBeGreaterThanOrEqual(300);
@@ -332,8 +336,11 @@ describe('HeroReplay · the frame accent', () => {
     const frames = rule(/@keyframes hero-frame-lap\s*\{([\s\S]*?\})\s*\}/);
 
     expect(light).toMatch(
+      // Twelve sweeps: 14.4s a lap. It was tried at 9.6s, and at two pixels that
+      // read as a border beam, so the thickness stayed and the lap went back.
       /animation:\s*hero-frame-lap calc\(var\(--motion-sweep\) \* 12\) linear infinite/,
     );
+    expect(light).not.toMatch(/\* 8\)/);
     expect(frames).not.toBe('');
     const properties = [...new Set([...frames.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]))];
     expect(properties).toEqual(['transform']);

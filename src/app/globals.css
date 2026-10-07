@@ -489,7 +489,7 @@ body {
 }
 /* Hero frame accent: one lap of the box's border. The light is a square far
  * larger than the box, turning about the box's centre; only the sliver of it
- * that crosses the one-pixel ring is ever seen (see .hero-frame-accent). */
+ * that crosses the two-pixel ring is ever seen (see .hero-frame-accent). */
 @keyframes hero-frame-lap {
   from {
     transform: translate(-50%, -50%) rotate(0deg);
@@ -511,12 +511,17 @@ body {
   }
 }
 
-/* Header pulse: a line of light crosses the blank part of the status bar, then
- * the bar rests. One sweep takes three tenths of the cycle; the other seven are
- * still, so it reads as an instrument idling and not as a loading bar. The glint
- * is as wide as its track with the light in its middle third, so the same two
- * translate values carry it fully off both ends whatever the track's width.
- * Transform and opacity only: nothing here can cause layout. */
+/* Header pulse: a line of light crosses the status bar's bottom edge at a
+ * constant rate, and then the bar rests. The crossing is the first half of the
+ * cycle: it enters, fades up, travels, and fades out as it leaves. The second
+ * half is empty. It had been two glints with one always in view, which read as
+ * decoration that never settles; one crossing and a rest of equal length reads
+ * as an instrument idling.
+ *
+ * The glint is as wide as its track with the light in its middle third, so the
+ * same two translate values carry it fully off both ends whatever the track's
+ * width. Only the two ends name a position, so the travel between them is one
+ * constant speed. Transform and opacity only: nothing here can cause layout. */
 @keyframes header-pulse {
   0% {
     opacity: 0;
@@ -525,11 +530,10 @@ body {
   4% {
     opacity: 1;
   }
-  30% {
+  46% {
     opacity: 1;
-    transform: translateX(66%);
   }
-  34%,
+  50%,
   100% {
     opacity: 0;
     transform: translateX(66%);
@@ -558,7 +562,7 @@ body {
 }
 
 /* The hero box's frame accent. The element covers the box and is masked down to
- * a ring one pixel wide (its padding): the two mask layers are the whole box and
+ * a ring two pixels wide (its padding): the two mask layers are the whole box and
  * the box minus that padding, and `exclude` keeps only the difference. A mask
  * reads alpha alone, so the opaque base surface token stands in for "solid".
  * Inside it, one large square carries a conic gradient that is transparent for
@@ -568,7 +572,7 @@ body {
 .hero-frame-accent {
   position: absolute;
   inset: 0;
-  padding: 1px;
+  padding: 2px;
   border-radius: inherit;
   overflow: hidden;
   pointer-events: none;
@@ -586,9 +590,11 @@ body {
   background: conic-gradient(
     from 0deg,
     transparent 0deg 330deg,
-    color-mix(in srgb, var(--status-nominal) 60%, transparent) 356deg,
+    color-mix(in srgb, var(--status-nominal) 30%, transparent) 356deg,
     transparent 360deg
   );
+  /* 14.4s a lap. At two pixels a 9.6s lap read as a border beam, so the lap is
+   * the slow one and the thickness is what was kept. */
   animation: hero-frame-lap calc(var(--motion-sweep) * 12) linear infinite;
   will-change: transform;
 }
@@ -631,7 +637,9 @@ body {
    * drop-shadow follows the gradient's alpha: it glows where the light is and
    * nowhere else. Static, so the animation still moves transform and opacity only. */
   filter: drop-shadow(0 0 3px currentColor);
-  animation: header-pulse calc(var(--motion-sweep) * 10) var(--ease-emphasized) infinite;
+  /* A 16.8s cycle at a constant rate: 8.4s to cross, slow enough for the eye
+   * to follow, then 8.4s of rest (see the keyframes). */
+  animation: header-pulse calc(var(--motion-sweep) * 14) linear infinite;
   will-change: transform, opacity;
 }
 

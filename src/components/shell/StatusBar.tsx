@@ -132,6 +132,7 @@ export function StatusBar({
           data-pulse-ends={mode ? 'chip' : 'edge'}
           className="header-pulse absolute inset-x-0 -bottom-[5px]"
         >
+          {/* One glint. It takes 8.4s to cross, then the bar rests for 8.4s. */}
           <span className="header-pulse-glint" />
         </div>
       </div>

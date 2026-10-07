@@ -179,10 +179,12 @@ describe('header pulse · the stylesheet', () => {
     expect([...new Set(properties)].sort()).toEqual(['opacity', 'transform']);
   });
 
-  it('reuses the motion tokens: the sweep duration and the emphasized easing', () => {
+  it('reuses the sweep token for its timing, and travels at a constant rate', () => {
     const glint = block(/\.header-pulse-glint\s*\{([^}]*)\}/);
     expect(glint).toMatch(/animation:[^;]*header-pulse[^;]*var\(--motion-sweep\)/);
-    expect(glint).toMatch(/animation:[^;]*var\(--ease-emphasized\)/);
+    // Linear, so the eye can follow it: an eased crossing bunches its speed at one end.
+    expect(glint).toMatch(/animation:[^;]*\blinear\b/);
+    expect(glint).not.toMatch(/animation:[^;]*var\(--ease-emphasized\)/);
     expect(glint).toMatch(/animation:[^;]*infinite/);
   });
 
@@ -251,8 +253,11 @@ describe('header pulse · weight', () => {
     expect(glint).toMatch(/filter:\s*drop-shadow\([^)]*currentColor\)/);
   });
 
-  it('keeps the same slow interval', () => {
-    expect(glint).toMatch(/animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 10\)/);
+  it('runs a 16.8 second cycle: fourteen sweeps, half of it crossing and half at rest', () => {
+    expect(glint).toMatch(
+      /animation:\s*header-pulse calc\(var\(--motion-sweep\) \* 14\) linear infinite/,
+    );
+    expect(glint).not.toMatch(/\* 7\)/);
   });
 
   it('sits with the line on the header bottom edge, the padding hanging below it', async () => {
@@ -263,5 +268,89 @@ describe('header pulse · weight', () => {
     // bar's edge so it covers the header's border.
     expect(pulse).toHaveClass('-bottom-[5px]');
     expect(pulse).not.toHaveClass('h-px');
+  });
+});
+
+/**
+ * ONE GLINT, AND THEN THE BAR RESTS.
+ *
+ * The pulse had become two glints, half a cycle apart, so there was always a
+ * light moving in the bar: followable, and never still. An audit put that down
+ * as decoration that does not rest. It is one glint again. It still takes 8.4
+ * seconds to cross at a constant rate, and then the bar is empty for another 8.4
+ * before the next one sets off.
+ */
+describe('header pulse · tempo', () => {
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  const rule = (re: RegExp) => re.exec(css)?.[1] ?? '';
+  const frames = rule(/@keyframes header-pulse\s*\{([\s\S]*?\})\s*\}/);
+  /** Every stop in the keyframes with what it sets, in time order. */
+  const stops = [...frames.matchAll(/((?:\d+%\s*,?\s*)+)\{([^}]*)\}/g)]
+    .flatMap((m) =>
+      [...m[1]!.matchAll(/(\d+)%/g)].map((stop) => ({
+        at: Number(stop[1]),
+        opacity: /opacity:\s*([\d.]+)/.exec(m[2]!)?.[1],
+        transform: /transform:\s*([^;]+)/.exec(m[2]!)?.[1]?.trim(),
+      })),
+    )
+    .sort((a, b) => a.at - b.at);
+
+  it('draws a single glint in the track', async () => {
+    const banner = await shell('/');
+    const glints = [...pulseIn(banner)!.children];
+
+    expect(glints).toHaveLength(1);
+    expect(glints[0]).toHaveClass('header-pulse-glint');
+    expect(glints[0]).not.toHaveClass('header-pulse-glint-late');
+  });
+
+  it('has no second, late glint left in the stylesheet', () => {
+    expect(css).not.toMatch(/header-pulse-glint-late/);
+    expect(rule(/\.header-pulse-glint\s*\{([^}]*)\}/)).not.toMatch(/animation-delay/);
+  });
+
+  it('crosses in the first half of the cycle: 8.4 of 16.8 seconds', () => {
+    const arrive = stops.find((stop) => stop.transform === 'translateX(66%)')!;
+    const leave = stops.find((stop) => stop.transform === 'translateX(-66%)')!;
+
+    expect(leave.at).toBe(0);
+    expect(arrive.at).toBe(50);
+    // Half of fourteen sweeps of 1.2s.
+    expect((14 * 1.2 * arrive.at) / 100).toBeCloseTo(8.4, 5);
+    // Nothing sets a position in between, so it travels at one constant rate.
+    const between = stops.filter((stop) => stop.at > 0 && stop.at < arrive.at);
+    expect(between.every((stop) => stop.transform === undefined)).toBe(true);
+  });
+
+  it('then rests: from the end of the crossing to the end of the cycle nothing is lit', () => {
+    const arrive = stops.find((stop) => stop.transform === 'translateX(66%)')!;
+    const after = stops.filter((stop) => stop.at >= arrive.at);
+
+    expect(after.length).toBeGreaterThanOrEqual(2);
+    expect(after.every((stop) => stop.opacity === '0')).toBe(true);
+    expect(after[after.length - 1]!.at).toBe(100);
+    // A clear gap: the bar is empty for at least as long as a crossing takes.
+    const rest = 100 - arrive.at;
+    expect(rest).toBeGreaterThanOrEqual(arrive.at);
+    expect((14 * 1.2 * rest) / 100).toBeGreaterThanOrEqual(8);
+  });
+
+  it('is fully lit for most of the crossing, fading only as it enters and leaves', () => {
+    const lit = stops.filter((stop) => stop.opacity === '1').map((stop) => stop.at);
+
+    expect(stops[0]!.opacity).toBe('0');
+    expect(Math.min(...lit)).toBeLessThanOrEqual(5);
+    expect(Math.max(...lit)).toBeGreaterThanOrEqual(45);
+    expect(Math.max(...lit)).toBeLessThan(50);
+  });
+
+  it('stops under prefers-reduced-motion and rests invisible', () => {
+    const reduce = rule(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?animation: none;)/);
+
+    expect(reduce).toMatch(/\.header-pulse-glint\b/);
+    expect(rule(/\.header-pulse-glint\s*\{([^}]*)\}/)).toMatch(/opacity:\s*0/);
   });
 });
