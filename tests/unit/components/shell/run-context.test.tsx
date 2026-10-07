@@ -50,7 +50,7 @@ function liveRun(): RunResult {
 }
 
 const row: StoredRun = {
-  id: 'row-uuid-5555',
+  id: '33333333-3333-4333-8333-333333335555',
   userId: 'user-1',
   createdAt: '2026-08-05T09:41:07.123456+00:00',
   run: liveRun(),
@@ -82,7 +82,7 @@ describe('AppShell run context', () => {
   });
 
   it('labels a persisted live run LIVE and shows THAT run telemetry', async () => {
-    pathname.current = '/runs/row-uuid-5555';
+    pathname.current = '/runs/33333333-3333-4333-8333-333333335555';
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     render(await AppShell({ children: <p>screen content</p> }));
 
@@ -125,15 +125,15 @@ describe('AppShell mode chip', () => {
     expect(chip()).toHaveTextContent('SAMPLE');
   });
 
-  it.each(['/runs/row-uuid-5555', '/findings/row-uuid-5555'])(
-    'says LIVE on %s, a run of the signed-in account',
-    async (path) => {
-      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
-      await shell(path);
+  it.each([
+    '/runs/33333333-3333-4333-8333-333333335555',
+    '/findings/33333333-3333-4333-8333-333333335555',
+  ])('says LIVE on %s, a run of the signed-in account', async (path) => {
+    asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+    await shell(path);
 
-      expect(chip()).toHaveTextContent('LIVE');
-    },
-  );
+    expect(chip()).toHaveTextContent('LIVE');
+  });
 
   it.each(['/', '/connect', '/leaderboard', '/threats', '/account'])(
     'renders no chip on %s, which shows no run',
@@ -155,7 +155,7 @@ describe('AppShell mode chip', () => {
 
   it('does not treat a live run as live for someone who does not own it', async () => {
     asMock(getUser).mockResolvedValue({ id: 'someone-else' } as never);
-    await shell('/findings/row-uuid-5555');
+    await shell('/findings/33333333-3333-4333-8333-333333335555');
 
     expect(chip()).not.toBeInTheDocument();
   });

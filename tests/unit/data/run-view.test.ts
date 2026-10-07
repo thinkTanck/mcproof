@@ -54,7 +54,7 @@ function liveRun(compromised: boolean): RunResult {
 
 function storedRow(run: RunResult, over: Partial<StoredRun> = {}): StoredRun {
   return {
-    id: 'row-uuid-1234',
+    id: '11111111-1111-4111-8111-111111111234',
     userId: 'user-1',
     createdAt: '2026-08-05T09:41:07.123456+00:00',
     run,
@@ -116,18 +116,18 @@ describe('resolveRun — a persisted live run', () => {
     const repo = repoFor([storedRow(run)]);
     asMock(getRunRepository).mockResolvedValue(repo);
 
-    const view = await resolveRun('row-uuid-1234');
+    const view = await resolveRun('11111111-1111-4111-8111-111111111234');
     expect(view?.origin).toBe('live');
     expect(view?.run).toEqual(run);
     // Scoped by the SIGNED-IN user id, never by the row id alone.
-    expect(repo.getRun).toHaveBeenCalledWith('user-1', 'row-uuid-1234');
+    expect(repo.getRun).toHaveBeenCalledWith('user-1', '11111111-1111-4111-8111-111111111234');
   });
 
   it('labels a live verdict as a live run, and never as the constructed demonstration', async () => {
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     asMock(getRunRepository).mockResolvedValue(repoFor([storedRow(liveRun(true))]));
 
-    const view = await resolveRun('row-uuid-1234');
+    const view = await resolveRun('11111111-1111-4111-8111-111111111234');
     expect(view?.provenance).toMatch(/live run/i);
     expect(view?.provenance).toContain('2026-08-05');
     expect(view?.provenance).not.toMatch(/constructed demonstration/i);
@@ -139,10 +139,10 @@ describe('resolveRun — a persisted live run', () => {
     const rows = [storedRow(liveRun(true), { userId: 'someone-else' })];
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     asMock(getRunRepository).mockResolvedValue(repoFor(rows));
-    expect(await resolveRun('row-uuid-1234')).toBeNull();
+    expect(await resolveRun('11111111-1111-4111-8111-111111111234')).toBeNull();
 
     asMock(getUser).mockResolvedValue(null);
-    expect(await resolveRun('row-uuid-1234')).toBeNull();
+    expect(await resolveRun('11111111-1111-4111-8111-111111111234')).toBeNull();
   });
 
   it('returns nothing for an id that is neither a sample nor one of your runs', async () => {
@@ -168,7 +168,7 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     asMock(getRunRepository).mockResolvedValue(repoFor([storedRow(run)]));
 
-    const view = await resolveFixReport('row-uuid-1234');
+    const view = await resolveFixReport('11111111-1111-4111-8111-111111111234');
     // The expected label is computed from the stored row, not read back off the
     // view, so the whole report is compared against an independent value.
     const label = liveVerdictProvenance('2026-08-05T09:41:07.123456+00:00');
@@ -188,7 +188,7 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     asMock(getRunRepository).mockResolvedValue(repoFor([storedRow(run)]));
 
-    const view = await resolveFixReport('row-uuid-1234');
+    const view = await resolveFixReport('11111111-1111-4111-8111-111111111234');
     expect(view).not.toBeNull();
     expect(view?.report.compromised).toBe(false);
     expect(view?.report.finding).toBeNull();

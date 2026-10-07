@@ -40,7 +40,7 @@ function liveRow(): StoredRun {
   const offending = b.toolCall('read_file', { path: '../../etc/shadow' });
   b.taskComplete('done');
   return {
-    id: 'row-uuid-5555',
+    id: '33333333-3333-4333-8333-333333335555',
     userId: 'user-1',
     createdAt: '2026-08-05T09:41:07.123456+00:00',
     run: RunResultSchema.parse({
@@ -90,8 +90,8 @@ const SHELL_PATHS = [
   '/account',
   '/runs/sample',
   '/findings/sample',
-  '/runs/row-uuid-5555',
-  '/findings/row-uuid-5555',
+  '/runs/33333333-3333-4333-8333-333333335555',
+  '/findings/33333333-3333-4333-8333-333333335555',
 ];
 
 describe('header pulse · present on every shell screen', () => {
@@ -110,8 +110,8 @@ describe('header pulse · the mode it carries', () => {
   it.each([
     ['/runs/sample', 'sample'],
     ['/findings/sample', 'sample'],
-    ['/runs/row-uuid-5555', 'live'],
-    ['/findings/row-uuid-5555', 'live'],
+    ['/runs/33333333-3333-4333-8333-333333335555', 'live'],
+    ['/findings/33333333-3333-4333-8333-333333335555', 'live'],
   ])('%s is marked %s, the origin the chip states', async (path, mode) => {
     const banner = await shell(path);
 
@@ -131,7 +131,7 @@ describe('header pulse · the mode it carries', () => {
 });
 
 describe('header pulse · where it ends', () => {
-  it.each(['/runs/sample', '/findings/row-uuid-5555'])(
+  it.each(['/runs/sample', '/findings/33333333-3333-4333-8333-333333335555'])(
     '%s: it runs up to the chip, which comes after it',
     async (path) => {
       const banner = await shell(path);

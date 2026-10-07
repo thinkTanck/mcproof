@@ -36,7 +36,12 @@ function appSources(dir: string = APP_DIR): string[] {
  * object (openGraph, twitter) is captured whole.
  */
 function metadataLiteral(source: string): string | null {
-  const marker = source.indexOf('export const metadata');
+  // `PAGE_METADATA` is the same literal on a route whose title depends on its
+  // params, where it is returned from `generateMetadata` and cannot be exported.
+  const marker = Math.max(
+    source.indexOf('export const metadata'),
+    source.indexOf('const PAGE_METADATA'),
+  );
   if (marker === -1) return null;
   const open = source.indexOf('{', marker);
   if (open === -1) return null;
@@ -80,7 +85,10 @@ describe('shipped page metadata', () => {
   it('describes the replay hero that actually ships, not the removed orbital core', () => {
     // The WebGL/3D orbital hero was replaced by the agent-transcript console plus
     // the detector-verdict terminal. The description outlived it and was untrue.
-    const runPage = routeMetadata.find((m) => m.file.includes('runs'));
+    // The PAGE, by name: the route's not-found.tsx exports a title of its own.
+    const runPage = routeMetadata.find(
+      (m) => m.file.includes('runs') && m.file.endsWith('page.tsx'),
+    );
     const literal = runPage?.literal ?? '';
     expect(runPage, 'the /runs/[id] metadata export').toBeDefined();
     expect(literal).not.toMatch(/orbital|3D|WebGL/i);
