@@ -19,8 +19,20 @@ import type { Step } from '@/contract';
  * darker screen.
  *
  * Parity with the timeline it replaces: EVERY step is a labelled <button> in the
- * <ol> (steps not yet reached are visually hidden but remain in the a11y tree),
- * so clicking a reached line scrubs and the replay tests + a11y contract hold.
+ * <ol>, so clicking a reached line scrubs and the replay tests + a11y contract
+ * hold. A step the playhead has not reached is not drawn, and is handled in two
+ * halves that go together:
+ *
+ *   - `sr-only` on its row: hidden from sight, still in the accessibility tree,
+ *     so a screen reader reads all the steps and can activate any of them to jump
+ *     there;
+ *   - `tabIndex={-1}` on its button: out of the tab order. Without it a sighted
+ *     keyboard user tabbed onto a one-pixel element with nothing on screen to
+ *     show where focus was, once for every step still ahead (WCAG 2.4.7).
+ *
+ * So a step button is a tab stop exactly when its step is drawn (`i <= current`).
+ * Assistive technology does not need a tab stop to activate a control, and
+ * everyone has the scrubber and the previous / next controls in the transport.
  * The typed length derives from the playhead position (a magnitude); the text is
  * the trace verbatim. Under prefers-reduced-motion the active line is complete at
  * once.
@@ -165,6 +177,8 @@ export function ReplayTerminal({
                 type="button"
                 aria-current={active ? 'step' : undefined}
                 aria-label={`Step ${i + 1}: ${meta.label}${breach ? ', compromise step' : ''}`}
+                // A step that is not drawn is not a tab stop (see the note above).
+                tabIndex={reached ? undefined : -1}
                 onClick={() => onSelect(i)}
                 className="block w-full whitespace-pre-wrap break-words text-left focus:outline-none focus-visible:underline"
                 style={{ color }}
