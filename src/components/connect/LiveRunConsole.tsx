@@ -1074,6 +1074,9 @@ function Connection({
   // The run can only be ended once the agent has actually turned up. Ending a run
   // nobody connected to would spend a judge call on a trace with no agent in it.
   const canFinish = phase === 'connected' && summary === null;
+  // The phone layout of the bar is for exactly this state: the one that carries
+  // the end-run control beside the reading (C3).
+  const compact = canFinish;
   // A reopened run that no agent has reached has no way forward on this page:
   // the token it needs was shown once and is gone. Say so and offer the one
   // thing that works. A connected run is never offered this, it is still live.
@@ -1102,15 +1105,39 @@ function Connection({
         aria-labelledby="connect-state"
         className="sticky top-[calc(var(--header-h)+8px)] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
       >
-        <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3">
-          <div role="status" className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+        {/* A CONNECTED RUN ON A PHONE IS TWO ROWS (C3). At 320 the status wrapped
+            to two lines, END RUN AND JUDGE fell to a row of its own and its label
+            wrapped as well: 155px pinned, with the header 40% of the screen.
+            Below `sm` the row becomes a three-column grid: the phase reading
+            across the top, then the count on the left and END RUN on the right.
+            The status region stays ONE element, laid on that grid as a subgrid,
+            so it is announced exactly as before. Every other state, and every
+            state from `sm` up, keeps the flex row it had. */}
+        <div
+          className={
+            compact
+              ? 'max-sm:grid max-sm:min-h-11 max-sm:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-3 sm:flex sm:min-h-11 sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3'
+              : 'flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3'
+          }
+        >
+          <div
+            role="status"
+            className={
+              compact
+                ? 'max-sm:col-span-3 max-sm:col-start-1 max-sm:row-span-2 max-sm:row-start-1 max-sm:grid max-sm:grid-cols-subgrid max-sm:grid-rows-subgrid max-sm:items-center sm:flex sm:flex-1 sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2'
+                : 'flex flex-1 flex-wrap items-center gap-x-4 gap-y-2'
+            }
+          >
             <span
               aria-hidden="true"
               className={cn('h-2.5 w-2.5 rounded-full', live && 'bg-nominal shadow-glow-nominal')}
               style={live ? undefined : { background: 'var(--status-inert)' }}
             />
             <span
-              className="font-mono text-[13px] tracking-[0.08em]"
+              className={cn(
+                'font-mono text-[13px] tracking-[0.08em]',
+                compact && 'max-sm:col-span-2 max-sm:whitespace-nowrap',
+              )}
               style={live ? undefined : { color: 'var(--status-inert)' }}
             >
               {lapsed
@@ -1120,7 +1147,12 @@ function Connection({
                   : PHASE_LABELS[phase]}
             </span>
             {status !== null && (
-              <span className="flex items-baseline gap-2">
+              <span
+                className={cn(
+                  'flex items-baseline gap-2',
+                  compact && 'max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-2',
+                )}
+              >
                 {/* Evidence, and the RIGHT evidence. This is what the agent chose
                     to do, not the size of the trace. Printed as read, never
                     counted up or animated. */}
@@ -1137,9 +1169,21 @@ function Connection({
             <button
               type="button"
               onClick={onFinish}
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+              // Named for what it does at every width; while a finish is in
+              // flight it shows JUDGING and is named by that instead, so the
+              // visible words are always inside the name (WCAG 2.5.3).
+              aria-label={finishing ? undefined : 'End run and judge'}
+              title={finishing ? undefined : 'End run and judge'}
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 max-sm:col-start-3 max-sm:row-start-2 max-sm:whitespace-nowrap max-sm:px-3 sm:px-5"
             >
-              {finishing ? 'JUDGING' : 'END RUN AND JUDGE'}
+              {finishing ? (
+                'JUDGING'
+              ) : (
+                <>
+                  <span className="sm:hidden">END RUN</span>
+                  <span className="hidden sm:inline">END RUN AND JUDGE</span>
+                </>
+              )}
             </button>
           )}
           {/* THE FINISHED PAIR, ONE ROW AT EVERY WIDTH (#173). Stacked on a phone
