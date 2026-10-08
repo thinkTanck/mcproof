@@ -46,6 +46,7 @@ import { cn } from '@/lib/utils';
  */
 export function CopyOut({
   label,
+  file,
   value,
   name,
   secret = false,
@@ -54,6 +55,14 @@ export function CopyOut({
 }: {
   /** INSTRUMENT label above the value. */
   label: string;
+  /**
+   * A file name or path the label ends with, shown EXACTLY as given. The label
+   * is a micro-label and that role is uppercase, which is wrong for a file name:
+   * names are case-sensitive on Linux and macOS, so `run-mcp.json` drawn as
+   * `RUN-MCP.JSON` names a file the next command cannot find. It is passed
+   * apart from `label` so the casing rule cannot reach it.
+   */
+  file?: string;
   value: string;
   /** What this value is, in words, for the control names: e.g. "run token". */
   name: string;
@@ -90,7 +99,20 @@ export function CopyOut({
   return (
     <div className="rounded-lg border border-line bg-panel/60 px-4 py-3.5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="micro-label">{label}</span>
+        <span className="micro-label">
+          {label}
+          {file !== undefined && (
+            <>
+              {' '}
+              <span
+                data-testid="copy-out-file"
+                className="normal-case tracking-normal text-readout"
+              >
+                {file}
+              </span>
+            </>
+          )}
+        </span>
         <div className="flex items-center gap-2">
           {copied && (
             <span className="instrument text-nominal" role="status">
