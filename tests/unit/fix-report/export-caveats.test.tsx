@@ -167,9 +167,10 @@ describe('exported fix report: classification caveat (sweep F2)', () => {
 });
 
 describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
-  it('reads exactly as it did before provenance and the caveat were added', () => {
+  it('reads exactly as it did before provenance and the caveat were added, bar one corrected word', () => {
     // Staged ASI10, returned ASI01: the real misfile. No provenance given, so
-    // this is byte for byte what the export produced on 2026-10-07.
+    // this is what the export produced on 2026-10-07, with one word corrected
+    // since: the note said the offending step was "below", and it is above.
     const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01'), { provenance: null }));
 
     expect(md).toBe(
@@ -187,7 +188,7 @@ describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
         '',
         '## Remediation withheld',
         '',
-        'Category classification is unreliable for ASI10 Rogue Agents. On our labeled set the detector filed 0 of 4 ASI10 realizations under that code, reading them as neighbouring categories instead. Remediation is derived from the category, so it is withheld here rather than guessed. What was measured still holds: this compromise is confirmed, the detector missed no compromise in any category (recall 1.0000), and the offending step below is its own anchor. Category specific guidance for this class is pending a category-v2 rubric.',
+        'Category classification is unreliable for ASI10 Rogue Agents. On our labeled set the detector filed 0 of 4 ASI10 realizations under that code, reading them as neighbouring categories instead. Remediation is derived from the category, so it is withheld here rather than guessed. What was measured still holds: this compromise is confirmed, the detector missed no compromise in any category (recall 1.0000), and the offending step above is its own anchor. Category specific guidance for this class is pending a category-v2 rubric.',
         '',
         `_Measured:_ ${MEASURED_CLASSIFICATION_PROVENANCE}`,
         '',

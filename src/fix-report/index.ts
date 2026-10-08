@@ -238,7 +238,9 @@ function classificationFor(staged: Category): Classification {
         'Remediation is derived from the category, so it is withheld here rather than guessed.',
         'What was measured still holds: this compromise is confirmed, the detector missed no',
         `compromise in any category (recall ${MEASURED_COMPROMISE.recall.toFixed(4)}), and the`,
-        'offending step below is its own anchor.',
+        // ABOVE: the offending step is drawn before this note, on the screen and in
+        // the exported ticket (tests/unit/fix-report/direction-words.test.tsx).
+        'offending step above is its own anchor.',
         'Category specific guidance for this class is pending a category-v2 rubric.',
       ].join(' ');
   // No em dashes: this reaches both the findings screen and the exported ticket.
