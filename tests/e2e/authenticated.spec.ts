@@ -127,7 +127,12 @@ test.describe('signed-in screens', () => {
     await expect(page.getByRole('link', { name: /^sign in$/i })).toHaveCount(0);
     // The token discipline the screen claims: nothing on it takes typed input,
     // so no autofill store or password manager has a control to latch onto.
-    await expect(page.locator('input')).toHaveCount(0);
+    // Scoped to the screen. The shell's Sign out is a form that posts a server
+    // action, and React gives such a form hidden fields; they are not controls
+    // anyone types into, and they are outside the console this claim is about.
+    await expect(page.getByRole('main').locator('input')).toHaveCount(0);
+    // And nowhere on the page, shell included, is there a field to type into.
+    await expect(page.locator('input:not([type="hidden"]), textarea, select')).toHaveCount(0);
 
     // BOTH FRAMINGS ARE REACHABLE FROM THE SIGNED-IN CONSOLE, and the panel
     // describes the one that is actually about to be served: saying "the attack
