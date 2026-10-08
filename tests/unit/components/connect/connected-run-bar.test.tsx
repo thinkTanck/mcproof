@@ -20,8 +20,8 @@ import type {
 
 const TICKET: LiveRunTicketView = {
   runId: 'run-77',
-  endpoint: 'https://mcpwn.dev/api/mcp/run-77',
-  token: 'mcpwn_rt_secret',
+  endpoint: 'https://mcproof.dev/api/mcp/run-77',
+  token: 'rt_secret',
   expiresAt: '2099-01-01T00:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',

@@ -103,10 +103,10 @@ describe('root metadata URL contract', () => {
     // http://localhost:3000 — so a deployed page advertises localhost.
     const base = metadata.metadataBase;
     expect(base).toBeInstanceOf(URL);
-    expect((base as URL).origin).toBe('https://mcpwn.dev');
+    expect((base as URL).origin).toBe('https://mcproof.dev');
     expect((base as URL).protocol).toBe('https:');
     // A relative metadata URL must now land on the canonical host.
-    expect(new URL('/leaderboard', base as URL).href).toBe('https://mcpwn.dev/leaderboard');
+    expect(new URL('/leaderboard', base as URL).href).toBe('https://mcproof.dev/leaderboard');
   });
 
   it('does not pin a root-level canonical that every child would inherit', async () => {
@@ -122,7 +122,7 @@ describe('root metadata URL contract', () => {
 
   it('carries a title and description into the social cards', async () => {
     const { metadata } = await import('@/app/layout');
-    expect(metadata.title).toBe('MCPwn · Red-team your MCP agents');
+    expect(metadata.title).toBe('MCProof · Red-team your MCP agents');
     expect(metadata.openGraph?.title).toBe(metadata.title);
     expect(metadata.openGraph?.description).toBe(metadata.description);
     expect(metadata.twitter?.title).toBe(metadata.title);

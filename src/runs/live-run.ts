@@ -98,14 +98,14 @@ import {
   type VariantKind,
   type Verdict,
 } from '@/contract';
-import { getSiteOrigin } from '@/config/env';
+import { getMcpEndpointOrigin } from '@/config/env';
 import type { RunRepository, StoredRun } from '@/data/run-repository';
 import { DetectorError } from '@/detector';
 import type { LiveDetector } from '@/detector/resolve';
 import { generateFixReport, type FixReport } from '@/fix-report';
 import { createStreamableHttpHandler, type StreamableHttpHandler } from '@/harness/server/http';
 import { HostedMcpServer, TASK_PROMPT_NAME } from '@/harness/server/server';
-import type { Logger } from '@/lib/logger';
+import { logger as defaultLogger, type Logger } from '@/lib/logger';
 import {
   issueRunToken,
   verifyRunToken,
@@ -114,7 +114,7 @@ import {
 } from '@/runs/run-token';
 import { InMemoryLiveRunSessionStore, type LiveRunSessionStore } from '@/runs/live-run-store';
 
-/** Where a run's MCP endpoint lives, under the site origin. */
+/** Where a run's MCP endpoint lives, under the endpoint origin (MCP_ENDPOINT_ORIGIN). */
 export const LIVE_RUN_ENDPOINT_PREFIX = '/api/mcp';
 
 /**
@@ -341,7 +341,7 @@ export interface LiveRunHostDeps {
    * never a crash.
    */
   readonly resolveDetector: () => LiveDetector | null;
-  /** Origin the endpoint URL is built from. Defaults to the site origin. */
+  /** Origin the endpoint URL is built from. Defaults to MCP_ENDPOINT_ORIGIN, then the site origin. */
   readonly origin?: string;
   readonly logger?: Logger;
   readonly now?: () => Date;
@@ -496,7 +496,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
   const live = new Map<string, LiveRunSession>();
   const now = deps.now ?? (() => new Date());
   const newRunId = deps.newRunId ?? (() => globalThis.crypto.randomUUID());
-  const origin = deps.origin ?? getSiteOrigin();
+  const origin = deps.origin ?? getMcpEndpointOrigin(process.env, deps.logger ?? defaultLogger);
   const timeoutMs = deps.judgeTimeoutMs ?? DEFAULT_JUDGE_TIMEOUT_MS;
   const maxAttempts = Math.max(1, deps.judgeMaxAttempts ?? DEFAULT_JUDGE_MAX_ATTEMPTS);
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));

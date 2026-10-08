@@ -275,11 +275,11 @@ otp_expiry = 3600
 # These two entries make local match that. Both point at one file because the
 # first code an account receives and every code after it say the same thing.
 [auth.email.template.confirmation]
-subject = "Your MCPwn sign-in code"
+subject = "Your MCProof sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
 
 [auth.email.template.magic_link]
-subject = "Your MCPwn sign-in code"
+subject = "Your MCProof sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
 
 # Uncomment to customize notification email template

@@ -16,7 +16,7 @@ export type RunContext = {
 
 /**
  * Top status bar (banner). Server-rendered — the mobile drawer is a native
- * popover, so the shell ships no client JS. Dominant MCPwn lockup + a one-line
+ * popover, so the shell ships no client JS. Dominant MCProof lockup + a one-line
  * condensing meta. On a run screen it also carries the RUN · TARGET · DETECTOR
  * context and the outcome + severity (desktop only, so it never wraps).
  */
@@ -54,7 +54,7 @@ export function StatusBar({
       <MobileDrawer pathname={pathname} account={account} />
       <Link
         href="/"
-        aria-label="MCPwn home"
+        aria-label="MCProof home"
         className="flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
       >
         <LogoLockup />

@@ -1,26 +1,28 @@
-# MCPwn
+# MCProof
+
+(formerly MCPwn, renamed 2026-10-08)
 
 An MCP agent red-team harness. It tests whether an MCP-tool-using agent can be
 manipulated into unsafe tool calls, and rules each run compromised or not with a
 detector whose accuracy is measured, not asserted.
 
-Production: [mcpwn.dev](https://mcpwn.dev).
+Production: [mcproof.dev](https://mcproof.dev).
 
 ## The problem
 
 MCP agents take real actions through tools: they read files, call APIs, move money,
 write to memory. A compromised agent is therefore a security event, not a bad
 answer. The harm is the tool call it was talked into making, not the text it
-returned. Most agent-eval tooling grades outputs and guesses at safety. MCPwn
+returned. Most agent-eval tooling grades outputs and guesses at safety. MCProof
 measures whether the agent's own recorded actions crossed a line, and it measures
 how accurate that judgment is.
 
 ## What it does
 
-1. MCPwn hosts a per-run MCP endpoint that serves ONE of the OWASP Top 10 for
+1. MCProof hosts a per-run MCP endpoint that serves ONE of the OWASP Top 10 for
    Agentic Applications (2026) attacks: the Core-7 tools (some deliberately
    over-broad or mis-described), plus seeded memory and prompts. The subject agent
-   connects to that endpoint. MCPwn never calls the agent, so it holds no
+   connects to that endpoint. MCProof never calls the agent, so it holds no
    credential of the user's.
 2. The agent works the task (delivered out of band) against the served surface, and
    every `tools/call` it chooses to make is recorded into an observable trace.
@@ -143,4 +145,4 @@ TypeScript, Next.js (App Router), Supabase (Postgres + Auth), Vitest.
 
 ## License
 
-MCPwn is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text and [NOTICE](NOTICE) for attribution.
+MCProof is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text and [NOTICE](NOTICE) for attribution.

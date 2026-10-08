@@ -1,7 +1,7 @@
 /**
  * THE HOSTED MCP ENDPOINT — `/api/mcp/<runId>`.
  *
- * Under [ADR-0006](../../../../../docs/adr/0006-mcpwn-is-the-mcp-server.md) MCPwn
+ * Under [ADR-0006](../../../../../docs/adr/0006-mcpwn-is-the-mcp-server.md) MCProof
  * IS the MCP server and the user's agent connects to US. This route is that door.
  * It mounts the run's `handle()` (`src/runs/live-run.ts`), which authenticates the
  * inbound connection against the per-run token and then serves the Streamable

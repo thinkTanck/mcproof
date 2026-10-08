@@ -17,7 +17,7 @@ import { buildHostedSurface } from '@/harness/server/surfaces';
 import { getUser } from '@/lib/auth/user';
 
 export const metadata: Metadata = {
-  title: 'Connect / Run Setup · MCPwn',
+  title: 'Connect / Run Setup · MCProof',
   description:
     'Set up a red-team run: watch a recorded sample, or point your own MCP agent at an endpoint we host for a live run. The detector is fixed, blind, and locked, and the run ends either in a compromise anchored to one step or in a clean result.',
 };

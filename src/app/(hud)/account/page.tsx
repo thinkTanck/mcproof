@@ -6,7 +6,7 @@ import { signOut } from '@/lib/auth/actions';
 import { SectionLabel } from '@/components/hud';
 
 export const metadata: Metadata = {
-  title: 'Your account · MCPwn',
+  title: 'Your account · MCProof',
   description: 'Your live red-team runs.',
 };
 
@@ -52,7 +52,7 @@ export default async function AccountPage() {
         <div className="mt-8 rounded-lg border border-line bg-panel px-6 py-10 text-center">
           <p className="reading measure text-ink-muted">No runs yet.</p>
           <p className="reading measure mt-2 text-ink-faint">
-            Point MCPwn at your own MCP agent to run your first live red-team.
+            Point MCProof at your own MCP agent to run your first live red-team.
           </p>
           <Link
             href="/connect"

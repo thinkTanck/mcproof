@@ -9,6 +9,7 @@ import {
   getSupabaseServiceRoleKey,
   getSiteOrigin,
   DEFAULT_SITE_ORIGIN,
+  getMcpEndpointOrigin,
   ConfigError,
 } from '@/config/env';
 
@@ -292,7 +293,7 @@ describe('getSupabaseConfig — offline-safe (absence is a first-class state)', 
 describe('getSiteOrigin — the canonical public origin (metadataBase)', () => {
   it('defaults to the canonical production origin when unset', () => {
     expect(getSiteOrigin({})).toBe(DEFAULT_SITE_ORIGIN);
-    expect(DEFAULT_SITE_ORIGIN).toBe('https://mcpwn.dev');
+    expect(DEFAULT_SITE_ORIGIN).toBe('https://mcproof.dev');
   });
 
   it('treats a blank/whitespace-only value as unset, not an error', () => {
@@ -300,16 +301,16 @@ describe('getSiteOrigin — the canonical public origin (metadataBase)', () => {
   });
 
   it('honors an override (12-Factor III: the origin is configuration)', () => {
-    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'https://staging.mcpwn.dev' })).toBe(
-      'https://staging.mcpwn.dev',
+    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'https://staging.mcproof.dev' })).toBe(
+      'https://staging.mcproof.dev',
     );
   });
 
   it('normalizes a trailing slash, a stray path and surrounding whitespace to the origin', () => {
     // Every relative metadata URL resolves against this, so a pasted path would
     // silently prefix every canonical and Open Graph URL the app emits.
-    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: '  https://mcpwn.dev/connect/  ' })).toBe(
-      'https://mcpwn.dev',
+    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: '  https://mcproof.dev/connect/  ' })).toBe(
+      'https://mcproof.dev',
     );
   });
 
@@ -320,12 +321,72 @@ describe('getSiteOrigin — the canonical public origin (metadataBase)', () => {
   });
 
   it('throws on a set-but-malformed value, naming the var', () => {
-    const err = caught(() => getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'mcpwn.dev' }));
+    const err = caught(() => getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'mcproof.dev' }));
     expect(err).toBeInstanceOf(ConfigError);
     expect(err.message).toContain('NEXT_PUBLIC_SITE_URL');
   });
 
   it('rejects a non-http(s) scheme rather than emitting an unusable base', () => {
-    expect(() => getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'ftp://mcpwn.dev' })).toThrow(ConfigError);
+    expect(() => getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'ftp://mcproof.dev' })).toThrow(ConfigError);
   });
+});
+
+describe('getMcpEndpointOrigin — where issued run endpoints live (MCP_ENDPOINT_ORIGIN)', () => {
+  function warnings() {
+    const seen: { message: string; fields?: Record<string, unknown> }[] = [];
+    return {
+      seen,
+      logger: {
+        warn: (message: string, fields?: Record<string, unknown>) => seen.push({ message, fields }),
+      },
+    };
+  }
+
+  it('defaults to the site origin, with no warning', () => {
+    const { seen, logger } = warnings();
+
+    expect(getMcpEndpointOrigin({}, logger)).toBe(DEFAULT_SITE_ORIGIN);
+    expect(getMcpEndpointOrigin({ NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' }, logger)).toBe(
+      'http://localhost:3000',
+    );
+    expect(getMcpEndpointOrigin({ MCP_ENDPOINT_ORIGIN: '  ' }, logger)).toBe(DEFAULT_SITE_ORIGIN);
+    expect(seen).toEqual([]);
+  });
+
+  it('honours a valid https origin, trimmed and without a trailing slash', () => {
+    const { seen, logger } = warnings();
+
+    expect(
+      getMcpEndpointOrigin({ MCP_ENDPOINT_ORIGIN: ' https://tools.example.net/ ' }, logger),
+    ).toBe('https://tools.example.net');
+    expect(
+      getMcpEndpointOrigin({ MCP_ENDPOINT_ORIGIN: 'https://tools.example.net:8443' }, logger),
+    ).toBe('https://tools.example.net:8443');
+    expect(seen).toEqual([]);
+  });
+
+  it.each([
+    ['not a URL', 'tools.example.net'],
+    ['plain http', 'http://tools.example.net'],
+    ['another scheme', 'ftp://tools.example.net'],
+    ['a path', 'https://tools.example.net/api/mcp'],
+    ['a query', 'https://tools.example.net?x=1'],
+    ['credentials', 'https://user:pass@tools.example.net'],
+  ])(
+    'falls back to the site origin on %s, and logs a warning naming the variable',
+    (_label, value) => {
+      const { seen, logger } = warnings();
+
+      expect(
+        getMcpEndpointOrigin(
+          { MCP_ENDPOINT_ORIGIN: value, NEXT_PUBLIC_SITE_URL: 'https://site.example.org' },
+          logger,
+        ),
+      ).toBe('https://site.example.org');
+      expect(seen).toHaveLength(1);
+      expect(seen[0]!.message).toContain('MCP_ENDPOINT_ORIGIN');
+      // The value is configuration, but it is never echoed: it may carry credentials.
+      expect(JSON.stringify(seen)).not.toContain(value);
+    },
+  );
 });

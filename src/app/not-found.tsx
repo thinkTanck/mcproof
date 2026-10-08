@@ -4,13 +4,13 @@ import { LogoLockup } from '@/components/shell/LogoRing';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Not found · MCPwn',
-  description: 'No MCPwn route or run at this address.',
+  title: 'Not found · MCProof',
+  description: 'No MCProof route or run at this address.',
 };
 
 /**
  * Custom 404 — a bare console that tried to RESOLVE the requested path and
- * failed. It speaks MCPwn's own terminal language (the run-page transcript
+ * failed. It speaks MCProof's own terminal language (the run-page transcript
  * shell: soft-yellow host prompt, cyan I/O, blinking caret), so a dead end still
  * feels like the product. Register: BRAND.
  *
@@ -29,7 +29,7 @@ const ROUTES = [
   { href: '/connect', cmd: 'connect', hint: 'connect your agent' },
 ] as const;
 
-const PROMPT = 'mcpwn@sentinel:~$';
+const PROMPT = 'mcproof@sentinel:~$';
 
 export default async function NotFound() {
   const path = (await headers()).get('x-pathname') || '/…';
@@ -49,7 +49,7 @@ export default async function NotFound() {
         {/* Brand lockup — front-door wordmark, links home. */}
         <Link
           href="/"
-          aria-label="MCPwn home"
+          aria-label="MCProof home"
           className="mb-7 inline-flex min-h-11 items-center gap-2.5 rounded-md"
         >
           <LogoLockup />
@@ -71,7 +71,7 @@ export default async function NotFound() {
           >
             404 · route not found
           </h1>
-          <div className="pl-4 text-ink-muted">no MCPwn route or run at this address.</div>
+          <div className="pl-4 text-ink-muted">no MCProof route or run at this address.</div>
 
           {/* Suggest routes → the wayfinding, as command output. */}
           <div className="mt-3 break-words">

@@ -6,7 +6,8 @@ import { BAD_EMAIL_MESSAGE, RATE_LIMITED_MESSAGE } from '@/lib/auth/errors';
 
 vi.mock('next/headers', () => ({
   headers: async () => ({
-    get: (k: string) => (k === 'host' ? 'mcpwn.test' : k === 'x-forwarded-proto' ? 'https' : null),
+    get: (k: string) =>
+      k === 'host' ? 'mcproof.test' : k === 'x-forwarded-proto' ? 'https' : null,
   }),
 }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));

@@ -25,7 +25,7 @@ import { DELETE, GET, MAX_MCP_BODY_BYTES, POST } from '@/app/api/mcp/[runId]/rou
 import { readAgentActivity, resetLiveRunRegistry } from '@/app/api/mcp/host';
 
 const USER = 'user-route';
-const ORIGIN = 'https://mcpwn.test';
+const ORIGIN = 'https://mcproof.test';
 
 /** The host the route reaches for. Rebuilt per test, with in-memory everything. */
 let host: LiveRunHost;
@@ -311,7 +311,7 @@ describe('POST /api/mcp/[runId] — the refusals are one refusal', () => {
       mcpRequest(ticket, null, { jsonrpc: '2.0', id: 1, method: 'tools/list' }),
     );
     const body = (await res.text()).toLowerCase();
-    for (const tell of ['mcpwn', 'attack', 'red team', 'asi01', 'poison']) {
+    for (const tell of ['mcproof', 'attack', 'red team', 'asi01', 'poison']) {
       expect(body).not.toContain(tell);
     }
   });

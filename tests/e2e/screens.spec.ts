@@ -53,7 +53,7 @@ const SCREENS: Screen[] = [
     shell: false,
     content: async (page) => {
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Continue to MCPwn.' }),
+        page.getByRole('heading', { level: 1, name: 'Continue to MCProof.' }),
       ).toBeVisible();
       await expect(page.getByLabel('Email')).toBeVisible();
       await expect(page.getByRole('button', { name: /email me a code/i })).toBeVisible();

@@ -155,7 +155,7 @@ const CELL: Cell = { category: 'ASI02', framing: 'malicious', rep: 0 };
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.SPIKE_ALLOWED_TOOLS = 'approve_refund,send_email,read_wiki';
-  process.env.SPIKE_TEMP_DIR = '/tmp/mcpwn-spike';
+  process.env.SPIKE_TEMP_DIR = '/tmp/mcproof-spike';
   process.env.SPIKE_SUBJECT_MODEL = 'claude-fable-5';
   delete process.env.SPIKE_MCP_SERVER_NAME;
 });

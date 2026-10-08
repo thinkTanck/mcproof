@@ -10,7 +10,7 @@ import { z } from 'zod';
  *  - **HTTPS only.** The bearer credential rides an `Authorization` header; over plain
  *    `http:` it would cross the wire in clear. The single exception is a
  *    loopback host (`localhost`, `127.0.0.1`, `[::1]`) so a developer can point
- *    MCPwn at an agent on their own machine.
+ *    MCProof at an agent on their own machine.
  *  - **No credentials in the URL.** `https://user:pass@host/` would smuggle a
  *    secret into somewhere it could be logged or persisted.
  *  - **No opaque/unparseable URLs.**

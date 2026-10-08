@@ -539,10 +539,11 @@ export async function openMcpSession(options: McpTransportOptions): Promise<McpS
 async function handshake(session: McpSession, o: Resolved): Promise<void> {
   await session.request('initialize', {
     protocolVersion: o.protocolVersion,
-    // MCPwn is an observer: it advertises no sampling/roots/elicitation, so the
+    // We are an observer: we advertise no sampling/roots/elicitation, so the
     // target can never call back into us during a run.
     capabilities: {},
-    clientInfo: { name: 'mcpwn', version: '0.1.0' },
+    // A neutral name: a product name would tell a probed server it is being tested.
+    clientInfo: { name: 'mcp-client', version: '0.1.0' },
   });
   await session.notify('notifications/initialized');
 }

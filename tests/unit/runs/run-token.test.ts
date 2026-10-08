@@ -1,11 +1,14 @@
 import fc from 'fast-check';
 import { createHash } from 'node:crypto';
 import { ConfigError } from '@/config/env';
+import { findTells } from '@/harness/server/surface';
 import { createLogger } from '@/lib/logger';
 import {
   DEFAULT_RUN_TOKEN_TTL_MINUTES,
   InMemoryRunTokenStore,
+  LEGACY_RUN_TOKEN_PREFIX,
   RUN_TOKEN_PATTERN,
+  RUN_TOKEN_PREFIX,
   RUN_TOKEN_REJECTION_MESSAGE,
   RUN_TOKEN_TTL_BOUNDS,
   RunTokenError,
@@ -49,7 +52,8 @@ describe('issueRunToken — a per-run, per-account credential (ADR-0006)', () =>
     const { token } = issueRunToken({ runId: RUN, userId: USER, now: T0 });
 
     expect(token).toMatch(RUN_TOKEN_PATTERN);
-    expect(token.startsWith('mcpwn_rt_')).toBe(true);
+    expect(token.startsWith('rt_')).toBe(true);
+    expect(findTells(token)).toEqual([]);
   });
 
   it('binds the record to exactly one run and one account', () => {
@@ -117,15 +121,15 @@ describe('parseRunToken — the wire grammar is checked before any crypto runs',
 
     expect(parsed?.selector).toHaveLength(32);
     expect(parsed?.verifier).toHaveLength(64);
-    expect(`mcpwn_rt_${parsed?.selector}_${parsed?.verifier}`).toBe(token);
+    expect(`rt_${parsed?.selector}_${parsed?.verifier}`).toBe(token);
   });
 
   it.each([
     ['an empty string', ''],
-    ['the wrong prefix', 'mcpwn_xx_' + 'a'.repeat(32) + '_' + 'b'.repeat(64)],
-    ['a truncated verifier', 'mcpwn_rt_' + 'a'.repeat(32) + '_' + 'b'.repeat(63)],
-    ['a non-hex body', 'mcpwn_rt_' + 'z'.repeat(32) + '_' + 'z'.repeat(64)],
-    ['no separator at all', 'mcpwn_rt_' + 'a'.repeat(96)],
+    ['the wrong prefix', 'xx_' + 'a'.repeat(32) + '_' + 'b'.repeat(64)],
+    ['a truncated verifier', 'rt_' + 'a'.repeat(32) + '_' + 'b'.repeat(63)],
+    ['a non-hex body', 'rt_' + 'z'.repeat(32) + '_' + 'z'.repeat(64)],
+    ['no separator at all', 'rt_' + 'a'.repeat(96)],
   ])('refuses %s', (_label, raw) => {
     expect(parseRunToken(raw)).toBeNull();
   });
@@ -182,7 +186,7 @@ describe('verifyRunToken — the full lifecycle: issue, verify, expire with the 
     const other = issueRunToken({ runId: RUN, userId: USER, now: T0 });
     const mineParsed = parseRunToken(mine.token);
     const otherParsed = parseRunToken(other.token);
-    const forged = `mcpwn_rt_${mineParsed?.selector}_${otherParsed?.verifier}`;
+    const forged = `rt_${mineParsed?.selector}_${otherParsed?.verifier}`;
 
     const decision = await verifyRunToken({
       store,
@@ -234,7 +238,7 @@ describe('verifyRunToken — the full lifecycle: issue, verify, expire with the 
   it.each([
     ['garbage', 'not-a-token'],
     ['an empty string', ''],
-    ['a truncated token', 'mcpwn_rt_' + 'a'.repeat(32) + '_' + 'b'.repeat(10)],
+    ['a truncated token', 'rt_' + 'a'.repeat(32) + '_' + 'b'.repeat(10)],
   ])('refuses %s as MALFORMED without touching the store', async (_label, presented) => {
     const store = new InMemoryRunTokenStore();
     let looked = 0;
@@ -563,5 +567,91 @@ describe('InMemoryRunTokenStore — the offline/test adapter', () => {
     await store.endRun(RUN, new Date(T0.getTime() + minutes(9)));
 
     expect((await store.findBySelector(record.selector))?.endedAt).toBe(first.toISOString());
+  });
+});
+
+describe('the legacy prefix: tokens issued before the rename keep working for one token lifetime', () => {
+  /** The same token as issued before the rename: same halves, the old prefix. */
+  const legacy = (token: string) =>
+    `${LEGACY_RUN_TOKEN_PREFIX}_${token.slice(`${RUN_TOKEN_PREFIX}_`.length)}`;
+
+  it('issues the neutral prefix, and names the legacy one only to accept it', () => {
+    expect(RUN_TOKEN_PREFIX).toBe('rt');
+    expect(LEGACY_RUN_TOKEN_PREFIX).toBe('mcpwn_rt');
+  });
+
+  it('parses both prefixes, and says which one it saw', () => {
+    const { token } = issueRunToken({ runId: RUN, userId: USER, now: T0 });
+
+    expect(parseRunToken(token)).toMatchObject({ legacy: false });
+    expect(parseRunToken(legacy(token))).toMatchObject({
+      legacy: true,
+      selector: parseRunToken(token)?.selector,
+      verifier: parseRunToken(token)?.verifier,
+    });
+  });
+
+  it.each([
+    ['the new product name', 'mcproof_rt_'],
+    ['the legacy prefix in capitals', 'MCPWN_RT_'],
+    ['a prefix ending in rt', 'xrt_'],
+  ])('still refuses %s', (_label, prefix) => {
+    expect(parseRunToken(prefix + 'a'.repeat(32) + '_' + 'b'.repeat(64))).toBeNull();
+  });
+
+  it('verifies a legacy token while its run is open and its lifetime has not run out', async () => {
+    const store = new InMemoryRunTokenStore();
+    const { token } = await issued(store);
+
+    const decision = await verifyRunToken({
+      store,
+      presented: legacy(token),
+      runId: RUN,
+      userId: USER,
+      now: new Date(T0.getTime() + minutes(DEFAULT_RUN_TOKEN_TTL_MINUTES - 1)),
+    });
+
+    expect(decision.valid).toBe(true);
+  });
+
+  it('refuses a legacy token once it has expired, exactly as a new one', async () => {
+    const store = new InMemoryRunTokenStore();
+    const { token } = await issued(store);
+    const later = new Date(T0.getTime() + minutes(DEFAULT_RUN_TOKEN_TTL_MINUTES));
+
+    const decision = await verifyRunToken({
+      store,
+      presented: legacy(token),
+      runId: RUN,
+      userId: USER,
+      now: later,
+    });
+
+    expect(decision).toMatchObject({ valid: false, error: { code: 'EXPIRED' } });
+  });
+
+  it('never accepts the legacy prefix past the longest token lifetime, whatever the record says', async () => {
+    const store = new InMemoryRunTokenStore();
+    // A record whose own expiry is further out than any configured lifetime allows.
+    const { token } = await issued(store, { ttlMs: minutes(RUN_TOKEN_TTL_BOUNDS.max * 2) });
+    const pastLifetime = new Date(T0.getTime() + minutes(RUN_TOKEN_TTL_BOUNDS.max));
+
+    const old = await verifyRunToken({
+      store,
+      presented: legacy(token),
+      runId: RUN,
+      userId: USER,
+      now: pastLifetime,
+    });
+    const current = await verifyRunToken({
+      store,
+      presented: token,
+      runId: RUN,
+      userId: USER,
+      now: pastLifetime,
+    });
+
+    expect(old).toMatchObject({ valid: false, error: { code: 'EXPIRED' } });
+    expect(current.valid).toBe(true);
   });
 });

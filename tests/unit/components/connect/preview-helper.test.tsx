@@ -34,8 +34,8 @@ const FUTURE = '2999-01-01T00:00:00.000Z';
 
 const ticket = (expiresAt: string): LiveRunTicketView => ({
   runId: 'run-1',
-  endpoint: 'https://mcpwn.dev/api/mcp/run-1',
-  token: 'mcpwn_rt_secret',
+  endpoint: 'https://mcproof.dev/api/mcp/run-1',
+  token: 'rt_secret',
   expiresAt,
   category: 'ASI02',
   kind: 'malicious',

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { REPO_URL } from '@/config/repo';
 import { Core7List } from '@/components/home/Core7List';
 import { HeroReplay } from '@/components/home/HeroReplay';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
@@ -46,7 +47,7 @@ import type { RunResult, Step } from '@/contract';
  * an app route: the finding on screen is a summary, and the provenance the summary
  * leans on (subject model, per-run trace ids, how to reproduce) lives there.
  */
-const RESULTS_URL = 'https://github.com/thinkTanck/mcpwn/blob/main/RESULTS.md';
+const RESULTS_URL = `${REPO_URL}/blob/main/RESULTS.md`;
 
 /** One-line, plain-words summary of the featured ASI02 attack (trailer + caption). */
 const FEATURED_DESCRIPTOR = 'tool misuse to out-of-scope file read';
@@ -133,12 +134,14 @@ export default async function Home() {
                 fabricated credential preview; the read occurred in 5 of 10 in a clean single sweep
                 and 6 of 10 in a prior run, every instance Critical.
               </p>
-              <Link
+              <a
                 href={RESULTS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-1 inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.06em] text-nominal hover:underline"
               >
                 Read the full results →
-              </Link>
+              </a>
             </div>
 
             {/* THE COMPROMISE CALL — "was this run compromised", scored over every labeled

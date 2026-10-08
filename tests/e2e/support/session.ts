@@ -54,7 +54,7 @@ export const AUTH_STACK_REQUIRED = process.env.E2E_REQUIRE_AUTH === '1';
 /** A throwaway address, unique per run so every sign-in is a fresh account. */
 export function throwawayEmail(): string {
   const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  return `axe-scan-${nonce}@mcpwn.test`;
+  return `axe-scan-${nonce}@mcproof.test`;
 }
 
 type MailBody = { body: string; source: 'mailpit' | 'inbucket' };

@@ -1,4 +1,5 @@
 import { openMcpSession, type FetchLike } from '@/harness/mcp';
+import { findTells } from '@/harness/server/surface';
 import { streamableFetch } from './fake-server';
 
 /**
@@ -118,5 +119,21 @@ describe('openMcpSession · transport negotiation', () => {
       code: 'HTTP_ERROR',
       status: 404,
     });
+  });
+});
+
+describe('openMcpSession · what a probed server is told about us', () => {
+  it('introduces itself with a neutral client name, never a product name', async () => {
+    const server = streamableFetch();
+
+    await openMcpSession({ ...base, fetchImpl: server.fetch });
+
+    const init = server.calls.find(
+      (c) => (c.body as { method?: string } | undefined)?.method === 'initialize',
+    );
+    const clientInfo = (init?.body as { params: { clientInfo: { name: string } } }).params
+      .clientInfo;
+    expect(clientInfo.name).toBe('mcp-client');
+    expect(findTells(JSON.stringify(init?.body))).toEqual([]);
   });
 });

@@ -193,8 +193,11 @@ describe('Home — the featured ASI02 finding', () => {
     const results = screen.getByRole('link', { name: /read the full results/i });
     expect(results).toHaveAttribute(
       'href',
-      'https://github.com/thinkTanck/mcpwn/blob/main/RESULTS.md',
+      'https://github.com/thinkTanck/mcproof/blob/main/RESULTS.md',
     );
+    // It leaves the app, so it opens beside it, like the OWASP links do.
+    expect(results).toHaveAttribute('target', '_blank');
+    expect(results).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });
 
@@ -244,5 +247,12 @@ describe('Home — sample binding (never literals)', () => {
       '[data-testid="trailer-dot"][data-breach="true"]',
     );
     expect(breachDots).toHaveLength(1);
+  });
+});
+
+describe('the repository is named in one place', () => {
+  it('points at the renamed repo', async () => {
+    const { REPO_URL } = await import('@/config/repo');
+    expect(REPO_URL).toBe('https://github.com/thinkTanck/mcproof');
   });
 });

@@ -8,7 +8,7 @@ import NotFound from '@/app/not-found';
 /**
  * ONE LOGO RING, EVERYWHERE THE LOCKUP APPEARS.
  *
- * The lockup (the ring beside the MCPwn wordmark, linking home) is drawn in
+ * The lockup (the ring beside the MCProof wordmark, linking home) is drawn in
  * three places: the status bar, the sign-in page and the not-found page. Each
  * had its own copy of the ring's SVG. When the status bar's ring was enlarged
  * and given a visible, turning arc, the other two kept what they had: a 24px
@@ -35,12 +35,12 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 
 /** Every file that draws the lockup: it holds the home link the ring sits in. */
 const lockupFiles = sourceFiles(SRC).filter((file) =>
-  readFileSync(file, 'utf8').includes('aria-label="MCPwn home"'),
+  readFileSync(file, 'utf8').includes('aria-label="MCProof home"'),
 );
 
 /** The ring inside a rendered lockup, as the facts that make it look the way it does. */
 function ringIn(container: HTMLElement) {
-  const link = within(container).getByRole('link', { name: 'MCPwn home' });
+  const link = within(container).getByRole('link', { name: 'MCProof home' });
   const svg = link.querySelector('svg')!;
   const [track, arc, hub] = [...svg.querySelectorAll('circle')];
   return {
@@ -134,7 +134,7 @@ describe('logo ring · one definition', () => {
  * and no screen writes the wordmark out for itself.
  */
 function wordmarkIn(container: HTMLElement) {
-  const link = within(container).getByRole('link', { name: 'MCPwn home' });
+  const link = within(container).getByRole('link', { name: 'MCProof home' });
   const word = link.querySelector(':scope > span')!;
   return {
     text: word.textContent,
@@ -154,8 +154,8 @@ describe('logo lockup · the wordmark matches everywhere', () => {
     const word = statusBarWordmark();
 
     expect(word.size).toBe('21');
-    expect(word.text).toBe('MCPwn');
-    expect(word.accentText).toBe('wn');
+    expect(word.text).toBe('MCProof');
+    expect(word.accentText).toBe('Proof');
     expect(word.order).toEqual(['svg', 'span']);
   });
 
@@ -185,7 +185,7 @@ describe('logo lockup · one definition', () => {
 
   it('writes the wordmark out in exactly one file, the shared component', () => {
     const writers = sourceFiles(SRC)
-      .filter((file) => /MCP<span/.test(readFileSync(file, 'utf8')))
+      .filter((file) => /MC<span/.test(readFileSync(file, 'utf8')))
       .map(show);
 
     expect(writers).toEqual(['src/components/shell/LogoRing.tsx']);

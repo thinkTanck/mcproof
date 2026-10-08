@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* =========================================================================
- * MCPwn — "Sentinel Fields" DTCG two-tier design tokens
+ * MCProof — "Sentinel Fields" DTCG two-tier design tokens
  * -------------------------------------------------------------------------
  * Tier 1  PRIMITIVES  — raw ramps (the Claude Design source plugs in here).
  * Tier 2  SEMANTIC    — role aliases; components consume ONLY these.
@@ -9,7 +9,7 @@
  *
  * Accessibility contract (WCAG 2.2 AA, verified):
  *   text ≥ 4.5:1 · large/UI ≥ 3:1 against its surface. See §8 of
- *   design-review/uploads/mcpwn-design-system.md. Ratios in comments are
+ *   design-review/uploads/mcproof-design-system.md. Ratios in comments are
  *   measured against --surface-base / --surface-panel.
  * ========================================================================= */
 :root {

@@ -1,4 +1,4 @@
-# MCPwn — Product context
+# MCProof — Product context
 
 > Strategic "who / what / why" for the Impeccable design method (the site's START
 > phase). Impeccable is the design method for all UI work here: an opinionated

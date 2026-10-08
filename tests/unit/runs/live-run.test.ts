@@ -9,6 +9,7 @@ import { detect, type JudgeRequest, type JudgeModelPort } from '@/detector';
 import type { LiveDetector } from '@/detector/resolve';
 import { InMemoryRunRepository } from '@/data/run-repository';
 import { findTells } from '@/harness/server/surface';
+import { buildMcpConfig } from '@/lib/mcp/config';
 import { SESSION_HEADER } from '@/harness/server/http';
 import { createLogger } from '@/lib/logger';
 import {
@@ -246,7 +247,7 @@ describe('live run: the start gate', () => {
     expect(ticket.taskGoal.length).toBeGreaterThan(0);
     expect(ticket.promptName.length).toBeGreaterThan(0);
     expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
-    const selector = ticket.token.split('_')[2]!;
+    const selector = ticket.token.split('_').at(-2)!;
     const record = await tokens.findBySelector(selector);
     expect(record?.runId).toBe(ticket.runId);
     expect(record?.userId).toBe(USER);
@@ -260,7 +261,7 @@ describe('live run: the start gate', () => {
     expect(lines.length).toBeGreaterThan(0);
     const all = lines.join('\n');
     expect(all).not.toContain(ticket.token);
-    for (const half of ticket.token.split('_').slice(2)) expect(all).not.toContain(half);
+    for (const half of ticket.token.split('_').slice(-2)) expect(all).not.toContain(half);
     expect(all).toContain(ticket.runId);
   });
 });
@@ -279,7 +280,7 @@ describe('live run: authenticating the inbound agent', () => {
       },
     );
     const forged = await post(host, ticket.endpoint, initialize, {
-      token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
+      token: `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
     });
 
     expect(unknown.status).toBe(401);
@@ -1240,5 +1241,65 @@ describe('live run: reattaching to a run by its id', () => {
     if (other.ok || unknown.ok) return;
     expect(other.error.code).toBe('RUN_NOT_FOUND');
     expect(unknown.error).toEqual(other.error);
+  });
+});
+
+describe('live run: what the agent can see names neither product (MCP_ENDPOINT_ORIGIN)', () => {
+  const NEUTRAL = 'https://tools.example.net';
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('issues its endpoint on MCP_ENDPOINT_ORIGIN when no origin is injected', async () => {
+    vi.stubEnv('MCP_ENDPOINT_ORIGIN', NEUTRAL);
+    const { host } = fixture({ origin: undefined });
+
+    const ticket = await startRun(host);
+
+    expect(ticket.endpoint).toBe(`${NEUTRAL}${LIVE_RUN_ENDPOINT_PREFIX}/${ticket.runId}`);
+  });
+
+  it('serves an endpoint, token, config, server name, tools and prompts with no product name in them', async () => {
+    vi.stubEnv('MCP_ENDPOINT_ORIGIN', NEUTRAL);
+    const { host } = fixture({ origin: undefined });
+    const ticket = await startRun(host);
+
+    const opened = await post(host, ticket.endpoint, initialize, { token: ticket.token });
+    const sessionId = opened.headers.get(SESSION_HEADER)!;
+    const common = { token: ticket.token, sessionId };
+    await post(
+      host,
+      ticket.endpoint,
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      common,
+    );
+    const listed = await post(
+      host,
+      ticket.endpoint,
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      common,
+    );
+    const prompts = await post(
+      host,
+      ticket.endpoint,
+      { jsonrpc: '2.0', id: 3, method: 'prompts/list' },
+      common,
+    );
+
+    const seen = [
+      ticket.endpoint,
+      ticket.token,
+      ticket.promptName,
+      JSON.stringify(buildMcpConfig(ticket.endpoint, ticket.token)),
+      await opened.text(),
+      await listed.text(),
+      await prompts.text(),
+    ];
+    for (const text of seen) {
+      expect(findTells(text)).toEqual([]);
+    }
+    // The tool list really was read, so the sweep above covered it.
+    expect(seen[5]).toContain('read_email');
   });
 });

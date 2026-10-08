@@ -55,7 +55,9 @@ test.describe('1280: the rail', () => {
 
     await link.click();
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fleaderboard$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Continue to MCPwn.' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Continue to MCProof.' }),
+    ).toBeVisible();
   });
 
   test('follows a client navigation: the return path is the page you are on now', async ({

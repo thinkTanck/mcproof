@@ -20,7 +20,7 @@ import { createLiveRunHost } from '@/runs/live-run';
 import { getLiveRunSessionStore } from '@/runs/live-run-stores.factory';
 import { reapAbandonedRuns } from '@/runs/reaper';
 
-const BASE = process.env.VERIFY_BASE_URL ?? 'https://mcpwn.dev';
+const BASE = process.env.VERIFY_BASE_URL ?? 'https://mcproof.dev';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -107,12 +107,12 @@ async function main(): Promise<void> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  console.log('MCPwn -- the per-run token over real HTTPS, against the deployed endpoint');
+  console.log('MCProof -- the per-run token over real HTTPS, against the deployed endpoint');
   console.log(`endpoint: ${BASE}`);
   console.log(`project:  ${new URL(SUPABASE_URL).host}`);
   console.log(`at:       ${new Date().toISOString()}`);
 
-  const email = `mcpwn-https-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const email = `mcproof-https-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
   const created = await admin.auth.admin.createUser({ email, email_confirm: true });
   if (created.error || !created.data.user) {
     console.error(`\nCould not provision a throwaway account: ${created.error?.message}`);
@@ -139,7 +139,11 @@ async function main(): Promise<void> {
 
     section('ACCEPT -- production has only ever seen this token via Postgres');
     const good = await rpc(runId, token, INITIALIZE);
-    check(good.status === 200, 'production ACCEPTS the real token over HTTPS', `HTTP ${good.status}`);
+    check(
+      good.status === 200,
+      'production ACCEPTS the real token over HTTPS',
+      `HTTP ${good.status}`,
+    );
     check(!!good.session, 'it returns an Mcp-Session-Id', good.session ?? 'none');
     const sid = good.session ?? undefined;
 
@@ -156,7 +160,11 @@ async function main(): Promise<void> {
       bodies.add(r.text);
       check(r.status === 401, `${label} is REFUSED`, `HTTP ${r.status}`);
     }
-    check(bodies.size === 1, 'all three refusals are byte-identical', `distinct bodies=${bodies.size}`);
+    check(
+      bodies.size === 1,
+      'all three refusals are byte-identical',
+      `distinct bodies=${bodies.size}`,
+    );
 
     section('SERVE + RECORD -- the trace is written by production, not by us');
     const listed = await rpc(
@@ -179,25 +187,33 @@ async function main(): Promise<void> {
       { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: tool, arguments: {} } },
       sid,
     );
-    check(called.status === 200, `tools/call (${tool}) is served over HTTPS`, `HTTP ${called.status}`);
+    check(
+      called.status === 200,
+      `tools/call (${tool}) is served over HTTPS`,
+      `HTTP ${called.status}`,
+    );
 
     await new Promise((resolve) => setTimeout(resolve, 2500));
-    const events = await admin
-      .from('live_run_events')
-      .select('*')
-      .eq('run_id', runId)
-      .order('idx');
+    const events = await admin.from('live_run_events').select('*').eq('run_id', runId).order('idx');
     const steps = (events.data ?? []).map(
       (e) => (e as { event: { type: string; tool?: string } }).event,
     );
     const calls = steps.filter((s) => s?.type === 'tool_call').map((s) => s.tool);
-    check(steps.length > 0, 'production RECORDED the trace into live_run_events', `rows=${steps.length}`);
+    check(
+      steps.length > 0,
+      'production RECORDED the trace into live_run_events',
+      `rows=${steps.length}`,
+    );
     check(
       steps[0]?.type === 'principal_instruction',
       'the first recorded step is principal_instruction',
       steps[0]?.type ?? 'none',
     );
-    check(calls.includes(tool), 'the recorded trace holds the call made over the wire', `[${calls.join(', ')}]`);
+    check(
+      calls.includes(tool),
+      'the recorded trace holds the call made over the wire',
+      `[${calls.join(', ')}]`,
+    );
     check(!steps.some((s) => s?.type === 'agent_reasoning'), 'no agent_reasoning was synthesized');
 
     section('REAPER -- a real abandoned row, closed');
@@ -239,7 +255,11 @@ async function main(): Promise<void> {
   } finally {
     section('CLEANUP');
     const deleted = await admin.auth.admin.deleteUser(userId);
-    check(!deleted.error, 'the throwaway account and its cascaded rows are gone', deleted.error?.message ?? '');
+    check(
+      !deleted.error,
+      'the throwaway account and its cascaded rows are gone',
+      deleted.error?.message ?? '',
+    );
     for (const table of ['run_tokens', 'live_runs', 'live_run_events']) {
       const { count } = await admin.from(table).select('*', { count: 'exact', head: true });
       console.log(`  ${table.padEnd(18)} rows remaining: ${count}`);

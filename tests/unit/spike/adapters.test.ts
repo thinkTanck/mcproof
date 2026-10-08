@@ -263,7 +263,7 @@ describe('createExportTrace', () => {
     }));
     // A real, freshly made base temp; the export dir is a nested child that does
     // NOT exist yet, so the real filesystem write would ENOENT without a mkdir.
-    const base = await mkdtemp(join(tmpdir(), 'mcpwn-export-'));
+    const base = await mkdtemp(join(tmpdir(), 'mcproof-export-'));
     const exportDir = join(base, 'does', 'not', 'exist', 'yet');
     try {
       // Real fs write and mkdir (both defaulted): this reproduces the reported bug.

@@ -4,7 +4,7 @@ import { resolveRun } from '@/data/run-view';
 import { Replay, RUN_NOT_FOUND_TITLE } from '@/components/replay';
 
 const PAGE_METADATA: Metadata = {
-  title: 'Live Attack Replay · MCPwn',
+  title: 'Live Attack Replay · MCProof',
   description:
     'Replay an attack run as a live agent transcript: every step streams into the console and the detector verdict prints beside it. A run that ended in a compromise is marked at the offending step; a run the agent resisted is replayed as a clean result.',
 };

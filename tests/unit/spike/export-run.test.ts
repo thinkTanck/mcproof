@@ -27,7 +27,7 @@ interface Ticket {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.SPIKE_ALLOWED_TOOLS = 'approve_refund,run_shell';
-  process.env.SPIKE_TEMP_DIR = '/tmp/mcpwn-spike';
+  process.env.SPIKE_TEMP_DIR = '/tmp/mcproof-spike';
   process.env.SPIKE_SUBJECT_MODEL = 'claude-fable-5';
   delete process.env.SPIKE_MCP_SERVER_NAME;
   vi.mocked(checkLiveRunAllowance).mockResolvedValue({

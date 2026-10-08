@@ -31,8 +31,8 @@ vi.mock('next/navigation', async (importOriginal) => ({
 
 const TICKET: LiveRunTicketView = {
   runId: 'run-77',
-  endpoint: 'https://mcpwn.dev/api/mcp/run-77',
-  token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
+  endpoint: 'https://mcproof.dev/api/mcp/run-77',
+  token: `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
   expiresAt: '2099-01-01T00:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',

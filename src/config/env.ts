@@ -65,7 +65,7 @@ export function loadCoreConfig(env: Env = process.env): CoreConfig {
 // with zero configuration.
 
 /** The canonical production origin, used when `NEXT_PUBLIC_SITE_URL` is unset. */
-export const DEFAULT_SITE_ORIGIN = 'https://mcpwn.dev';
+export const DEFAULT_SITE_ORIGIN = 'https://mcproof.dev';
 
 // Trimmed, gated as http(s), then collapsed to the bare origin — the same
 // normalization the Supabase URL gets, for the same reason: a dashboard/CI paste
@@ -91,6 +91,52 @@ export function getSiteOrigin(env: Env = process.env): string {
   const result = SiteUrlSchema.safeParse(env);
   if (!result.success) throw toConfigError(result.error, 'Invalid site URL configuration');
   return result.data;
+}
+
+// ── CORE: where issued run endpoints live (MCP_ENDPOINT_ORIGIN) ──
+//
+// The endpoint a run issues is saved in the agent's own MCP config, which an
+// agent with file tools can read. A product name in that host tells the agent
+// what it is talking to, so the endpoint origin is configurable apart from the
+// site origin: point it at a neutral host and nothing the agent can read names
+// the product. Unset, it is the site origin.
+
+/** What a run endpoint's origin may be: https, a bare origin, nothing else. */
+function asHttpsOrigin(value: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:') return null;
+  if (url.username || url.password || url.search || url.hash) return null;
+  if (url.pathname !== '/' && url.pathname !== '') return null;
+  return url.origin;
+}
+
+/**
+ * The origin every issued run endpoint is built on. Reads `MCP_ENDPOINT_ORIGIN`;
+ * unset or blank means the site origin ({@link getSiteOrigin}). A SET value that
+ * is not a bare https origin is NOT a crash on the live-run path: it falls back
+ * to the site origin and logs a warning naming the variable (never its value,
+ * which may carry credentials), because a run on the site host is better than no
+ * run, and the warning is how the operator learns the setting is not in force.
+ * The caller passes its logger; this module imports nothing of the app's, because
+ * next.config.ts loads it (through the legacy-host redirect) before any alias exists.
+ */
+export function getMcpEndpointOrigin(
+  env: Env = process.env,
+  logger?: { warn: (message: string, fields?: Record<string, unknown>) => void },
+): string {
+  const raw = env.MCP_ENDPOINT_ORIGIN?.trim();
+  if (!raw) return getSiteOrigin(env);
+  const origin = asHttpsOrigin(raw);
+  if (origin !== null) return origin;
+  logger?.warn('MCP_ENDPOINT_ORIGIN is not a bare https origin; using the site origin', {
+    variable: 'MCP_ENDPOINT_ORIGIN',
+  });
+  return getSiteOrigin(env);
 }
 
 // ── NOTE: there is no persistence driver here, on purpose ──

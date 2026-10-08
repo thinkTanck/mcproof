@@ -21,7 +21,8 @@
  *    itself. This is what catches `` `POST failed for ${apiKey}` `` — a string
  *    whose key says nothing and whose content is the whole secret.
  * 3. BY SHAPE. Credentials with an unmistakable grammar are redacted with no
- *    configuration at all: our own `mcpwn_rt_..._...` run tokens, `Bearer`
+ *    configuration at all: our own `rt_..._...` run tokens (and the legacy
+ *    `mcpwn_rt_..._...` form still accepted for one token lifetime), `Bearer`
  *    values, JWTs (the shape every Supabase key takes), `sk-`-prefixed API keys,
  *    and Postgres connection strings (which carry the database password). Shape
  *    matching is what protects a per-run secret that exists for one run and is
@@ -77,9 +78,11 @@ const SENSITIVE_KEY =
  * carry, so a false positive costs a redacted log line and never a wrong value.
  */
 const SECRET_SHAPES: readonly (readonly [RegExp, string])[] = [
-  // Our own per-run token. Matched on the selector alone too, so a truncated or
-  // partially quoted token is still caught.
-  [/mcpwn_rt_[0-9a-f]{8,}(?:_[0-9a-f]{8,})?/gi, `mcpwn_rt_${REDACTED}`],
+  // Our own per-run token, under the current `rt_` prefix or the legacy
+  // `mcpwn_rt_` one. Matched on the selector alone too, so a truncated or
+  // partially quoted token is still caught. The word boundary keeps `part_` and
+  // `start_` out of it.
+  [/\b((?:mcpwn_)?rt)_[0-9a-f]{8,}(?:_[0-9a-f]{8,})?/gi, `$1_${REDACTED}`],
   // An HTTP authorization credential of any scheme we use.
   [/\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, `$1 ${REDACTED}`],
   // A JWT. Every Supabase key is one, as are session tokens.

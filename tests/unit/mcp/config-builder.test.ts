@@ -73,7 +73,7 @@ const SERVER_NAME_FILES = [
 
 beforeEach(() => {
   // Config a caller would receive, supplied here rather than hardcoded inline.
-  process.env.MCP_TEST_ENDPOINT = 'https://mcpwn.dev/api/mcp/run/spike';
+  process.env.MCP_TEST_ENDPOINT = 'https://mcproof.dev/api/mcp/run/spike';
   process.env.MCP_TEST_TOKEN = 'token-under-test';
 });
 

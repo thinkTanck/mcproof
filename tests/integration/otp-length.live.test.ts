@@ -32,7 +32,7 @@ describe.runIf(LIVE)('email OTP length — live Supabase project', () => {
   // built lazily in beforeAll (which does not run when skipped) — otherwise
   // createClient throws "supabaseUrl is required" during credential-free runs.
   let admin: SupabaseClient;
-  const email = `otp-length-probe-${Date.now()}@mcpwn.test`;
+  const email = `otp-length-probe-${Date.now()}@mcproof.test`;
   let userId = '';
 
   beforeAll(async () => {

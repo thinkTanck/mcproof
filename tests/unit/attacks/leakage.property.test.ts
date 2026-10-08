@@ -6,7 +6,7 @@ import { CategorySchema, type Category, type Trace } from '@/contract';
 /**
  * THE LEAKAGE INVARIANT, as an executable law.
  *
- * MCPwn's entire accuracy claim rests on one thing: the detector predicts from
+ * MCProof's entire accuracy claim rests on one thing: the detector predicts from
  * the OBSERVABLE `Trace`, and the `GroundTruth` it is scored against was never
  * available to it. That is the standard anti-leakage rule (Kaufman et al. 2012,
  * *Leakage in Data Mining*): never let the model use information unavailable at

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { resolveFixReport } from '@/data/run-view';
 import type { Metadata } from 'next';
-import { FindingsReport, REPORT_NOT_FOUND_TITLE } from '@/components/findings';
+import { FindingsReport, REPORT_NOT_FOUND_TITLE, reportTitle } from '@/components/findings';
 
 /**
  * Findings / fix report screen (`/findings/[id]`). Reads through `resolveFixReport`,
@@ -23,14 +23,16 @@ import { FindingsReport, REPORT_NOT_FOUND_TITLE } from '@/components/findings';
 type Props = { params: Promise<{ id: string }> };
 
 /**
- * Only the not-found title is set here; a report that resolves keeps the site
- * title it always had. It is set on the PAGE because the browser applies the
- * metadata of the render that called `notFound()`, not the not-found file's.
- * `resolveFixReport` reads through a resolver cached per request.
+ * A report that resolves is titled for what it is (a fix report, or a clean
+ * run's result); one that does not gets the not-found title. Both are set on the
+ * PAGE because the browser applies the metadata of the render that called
+ * `notFound()`, not the not-found file's. `resolveFixReport` reads through a
+ * resolver cached per request.
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  return (await resolveFixReport(id)) ? {} : { title: REPORT_NOT_FOUND_TITLE };
+  const view = await resolveFixReport(id);
+  return { title: view ? reportTitle(view.report) : REPORT_NOT_FOUND_TITLE };
 }
 
 export default async function FindingsScreen({ params }: Props) {

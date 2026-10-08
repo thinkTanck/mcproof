@@ -7,7 +7,7 @@ import { THREATS } from '@/components/threats/threat-data';
 import { getDataSource } from '@/data/source';
 
 export const metadata: Metadata = {
-  title: 'Threat Model / Coverage · MCPwn',
+  title: 'Threat Model / Coverage · MCProof',
   description:
     'All ten OWASP Agentic categories, stated plainly. Seven are observable inside a single run, so we test them. Three complete where our trace cannot see, so we say so.',
 };

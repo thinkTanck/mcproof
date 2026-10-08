@@ -8,7 +8,9 @@ import {
 
 const KEY = 'sk-ant-0123456789abcdef0123456789abcdef';
 const SERVICE_ROLE = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.abcdefghijkl';
-const RUN_TOKEN = `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`;
+const RUN_TOKEN = `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`;
+/** Issued before the rename; accepted until it expires, so it must be masked too. */
+const LEGACY_RUN_TOKEN = `mcpwn_rt_${'c'.repeat(32)}_${'d'.repeat(64)}`;
 
 const env = {
   JUDGE_API_KEY: KEY,
@@ -60,6 +62,32 @@ describe('redactString', () => {
 
     expect(out).not.toContain(RUN_TOKEN);
     expect(out).not.toContain('b'.repeat(64));
+  });
+
+  it.each([
+    ['the run token', RUN_TOKEN, 'b'],
+    ['a legacy-prefixed run token', LEGACY_RUN_TOKEN, 'd'],
+  ])(
+    'masks %s by its shape alone, in plain prose, with no configuration',
+    (_label, token, verifierChar) => {
+      const out = redactString(`the agent sent ${token} as its credential`, { env: {} });
+
+      expect(out).not.toContain(token);
+      expect(out).not.toContain(verifierChar.repeat(64));
+      expect(out).toContain(REDACTED);
+    },
+  );
+
+  it('masks a run token cut down to its selector, under either prefix', () => {
+    for (const prefix of ['rt', 'mcpwn_rt']) {
+      const out = redactString(`selector ${prefix}_${'e'.repeat(32)} only`, { env: {} });
+      expect(out).not.toContain('e'.repeat(32));
+    }
+  });
+
+  it('leaves a word that merely ends in "rt" alone', () => {
+    const text = 'part_0123456789abcdef and start_fedcba9876543210';
+    expect(redactString(text, { env: {} })).toBe(text);
   });
 
   it('redacts a bearer credential of any shape', () => {
