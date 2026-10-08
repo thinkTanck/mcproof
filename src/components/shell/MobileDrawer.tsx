@@ -1,5 +1,7 @@
 import { NAV_ITEMS } from './nav-items';
 import { NavLink } from './NavLink';
+import { AccountEntry } from './AccountEntry';
+import type { ShellAccount } from '@/lib/shell-account';
 
 /**
  * Mobile command-deck: the hamburger + a drawer via the native HTML Popover API
@@ -7,7 +9,7 @@ import { NavLink } from './NavLink';
  * Server-rendered, so it adds no hydration cost to the shell. The button is
  * hidden ≥760px, where the persistent rail takes over.
  */
-export function MobileDrawer({ pathname }: { pathname: string }) {
+export function MobileDrawer({ pathname, account }: { pathname: string; account: ShellAccount }) {
   return (
     <>
       <button
@@ -42,6 +44,7 @@ export function MobileDrawer({ pathname }: { pathname: string }) {
             ))}
           </nav>
           <div className="flex-1" />
+          <AccountEntry account={account} pathname={pathname} />
         </div>
       </div>
     </>

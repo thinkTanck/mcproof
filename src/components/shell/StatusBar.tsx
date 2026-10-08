@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { LogoLockup } from './LogoRing';
 import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
+import type { ShellAccount } from '@/lib/shell-account';
 
 /** Run-context telemetry shown in the status bar on a run screen. */
 export type RunContext = {
@@ -24,7 +25,13 @@ export function StatusBar({
   mode,
   meta = 'SENTINEL FIELDS',
   runContext,
+  account = { state: 'signed-out' },
 }: {
+  /**
+   * Passed straight through to the mobile drawer, which is opened from here.
+   * The header itself draws no account control.
+   */
+  account?: ShellAccount;
   pathname: string;
   /** Where the run on show came from. Absent on a screen that shows no run. */
   mode?: Mode;
@@ -44,7 +51,7 @@ export function StatusBar({
     // still needs 351px there, so below 360px there is one tighter tier, again
     // spacing only: 4px padding and 4px gaps. That needs 315px, 5px to spare.
     <header className="sticky top-0 z-[45] flex h-(--header-h) shrink-0 items-center gap-1 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-1 backdrop-blur-[6px] min-[360px]:gap-2 min-[360px]:px-3 min-[420px]:gap-4 min-[420px]:px-[18px]">
-      <MobileDrawer pathname={pathname} />
+      <MobileDrawer pathname={pathname} account={account} />
       <Link
         href="/"
         aria-label="MCPwn home"

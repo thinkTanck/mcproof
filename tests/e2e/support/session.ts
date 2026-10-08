@@ -167,9 +167,17 @@ async function waitForCode(address: string, codeLength: number): Promise<string>
  * visits both screens on that session rather than signing in per screen.
  */
 export async function signInThroughTheRealForm(page: Page, next = '/account'): Promise<string> {
-  const address = throwawayEmail();
-
   await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
+  return completeTheSignInForm(page, next);
+}
+
+/**
+ * The same sign-in, from a sign-in page the test ALREADY reached, by following a
+ * link the way a visitor does. `next` is where that link said to come back to;
+ * it is asserted, not supplied: the page was opened by the app, not by the test.
+ */
+export async function completeTheSignInForm(page: Page, next: string): Promise<string> {
+  const address = throwawayEmail();
 
   await page.getByLabel('Email').fill(address);
   await page.getByRole('button', { name: /email me a code/i }).click();

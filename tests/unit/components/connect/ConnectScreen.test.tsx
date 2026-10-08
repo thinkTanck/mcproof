@@ -52,7 +52,10 @@ describe('ConnectScreen · mode', () => {
 
     expect(screen.getByText(/sample playback needs no sign-in/i)).toBeInTheDocument();
     await goLive(user);
-    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
+      'href',
+      '/sign-in?next=%2Fconnect',
+    );
   });
 });
 

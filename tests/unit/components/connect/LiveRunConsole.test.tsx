@@ -688,7 +688,10 @@ describe('LiveRunConsole · the sign-in gate', () => {
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn={false} />);
 
     expect(screen.queryByRole('button', { name: /issue run endpoint/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
+      'href',
+      '/sign-in?next=%2Fconnect',
+    );
   });
 });
 

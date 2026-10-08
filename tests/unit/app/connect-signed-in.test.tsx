@@ -58,7 +58,10 @@ describe('Connect page — real session state', () => {
     render(await ConnectPage());
     await goLive();
 
-    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
+      'href',
+      '/sign-in?next=%2Fconnect',
+    );
     expect(screen.queryByRole('button', { name: /issue run endpoint/i })).not.toBeInTheDocument();
   });
 });

@@ -629,8 +629,10 @@ function SignInGate() {
           it needs an account. Sample playback needs no sign-in and no key.
         </p>
       </div>
+      {/* Back to this screen afterwards. A bare /sign-in lands on /account,
+          and someone who signed in to run live had to find their way back. */}
       <Link
-        href="/sign-in"
+        href="/sign-in?next=%2Fconnect"
         className="min-h-11 shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] leading-6 tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10"
       >
         SIGN IN

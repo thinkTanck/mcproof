@@ -82,7 +82,7 @@ describe('AppShell (server shell)', () => {
 
 describe('MobileDrawer', () => {
   it('marks the active route inside the popover drawer', () => {
-    render(<MobileDrawer pathname="/leaderboard" />);
+    render(<MobileDrawer pathname="/leaderboard" account={{ state: 'signed-out' }} />);
     const nav = screen.getByRole('navigation', { name: 'Command deck (mobile)', hidden: true });
     expect(within(nav).getByRole('link', { name: 'Leaderboard', hidden: true })).toHaveAttribute(
       'aria-current',

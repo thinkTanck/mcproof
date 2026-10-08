@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
+import { isAuthEnabled } from '@/config/env';
 import { resolveRun } from '@/data/run-view';
+import { readShellAccount } from '@/lib/shell-identity';
 import { Graticule } from './Graticule';
 import { StatusBar } from './StatusBar';
 import { CommandDeck } from './CommandDeck';
@@ -42,6 +44,10 @@ export async function AppShell({ children }: { children: ReactNode }) {
   // it gets no badge. It used to default to SAMPLE, which printed SAMPLE over
   // every screen that was not showing a run at all.
   const mode = view?.origin;
+  // Who the account entry says is signed in. A LABEL, read from the header the
+  // middleware set from the visitor it had already verified; it decides nothing
+  // about access (`src/lib/shell-identity.ts`).
+  const account = readShellAccount(headerList, { authConfigured: isAuthEnabled() });
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
       {/* Skip link (WCAG 2.4.1) — first focusable element, so a keyboard user can
@@ -53,9 +59,9 @@ export async function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <Graticule />
-      <StatusBar pathname={pathname} mode={mode} runContext={runContext} />
+      <StatusBar pathname={pathname} mode={mode} runContext={runContext} account={account} />
       <div className="flex min-h-[calc(100dvh-var(--header-h))]">
-        <CommandDeck pathname={pathname} />
+        <CommandDeck pathname={pathname} account={account} />
         <main
           id="main"
           tabIndex={-1}
