@@ -90,7 +90,15 @@ const ALLOWED: readonly Allowed[] = [
 ];
 
 function trackedFiles(): string[] {
-  const out = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' });
+  // Tracked files AND new, unignored ones, so a local run sees a file before it is committed.
+  const out = execFileSync(
+    'git',
+    ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+    },
+  );
   return out
     .split('\0')
     .filter(Boolean)
