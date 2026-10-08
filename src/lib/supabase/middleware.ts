@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getSupabaseConfig } from '@/config/env';
+import { SHELL_USER_HEADER, encodeShellUser } from '@/lib/shell-identity';
 
 /**
  * Refresh the Supabase session on every request and forward it to Server
@@ -33,6 +34,17 @@ export async function updateSession(
 
   // Touching the user refreshes the session cookie — required for SSR auth to
   // stay valid across requests.
-  await supabase.auth.getUser();
-  return response;
+  const { data } = await supabase.auth.getUser();
+  const email = data.user?.email;
+  if (!email) return response;
+
+  // WHO IS SIGNED IN, FOR THE SHELL'S LABEL. This call already verified the
+  // visitor, so the address is forwarded to the render instead of being asked
+  // for again on every page. A response's forwarded headers are fixed when it
+  // is built, so it is rebuilt with the header and given the cookies the
+  // refresh may have written. Display only: `src/lib/shell-identity.ts`.
+  requestHeaders.set(SHELL_USER_HEADER, encodeShellUser(email));
+  const labelled = NextResponse.next({ request: { headers: requestHeaders } });
+  response.cookies.getAll().forEach((cookie) => labelled.cookies.set(cookie));
+  return labelled;
 }

@@ -1,11 +1,13 @@
 import { NAV_ITEMS } from './nav-items';
 import { NavLink } from './NavLink';
+import { AccountEntry } from './AccountEntry';
+import type { ShellAccount } from '@/lib/shell-account';
 
 /**
  * Persistent command-deck rail on ≥760px (icon-only 72px → full 236px at
  * ≥1100px). A Server Component — active state comes from `pathname`.
  */
-export function CommandDeck({ pathname }: { pathname: string }) {
+export function CommandDeck({ pathname, account }: { pathname: string; account: ShellAccount }) {
   return (
     <nav
       aria-label="Command deck"
@@ -23,6 +25,12 @@ export function CommandDeck({ pathname }: { pathname: string }) {
         />
       ))}
       <div className="flex-1" />
+      {/* The way in and the way out, under the destinations. */}
+      <AccountEntry
+        account={account}
+        pathname={pathname}
+        labelClassName="hidden min-[1100px]:inline"
+      />
     </nav>
   );
 }

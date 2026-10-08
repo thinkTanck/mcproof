@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { MISSING_RUN_PATHS, couldBeRunId } from '@/lib/run-id';
+import { SHELL_USER_HEADER } from '@/lib/shell-identity';
 
 /**
  * Three jobs per request: (1) expose the pathname to Server Components via an
@@ -11,7 +12,8 @@ import { MISSING_RUN_PATHS, couldBeRunId } from '@/lib/run-id';
  * when auth is not configured (offline-safe).
  *
  * `x-pathname` is SET, never appended: a request that arrives carrying a header
- * of that name has it replaced with the real path.
+ * of that name has it replaced with the real path. The shell user header is
+ * handled the same way: cleared here, written by `updateSession`.
  *
  * ── WHY A 404 IS DECIDED HERE AT ALL ──
  *
@@ -42,6 +44,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', pathname);
+  // The shell's "signed in as" label reads this header. Whatever the client
+  // sent is dropped here, on every path; `updateSession` writes the verified
+  // address back when there is one. Display only (`src/lib/shell-identity.ts`).
+  requestHeaders.delete(SHELL_USER_HEADER);
 
   const rewriteAs404 = (to: string) =>
     NextResponse.rewrite(new URL(to, request.url), {

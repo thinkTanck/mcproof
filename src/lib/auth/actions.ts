@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { sanitizeNext } from './next';
 import { createOtpSenderSupabase, createServerSupabase } from '@/lib/supabase/server';
 import { readableAuthError } from '@/lib/auth/errors';
 import { clientIpFromHeaders, otpRateLimiter } from '@/lib/auth/otp-rate-limit';
@@ -19,15 +20,6 @@ async function siteOrigin(): Promise<string> {
   const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
   const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
   return `${proto}://${host}`;
-}
-
-/** Same-site relative path only, else `/account` (open-redirect guard). `next`
- *  arrives from the untrusted `?next=` query param. */
-function sanitizeNext(next?: string): string {
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
-    return '/account';
-  }
-  return next;
 }
 
 /**

@@ -190,7 +190,12 @@ test('Connect in live mode (signed out) renders the gate and has no WCAG A/AA vi
   await gotoOk(page, '/connect');
   await page.getByRole('button', { name: /^LIVE/ }).click();
 
-  await expect(page.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+  // The gate brings you back here once you have signed in. Scoped to the page
+  // content: the shell carries a sign-in entry of its own.
+  await expect(page.getByRole('main').getByRole('link', { name: /^sign in$/i })).toHaveAttribute(
+    'href',
+    '/sign-in?next=%2Fconnect',
+  );
   // Gated, so nothing was issued: no run console, and still nothing to type into.
   await expect(page.getByRole('button', { name: /issue run endpoint/i })).toHaveCount(0);
   await expect(page.locator('input')).toHaveCount(0);

@@ -3,7 +3,7 @@ import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
 import {
   AUTH_STACK_CONFIGURED,
   AUTH_STACK_REQUIRED,
-  signInThroughTheRealForm,
+  completeTheSignInForm,
 } from './support/session';
 
 /**
@@ -50,14 +50,70 @@ test.describe('signed-in screens', () => {
   test('the account page and the signed-in live console render and have no WCAG A/AA violations', async ({
     page,
   }) => {
-    const address = await signInThroughTheRealForm(page, '/account');
+    // ── BEFORE SIGN-IN: the shell offers a way in, and it is not a preview ──
+    // This build has a real auth backend, so the entry is the plain one.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/connect');
+    const rail = page.getByRole('navigation', { name: 'Command deck' });
+    await expect(rail.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
+      'href',
+      '/sign-in?next=%2Fconnect',
+    );
+    await expect(rail.getByTestId('account-entry').getByText('PREVIEW')).toHaveCount(0);
+    await expect(rail.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+
+    // ── THE LIVE GATE SENDS YOU TO SIGN IN, AND SIGN-IN BRINGS YOU BACK ──
+    // It used to link to a bare /sign-in, which lands on /account: someone who
+    // signed in to run live had to find their own way back to Connect.
+    await page.getByRole('button', { name: /^LIVE/ }).click();
+    await page
+      .getByRole('main')
+      .getByRole('link', { name: /^sign in$/i })
+      .click();
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Fconnect$/);
+    // ONE sign-in for the whole test: the local stack caps outgoing mail.
+    const address = await completeTheSignInForm(page, '/connect');
+    await expect(page).toHaveURL(/\/connect$/);
+
+    // ── SIGNED IN: the rail says who, and offers the way out ──
+    const entry = rail.getByTestId('account-entry');
+    await expect(entry.getByText('SIGNED IN')).toBeVisible();
+    await expect(entry.getByText(address)).toBeVisible();
+    await expect(
+      rail.getByRole('link', { name: `Your runs, signed in as ${address}` }),
+    ).toHaveAttribute('href', '/account');
+    await expect(rail.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(rail.getByRole('link', { name: /^sign in/i })).toHaveCount(0);
+
+    // ── THE SAME ENTRY ON A PHONE, IN THE DRAWER ──
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.getByRole('button', { name: 'Open command deck' }).click();
+    const drawer = page.locator('#mobile-deck');
+    await expect(drawer.getByTestId('account-entry').getByText(address)).toBeVisible();
+    for (const control of [
+      drawer.getByRole('link', { name: `Your runs, signed in as ${address}` }),
+      drawer.getByRole('button', { name: 'Sign out' }),
+    ]) {
+      await expect(control).toBeVisible();
+      expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 1280, height: 900 });
 
     // ── /account ──
+    await rail.getByRole('link', { name: `Your runs, signed in as ${address}` }).click();
+    await expect(page).toHaveURL(/\/account$/);
     // Proof the session is real and owner-scoped: the page shows the address we
     // just signed in as, which only a resolved session can supply.
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByText(address)).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible();
+    // In the page itself: the shell now prints the address too (rail and drawer).
+    await expect(page.getByRole('main').getByText(address)).toBeVisible();
+    await expect(page.getByRole('main').getByRole('button', { name: /sign out/i })).toBeVisible();
     await expectNoWcagViolations(page);
 
     // ── /connect, live mode, SIGNED IN ──
@@ -71,7 +127,12 @@ test.describe('signed-in screens', () => {
     await expect(page.getByRole('link', { name: /^sign in$/i })).toHaveCount(0);
     // The token discipline the screen claims: nothing on it takes typed input,
     // so no autofill store or password manager has a control to latch onto.
-    await expect(page.locator('input')).toHaveCount(0);
+    // Scoped to the screen. The shell's Sign out is a form that posts a server
+    // action, and React gives such a form hidden fields; they are not controls
+    // anyone types into, and they are outside the console this claim is about.
+    await expect(page.getByRole('main').locator('input')).toHaveCount(0);
+    // And nowhere on the page, shell included, is there a field to type into.
+    await expect(page.locator('input:not([type="hidden"]), textarea, select')).toHaveCount(0);
 
     // BOTH FRAMINGS ARE REACHABLE FROM THE SIGNED-IN CONSOLE, and the panel
     // describes the one that is actually about to be served: saying "the attack
@@ -85,5 +146,15 @@ test.describe('signed-in screens', () => {
     ).toBeVisible();
 
     await expectNoWcagViolations(page);
+
+    // ── SIGN OUT, FROM THE SHELL: back to the front door, session gone ──
+    await rail.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(rail.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(rail.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+    await expect(rail.getByText(address)).toHaveCount(0);
+    // Not just a label: the session really is cleared.
+    await page.goto('/account');
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Faccount$/);
   });
 });
