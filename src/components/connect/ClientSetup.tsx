@@ -115,6 +115,12 @@ export const ISOLATED_CONFIG_FILE = 'run-mcp.json';
  * carries no credential (the token lives in the file), so it is rendered and
  * copied as is.
  */
+/** Where Cursor reads its project MCP servers from. Shown and typed in this case. */
+export const CURSOR_CONFIG_FILE = '.cursor/mcp.json';
+
+/** Where VS Code reads its workspace MCP servers from. */
+export const VSCODE_CONFIG_FILE = '.vscode/mcp.json';
+
 export const ISOLATED_LAUNCH_COMMAND = `claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`;
 
 /** What every other client needs on every request. */
@@ -154,11 +160,14 @@ const WarningIcon = () => (
  */
 function Snippet({
   label,
+  file,
   name,
   build,
   ticket,
 }: {
   label: string;
+  /** A file name the label ends with, kept in its own case. See `CopyOut`. */
+  file?: string;
   name: string;
   build: (endpoint: string, token: string) => string;
   ticket: LiveRunTicketView;
@@ -166,6 +175,7 @@ function Snippet({
   return (
     <CopyOut
       label={label}
+      file={file}
       name={name}
       tone="code"
       value={build(ticket.endpoint, ticket.token)}
@@ -379,7 +389,8 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
       <Step
         snippets={
           <Snippet
-            label={`SAVE AS ${ISOLATED_CONFIG_FILE}`}
+            label="SAVE AS"
+            file={ISOLATED_CONFIG_FILE}
             name="Claude Code config file"
             build={desktopConfig}
             ticket={ticket}
@@ -466,13 +477,15 @@ function CursorOrVsCode({ ticket }: { ticket: LiveRunTicketView }) {
         snippets={
           <>
             <Snippet
-              label="CURSOR · .cursor/mcp.json"
+              label="CURSOR ·"
+              file={CURSOR_CONFIG_FILE}
               name="Cursor configuration"
               build={desktopConfig}
               ticket={ticket}
             />
             <Snippet
-              label="VS CODE · .vscode/mcp.json"
+              label="VS CODE ·"
+              file={VSCODE_CONFIG_FILE}
               name="VS Code configuration"
               build={vsCodeConfig}
               ticket={ticket}
