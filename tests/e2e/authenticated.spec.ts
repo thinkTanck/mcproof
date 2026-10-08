@@ -111,7 +111,8 @@ test.describe('signed-in screens', () => {
     // Proof the session is real and owner-scoped: the page shows the address we
     // just signed in as, which only a resolved session can supply.
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByText(address)).toBeVisible();
+    // In the page itself: the shell now prints the address too (rail and drawer).
+    await expect(page.getByRole('main').getByText(address)).toBeVisible();
     await expect(page.getByRole('main').getByRole('button', { name: /sign out/i })).toBeVisible();
     await expectNoWcagViolations(page);
 
