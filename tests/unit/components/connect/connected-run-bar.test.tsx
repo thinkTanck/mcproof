@@ -148,3 +148,71 @@ describe('every other state keeps the bar it had', () => {
     expect(within(dock()).queryByRole('button', { name: 'End run and judge' })).toBeNull();
   });
 });
+
+/**
+ * FROM 640px UP THE BAR IS MAIN'S BAR, CLASS FOR CLASS.
+ *
+ * A pixel height is no guard: Windows and the Linux CI runner render the
+ * fallback font at different sizes, and a height measured on one is not a fact
+ * about the other. What decides the layout at 640px and up is the set of classes
+ * that apply there, so that is what is compared. Every phone-only class is
+ * written `max-sm:`, every class for 640px up `sm:` (or unprefixed when it holds
+ * at every width), so the set that applies at 640px and up can be read off the
+ * markup exactly.
+ *
+ * The lists below are the class attributes of these five elements on main
+ * (8fcdefc), copied from `src/components/connect/LiveRunConsole.tsx` there.
+ */
+const MAIN_AT_SM_AND_UP = {
+  row: 'flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3',
+  status: 'flex flex-1 flex-wrap items-center gap-x-4 gap-y-2',
+  label: 'font-mono text-[13px] tracking-[0.08em]',
+  count: 'flex items-baseline gap-2',
+  button:
+    'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20',
+};
+
+/** The classes that apply at 640px and up: unprefixed ones, plus `sm:` ones without the prefix. */
+function atSmAndUp(el: Element): string[] {
+  const tokens = el.className.split(/\s+/).filter(Boolean);
+  for (const t of tokens) {
+    // Only the two prefixes this rule is written in. Anything else would need
+    // its own reading and is refused rather than guessed at.
+    expect(t, `unexpected variant in "${t}"`).toMatch(/^(?:(?:max-)?sm:)?[^:]+$|^hover:[^:]+$/);
+  }
+  const resolved = tokens
+    .filter((t) => !t.startsWith('max-sm:'))
+    .map((t) => (t.startsWith('sm:') ? t.slice(3) : t));
+  // A `sm:` class and an unprefixed class of the same utility would both be
+  // listed; neither occurs here, and a duplicate would fail the comparison.
+  return resolved.sort();
+}
+
+const sorted = (classes: string) => classes.split(/\s+/).sort();
+
+describe('connected: from 640px up the bar keeps main classes exactly', () => {
+  it('row, status region, phase reading, count and end-run control', async () => {
+    await issue(portWith('connected'), 'AGENT CONNECTED');
+    const region = within(dock()).getByRole('status');
+    const row = region.parentElement!;
+    const label = within(region).getByText('AGENT CONNECTED');
+    const count = within(region).getByText('tool calls').parentElement!;
+    const button = within(dock()).getByRole('button', { name: 'End run and judge' });
+
+    expect(atSmAndUp(row)).toEqual(sorted(MAIN_AT_SM_AND_UP.row));
+    expect(atSmAndUp(region)).toEqual(sorted(MAIN_AT_SM_AND_UP.status));
+    expect(atSmAndUp(label)).toEqual(sorted(MAIN_AT_SM_AND_UP.label));
+    expect(atSmAndUp(count)).toEqual(sorted(MAIN_AT_SM_AND_UP.count));
+    expect(atSmAndUp(button)).toEqual(sorted(MAIN_AT_SM_AND_UP.button));
+  });
+
+  it('every phone-only class is written max-sm:, so none of it can reach 640px and up', async () => {
+    await issue(portWith('connected'), 'AGENT CONNECTED');
+    const region = within(dock()).getByRole('status');
+
+    for (const el of [region.parentElement!, region]) {
+      const unprefixed = el.className.split(/\s+/).filter((t) => t && !/^(max-)?sm:/.test(t));
+      expect(unprefixed, el.className).toEqual([]);
+    }
+  });
+});

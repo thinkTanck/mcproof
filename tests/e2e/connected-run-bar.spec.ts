@@ -142,29 +142,36 @@ for (const font of ['fallback', 'web'] as const) {
 }
 
 /**
- * Measured on main (4c457d6) before this change, by THIS harness: the fixture,
- * the fallback font, `geometry()` above. Recorded from a run of this spec
- * against main, so the guard is known to pass there and fails only on a change.
+ * FROM 640px UP: STRUCTURE, NOT PIXELS.
+ *
+ * This guard first asserted an exact height measured on Windows (73px at 640).
+ * The Linux CI runner drew the same bar at 71px and failed it, and in the
+ * official Playwright Linux image main and this branch both measured 72.97px at
+ * 640x800: the layout had not changed, the fonts had. So it asserts what the
+ * layout IS: the full label, the control in the same row as the phase reading,
+ * and a ceiling well under the 105px the phone layout takes. That the classes at
+ * 640px and up are main's own is held in
+ * tests/unit/components/connect/connected-run-bar.test.tsx.
  */
-const UNCHANGED: { width: number; height: number; bar: number }[] = [
-  { width: 640, height: 800, bar: 73 },
-  { width: 1280, height: 900, bar: 71 },
-];
-
-for (const { width, height, bar: expected } of UNCHANGED) {
+for (const { width, height } of [
+  { width: 640, height: 800 },
+  { width: 1280, height: 900 },
+]) {
   test.describe(`${width}x${height}: as it was`, () => {
     test.use({ viewport: { width, height } });
 
-    test('keeps the full label, one row, and its height', async ({ page }) => {
+    test('keeps the full label, in the same row as the phase reading, under 90px', async ({
+      page,
+    }) => {
       await connected(page, 'fallback');
       const g = await geometry(page);
 
       expect(g.buttonText).toBe('END RUN AND JUDGE');
-      expect(Math.round(g.dock.height)).toBe(expected);
-      // The control sits in the same row as the phase reading, to its right.
+      // One row: the control's vertical range overlaps the phase reading's.
       expect(g.button.top).toBeLessThan(g.label.bottom);
       expect(g.button.bottom).toBeGreaterThan(g.label.top);
       expect(g.button.left).toBeGreaterThan(g.label.left);
+      expect(g.dock.height).toBeLessThan(90);
     });
   });
 }

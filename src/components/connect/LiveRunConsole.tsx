@@ -1114,18 +1114,17 @@ function Connection({
             so it is announced exactly as before. Every other state, and every
             state from `sm` up, keeps the flex row it had. */}
         <div
-          className={cn(
-            'min-h-11 items-center gap-y-3',
+          className={
             compact
-              ? 'grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 sm:flex sm:flex-wrap sm:gap-x-5'
-              : 'flex flex-wrap gap-x-5',
-          )}
+              ? 'max-sm:grid max-sm:min-h-11 max-sm:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-3 sm:flex sm:min-h-11 sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3'
+              : 'flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3'
+          }
         >
           <div
             role="status"
             className={
               compact
-                ? 'col-span-3 col-start-1 row-span-2 row-start-1 grid grid-cols-subgrid grid-rows-subgrid items-center sm:flex sm:flex-1 sm:flex-wrap sm:gap-x-4 sm:gap-y-2'
+                ? 'max-sm:col-span-3 max-sm:col-start-1 max-sm:row-span-2 max-sm:row-start-1 max-sm:grid max-sm:grid-cols-subgrid max-sm:grid-rows-subgrid max-sm:items-center sm:flex sm:flex-1 sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2'
                 : 'flex flex-1 flex-wrap items-center gap-x-4 gap-y-2'
             }
           >
@@ -1137,7 +1136,7 @@ function Connection({
             <span
               className={cn(
                 'font-mono text-[13px] tracking-[0.08em]',
-                compact && 'col-span-2 whitespace-nowrap',
+                compact && 'max-sm:col-span-2 max-sm:whitespace-nowrap',
               )}
               style={live ? undefined : { color: 'var(--status-inert)' }}
             >
@@ -1151,7 +1150,7 @@ function Connection({
               <span
                 className={cn(
                   'flex items-baseline gap-2',
-                  compact && 'col-span-2 col-start-1 row-start-2',
+                  compact && 'max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-2',
                 )}
               >
                 {/* Evidence, and the RIGHT evidence. This is what the agent chose
@@ -1175,7 +1174,7 @@ function Connection({
               // visible words are always inside the name (WCAG 2.5.3).
               aria-label={finishing ? undefined : 'End run and judge'}
               title={finishing ? undefined : 'End run and judge'}
-              className="col-start-3 row-start-2 inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-nominal bg-nominal/10 px-3 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 sm:px-5"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 max-sm:col-start-3 max-sm:row-start-2 max-sm:whitespace-nowrap max-sm:px-3 sm:px-5"
             >
               {finishing ? (
                 'JUDGING'
