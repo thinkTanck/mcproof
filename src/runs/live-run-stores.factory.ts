@@ -42,7 +42,7 @@ interface OfflineStores {
   sessions?: InMemoryLiveRunSessionStore;
 }
 
-const OFFLINE_KEY = Symbol.for('mcpwn.offline-live-run-stores');
+const OFFLINE_KEY = Symbol.for('mcproof.offline-live-run-stores');
 
 type OfflineHolder = { [OFFLINE_KEY]?: OfflineStores };
 

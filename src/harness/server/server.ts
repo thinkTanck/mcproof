@@ -1,5 +1,5 @@
 /**
- * HOSTED MCP SERVER — the MCP server MCPwn hosts, and the agent connects to.
+ * HOSTED MCP SERVER — the MCP server MCProof hosts, and the agent connects to.
  *
  * Transport-free dispatch: `handle(raw)` takes one already-parsed inbound message
  * and returns the envelope owed (or `null` for a notification, which is never

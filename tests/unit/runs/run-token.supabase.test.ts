@@ -28,7 +28,7 @@ describe('SupabaseRunTokenStore', () => {
     });
     // The one assertion this table exists for.
     expect(JSON.stringify(row)).not.toContain(token);
-    expect(JSON.stringify(row)).not.toContain(token.split('_')[3]);
+    expect(JSON.stringify(row)).not.toContain(token.split('_').at(-1));
   });
 
   it('round-trips a record a real verification then accepts', async () => {

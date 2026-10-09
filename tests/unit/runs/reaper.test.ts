@@ -24,7 +24,7 @@ import { reapAbandonedRuns, DEFAULT_REAP_LIMIT } from '@/runs/reaper';
 import type { Trace, Verdict } from '@/contract';
 
 const USER = 'user-1';
-const ORIGIN = 'https://mcpwn.test';
+const ORIGIN = 'https://mcproof.test';
 
 /** When the run starts, when its token dies, and when the grace after it does. */
 const STARTED = new Date('2026-08-05T10:00:00.000Z');
@@ -339,7 +339,7 @@ describe('reapAbandonedRuns — a run nobody closed still reaches a verdict', ()
 
     const record = await b.tokens.findBySelector(
       // The selector is the middle field of the issued token. Not a secret.
-      ticket.token.split('_')[2]!,
+      ticket.token.split('_').at(-2)!,
     );
     expect(record?.endedAt).not.toBeNull();
   });

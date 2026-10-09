@@ -109,7 +109,7 @@ test.describe('header at 1280x900 is unchanged', () => {
       await openInFallbackFont(page, screen.path);
       const m = await header(page).evaluate((el) => {
         const cs = getComputedStyle(el);
-        const logo = el.querySelector('a[aria-label="MCPwn home"]') as HTMLElement;
+        const logo = el.querySelector('a[aria-label="MCProof home"]') as HTMLElement;
         const spacer = [...el.children].find((c) => c.classList.contains('flex-1')) as HTMLElement;
         // The chip is the pill that holds the mode word, when the screen has one.
         // The pill and the word inside it both read SAMPLE or LIVE: take the word,

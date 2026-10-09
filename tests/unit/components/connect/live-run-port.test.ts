@@ -27,8 +27,8 @@ import {
 
 const TICKET: LiveRunTicketView = {
   runId: 'run-1',
-  endpoint: 'https://mcpwn.dev/api/mcp/run-1',
-  token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
+  endpoint: 'https://mcproof.dev/api/mcp/run-1',
+  token: `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
   expiresAt: '2026-08-05T12:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',
@@ -304,7 +304,7 @@ describe('the adapter · finishing a run', () => {
 describe('the adapter · reattaching to a run', () => {
   const VIEW: LiveRunReattachView = {
     runId: 'run-1',
-    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+    endpoint: 'https://mcproof.dev/api/mcp/run-1',
     expiresAt: '2026-08-05T12:00:00.000Z',
     category: 'ASI01',
     kind: 'malicious',

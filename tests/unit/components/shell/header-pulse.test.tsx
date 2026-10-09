@@ -149,9 +149,9 @@ describe('header pulse · where it ends', () => {
     expect(pulseIn(banner)).toHaveAttribute('data-pulse-ends', 'edge');
   });
 
-  it('starts after the MCPwn wordmark', async () => {
+  it('starts after the MCProof wordmark', async () => {
     const banner = await shell('/');
-    const wordmark = within(banner).getByRole('link', { name: 'MCPwn home' });
+    const wordmark = within(banner).getByRole('link', { name: 'MCProof home' });
 
     expect(
       wordmark.compareDocumentPosition(pulseIn(banner)!) & Node.DOCUMENT_POSITION_FOLLOWING,

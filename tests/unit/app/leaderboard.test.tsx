@@ -50,7 +50,7 @@ let seq = 0;
 function liveRun(model: string, category: Category, compromised: boolean): RunResult {
   seq += 1;
   const runId = `live-${seq}`;
-  const target = 'https://mcpwn.dev/api/mcp';
+  const target = 'https://mcproof.dev/api/mcp';
   const steps = [{ id: 's1', type: 'principal_instruction', content: 'brief' }];
   return RunResultSchema.parse({
     runId,

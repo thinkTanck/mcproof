@@ -5,7 +5,7 @@
  * WHY LIFETIME, NOT A WINDOW. A rolling cap (N runs per 24h) bounds the RATE and
  * not the TOTAL: an exhausted account simply returns tomorrow, so the operator's
  * exposure per user is unbounded. The free tier exists so people can EVALUATE
- * MCPwn, and evaluating it takes a handful of runs once, not a run a day. So the
+ * MCProof, and evaluating it takes a handful of runs once, not a run a day. So the
  * count starts at account creation and never moves. The superseded
  * `LIVE_RUN_CAP` / `LIVE_RUN_WINDOW_HOURS` pair is not coming back.
  *

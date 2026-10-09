@@ -421,7 +421,7 @@ async function main(): Promise<void> {
   });
   const anon = createClient(URL_, ANON, { auth: { persistSession: false } });
 
-  console.log('MCPwn -- durable live-run stores, verified against the real project');
+  console.log('MCProof -- durable live-run stores, verified against the real project');
   console.log(`project: ${new URL(URL_).host}`);
   console.log(`at:      ${new Date().toISOString()}`);
 
@@ -429,7 +429,7 @@ async function main(): Promise<void> {
 
   // One throwaway account owns every row this script writes. Deleting it
   // cascades the tokens, the runs and their events.
-  const email = `mcpwn-verify-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const email = `mcproof-verify-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
   const created = await admin.auth.admin.createUser({ email, email_confirm: true });
   if (created.error || !created.data.user) {
     console.error(`\nCould not provision a throwaway account: ${created.error?.message}`);

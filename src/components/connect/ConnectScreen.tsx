@@ -32,7 +32,7 @@ import type { Category, VariantKind } from '@/contract';
  *
  * The retired console asked for the user's agent endpoint and API key so that we
  * could call their agent. [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md)
- * reversed that: MCPwn IS the MCP server, and the user's agent connects to US.
+ * reversed that: MCProof IS the MCP server, and the user's agent connects to US.
  * So the screen no longer TAKES a target, it ISSUES one — a per-run endpoint and
  * a per-run token — and then waits on the real connection.
  *

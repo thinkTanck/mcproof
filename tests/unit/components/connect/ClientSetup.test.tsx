@@ -40,8 +40,8 @@ import type { ConnectLiveRunPort, LiveRunTicketView } from '@/components/connect
 
 const TICKET: LiveRunTicketView = {
   runId: 'run-77',
-  endpoint: 'https://mcpwn.dev/api/mcp/run-77',
-  token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
+  endpoint: 'https://mcproof.dev/api/mcp/run-77',
+  token: `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
   expiresAt: '2099-01-01T00:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',
@@ -430,7 +430,7 @@ describe('ClientSetup · Claude Desktop (chat) says what its dialog shows, and t
    * Written from the dialog as observed in Claude Desktop (Settings > Connectors >
    * Add custom connector): two fields, "Name" and "MCP server URL", and two
    * buttons, "Cancel" and "Continue". No header field and no Advanced section.
-   * An MCPwn run refuses every request without its token, so this path cannot
+   * An MCProof run refuses every request without its token, so this path cannot
    * reach a run, and the tab says so instead of describing a field that is not there.
    */
   it('names the dialog and its two fields exactly as the app labels them', async () => {
@@ -446,7 +446,7 @@ describe('ClientSetup · Claude Desktop (chat) says what its dialog shows, and t
     await opened(TABS.desktop);
     const text = panel().textContent ?? '';
     expect(text).toMatch(/no field for the run token/i);
-    expect(text).toMatch(/cannot connect to an MCPwn run/i);
+    expect(text).toMatch(/cannot connect to an MCProof run/i);
   });
 
   it('sends the reader to the Claude Code tab or the Any MCP client tab', async () => {
@@ -536,7 +536,7 @@ describe('ClientSetup · Any MCP client', () => {
     expect(header).toHaveTextContent('Authorization: Bearer');
     expect(header.closest('li')).not.toBeNull();
     // The name stays neutral, and the step says why in one clause.
-    expect(MCP_SERVER_NAME).not.toMatch(/mcpwn|red.?team|attack|test/i);
+    expect(MCP_SERVER_NAME).not.toMatch(/mcproof|red.?team|attack|test/i);
     expect(text).toContain(MCP_SERVER_NAME);
     expect(text).toMatch(/namespaces/i);
   });

@@ -21,9 +21,9 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 });
 
-const TITLE = 'MCPwn · Red-team your MCP agents';
+const TITLE = 'MCProof · Red-team your MCP agents';
 const DESCRIPTION =
-  'MCPwn red-teams an MCP-tool-using AI agent against the OWASP Top 10 for Agentic Applications (2026): live attack replay, per-model robustness leaderboard, and engineer-ready fix reports.';
+  'MCProof red-teams an MCP-tool-using AI agent against the OWASP Top 10 for Agentic Applications (2026): live attack replay, per-model robustness leaderboard, and engineer-ready fix reports.';
 
 /**
  * `metadataBase` is the origin every RELATIVE metadata URL resolves against.
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   openGraph: {
     type: 'website',
-    siteName: 'MCPwn',
+    siteName: 'MCProof',
     title: TITLE,
     description: DESCRIPTION,
   },

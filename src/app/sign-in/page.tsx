@@ -5,9 +5,9 @@ import { SignInPanel } from '@/components/signin/SignInPanel';
 import { getEmailOtpLength, isAuthEnabled, isGithubOAuthEnabled } from '@/config/env';
 
 export const metadata: Metadata = {
-  title: 'Sign in · MCPwn',
+  title: 'Sign in · MCProof',
   description:
-    'Sign in to MCPwn to live red-team your own MCP agent against the Core-7. A one-time code emailed to you gates live runs; sample playback stays open to everyone.',
+    'Sign in to MCProof to live red-team your own MCP agent against the Core-7. A one-time code emailed to you gates live runs; sample playback stays open to everyone.',
 };
 
 /**
@@ -43,7 +43,7 @@ export default async function SignIn({
       {/* Brand lockup — the front-door wordmark, links home. */}
       <Link
         href="/"
-        aria-label="MCPwn home"
+        aria-label="MCProof home"
         className="relative mb-9 inline-flex min-h-11 items-center gap-2.5 rounded-md"
       >
         <LogoLockup />

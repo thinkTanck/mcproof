@@ -14,7 +14,7 @@
  * run", the client one is whatever is stored, and hydration never mismatches.
  */
 
-export const ACTIVE_RUN_STORAGE_KEY = 'mcpwn.connect.active-run';
+export const ACTIVE_RUN_STORAGE_KEY = 'mcproof.connect.active-run';
 
 const listeners = new Set<() => void>();
 

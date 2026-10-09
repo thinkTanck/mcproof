@@ -1,5 +1,5 @@
 ---
-name: MCPwn — Sentinel Fields
+name: MCProof — Sentinel Fields
 description: Dark control-room HUD for red-teaming MCP agents; tri-state status signal, three type roles, measured-not-asserted.
 colors:
   nominal-cyan: '#54d4e6'
@@ -118,7 +118,7 @@ components:
     padding: '8px 12px'
 ---
 
-# Design System: MCPwn — Sentinel Fields
+# Design System: MCProof — Sentinel Fields
 
 ## 1. Overview
 
@@ -186,7 +186,7 @@ The system runs on THREE deliberately non-interchangeable roles. Prose never ren
 - **Body / Reading** (400, 17px, line-height 1.6): every sentence a human reads. 16px is the AA floor, not the target. The design owns the column width; the type role pins no measure cap.
 - **Caption** (400, 14px sans): secondary labels, list-item names, and field captions (the Core-7 category titles, a field's server-side-only assurance line). A sans tier below body, for short labels and captions only, never running body prose.
 - **Label / Instrument** (400, 12 to 13px, letter-spacing 0.02em, uppercase micro-labels at 0.12em): telemetry ONLY. Labels, chips, metadata, cues, column and row headers, in Geist Mono.
-- **Masthead lockup** (600, 21px, letter-spacing 0.09em, Geist Mono): the dominant MCPwn wordmark in the top bar only. A single deliberate lockup at its own size (design system section 7), not a general step; it is the one place the brand mark asserts scale.
+- **Masthead lockup** (600, 21px, letter-spacing 0.09em from 360px up and 0 below it, Geist Mono): the dominant MCProof wordmark in the top bar only. A single deliberate lockup at its own size (design system section 7), not a general step; it is the one place the brand mark asserts scale.
 
 ### Named Rules
 

@@ -352,7 +352,7 @@ export function SignInPanel({
   return (
     <div className="w-full max-w-[380px]">
       <div className="border-t border-line pt-7">
-        <h1 className="reading-h1">Continue to MCPwn.</h1>
+        <h1 className="reading-h1">Continue to MCProof.</h1>
         <p className="reading mt-3">
           Sign-in gates live runs against your own agent, with a small free-run cap that keeps
           things fair and affordable. Sample playback stays open to everyone.

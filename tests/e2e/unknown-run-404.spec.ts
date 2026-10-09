@@ -49,7 +49,7 @@ test('two different unknown ids get the same status and the same title', async (
   for (const id of ['does-not-exist', '00000000-0000-4000-8000-000000000000']) {
     const response = await page.goto(`/runs/${id}`);
     expect(response?.status()).toBe(404);
-    await expect(page).toHaveTitle('Run not found · MCPwn');
+    await expect(page).toHaveTitle('Run not found · MCProof');
     await expect(page.getByRole('heading', { level: 1, name: 'No run to replay.' })).toBeVisible();
   }
 });
@@ -91,25 +91,25 @@ for (const path of ['/runs/sample', '/findings/sample', '/runs/asi10-goal-drift'
  *
  * So these fetch the RAW response with no browser at all and read the markup.
  */
-const SITE_DEFAULT_TITLE = 'MCPwn · Red-team your MCP agents';
+const SITE_DEFAULT_TITLE = 'MCProof · Red-team your MCP agents';
 
 const RAW: { path: string; h1: RegExp; title: string }[] = [
   {
     path: '/runs/does-not-exist',
     h1: /<h1[^>]*>No run to replay\./,
-    title: 'Run not found · MCPwn',
+    title: 'Run not found · MCProof',
   },
   {
     path: '/findings/does-not-exist',
     h1: /<h1[^>]*>No report for run\s*(<!-- -->)?\s*<span[^>]*>does-not-exist<\/span>/,
-    title: 'Report not found · MCPwn',
+    title: 'Report not found · MCProof',
   },
   // GREEN CONTROL: the root 404 has always been server-rendered. If this one
   // ever fails, the assertions are wrong, not the routes above.
   {
     path: '/no-such-route',
     h1: /<h1[^>]*>404 · route not found/,
-    title: 'Not found · MCPwn',
+    title: 'Not found · MCProof',
   },
 ];
 

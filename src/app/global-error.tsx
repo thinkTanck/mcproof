@@ -93,7 +93,7 @@ export default function GlobalError({
           </div>
 
           <p style={{ margin: 0, fontSize: '1.0625rem', lineHeight: 1.55, color: '#99b8c7' }}>
-            A critical error took down MCPwn. Reloading usually clears it. If it persists, the run
+            A critical error took down MCProof. Reloading usually clears it. If it persists, the run
             may need to be restarted.
           </p>
 

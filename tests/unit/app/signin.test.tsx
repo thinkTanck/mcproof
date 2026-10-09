@@ -38,7 +38,7 @@ describe('Sign-in screen', () => {
     // First heading in the document must be the page h1.
     expect(headings[0]?.tagName).toBe('H1');
     expect(
-      screen.getByRole('heading', { level: 1, name: /continue to mcpwn/i }),
+      screen.getByRole('heading', { level: 1, name: /continue to mcproof/i }),
     ).toBeInTheDocument();
     // No h2/h3 appear before the h1 (no skipped/inverted levels).
     expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
@@ -74,7 +74,7 @@ describe('Sign-in screen', () => {
     // a 380px panel was rendering a 44px headline the frozen design sets at 34px.
     // The container has to be the column the heading actually lives in.
     await renderPage();
-    const h1 = screen.getByRole('heading', { level: 1, name: /continue to mcpwn/i });
+    const h1 = screen.getByRole('heading', { level: 1, name: /continue to mcproof/i });
     const container = h1.closest('.type-flow');
     expect(container, 'the headline has a query container').not.toBeNull();
     expect(container?.tagName, 'the container is the panel column, not <main>').not.toBe('MAIN');

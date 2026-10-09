@@ -1,6 +1,8 @@
-# Building MCPwn
+# Building MCProof
 
-This is the story of building MCPwn and what the build taught us. The README says
+(MCProof was called MCPwn until 2026-10-08.)
+
+This is the story of building MCProof and what the build taught us. The README says
 what the tool is; RESULTS.md gives the data. This document covers the how and the
 why, and in particular the part that mattered most: learning not to trust the
 detector's own numbers until the traces behind them had been read by hand.
@@ -21,7 +23,7 @@ reason the project exists.
 
 ## The design
 
-The core inversion is that MCPwn hosts the attack, and the agent connects to it. For
+The core inversion is that MCProof hosts the attack, and the agent connects to it. For
 each run we stand up a per-run MCP endpoint that serves one of the OWASP Top 10 for
 Agentic Applications (2026) attacks: the Core-7 tools, some of them deliberately
 over-broad or mis-described, plus seeded memory and prompts. The subject agent

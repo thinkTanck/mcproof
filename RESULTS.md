@@ -1,4 +1,6 @@
-# MCPwn v1 Results
+# MCProof v1 Results
+
+(MCProof was named MCPwn when these results were recorded; renamed 2026-10-08.)
 
 This is the public v1 result writeup. It holds to the project provenance standard:
 no number appears without its provenance line, and every claim is either

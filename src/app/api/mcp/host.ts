@@ -73,7 +73,7 @@ interface LiveRunRegistry {
   finished: Map<string, string>;
 }
 
-const REGISTRY_KEY = Symbol.for('mcpwn.live-run-registry');
+const REGISTRY_KEY = Symbol.for('mcproof.live-run-registry');
 
 type RegistryHolder = { [REGISTRY_KEY]?: LiveRunRegistry };
 

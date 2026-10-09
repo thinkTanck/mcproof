@@ -19,7 +19,7 @@ git worktree prune 2>/dev/null || true
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # branch deletion — nothing to validate
   checked=1
-  wt="$(mktemp -d)/mcpwn-prepush"
+  wt="$(mktemp -d)/mcproof-prepush"
   if ! git worktree add --quiet --detach "$wt" "$local_sha"; then
     echo "pre-push: could not create a worktree for $local_sha" >&2
     exit 1

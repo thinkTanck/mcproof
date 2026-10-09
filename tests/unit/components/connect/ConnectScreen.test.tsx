@@ -246,7 +246,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
       ok: true as const,
       value: {
         runId: 'run-1',
-        endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+        endpoint: 'https://mcproof.dev/api/mcp/run-1',
         token: 'token',
         expiresAt: '2026-08-09T12:00:00.000Z',
         category: 'ASI06' as const,
@@ -380,7 +380,7 @@ describe('ConnectScreen · the retired outbound model is gone', () => {
 describe('ConnectScreen · the active run is addressed by the URL', () => {
   const VIEW = {
     runId: 'run-1',
-    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+    endpoint: 'https://mcproof.dev/api/mcp/run-1',
     expiresAt: '2099-01-01T00:00:00.000Z',
     category: 'ASI06' as const,
     kind: 'malicious' as const,
@@ -393,7 +393,7 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
   const actions = () => ({
     start: vi.fn(async () => ({
       ok: true as const,
-      value: { ...VIEW, token: 'mcpwn_rt_secret' },
+      value: { ...VIEW, token: 'rt_secret' },
     })),
     status: vi.fn(async () => ({
       ok: true as const,
@@ -433,7 +433,7 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
     await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
     await waitFor(() => expect(window.location.search).toBe('?run=run-1'));
-    expect(window.location.href).not.toContain('mcpwn_rt_secret');
+    expect(window.location.href).not.toContain('rt_secret');
   });
 
   it('keeps the run across a switch to SAMPLE and back', async () => {
@@ -466,7 +466,7 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
 describe('ConnectScreen · the active run survives a trip to another screen', () => {
   const VIEW = {
     runId: 'run-1',
-    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
+    endpoint: 'https://mcproof.dev/api/mcp/run-1',
     expiresAt: '2099-01-01T00:00:00.000Z',
     category: 'ASI06' as const,
     kind: 'malicious' as const,
@@ -513,7 +513,7 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
   ) => ({
     start: vi.fn(async () => ({
       ok: true as const,
-      value: { ...VIEW, token: 'mcpwn_rt_secret' },
+      value: { ...VIEW, token: 'rt_secret' },
     })),
     status: vi.fn(async () => over.status ?? statusOf('connected', 2)),
     finish: vi.fn(async () => ({ ok: true as const, value: SUMMARY })),
@@ -558,7 +558,7 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
     await issue(user);
 
     expect(stored()).toBe('run-1');
-    expect(JSON.stringify({ ...window.sessionStorage })).not.toContain('mcpwn_rt_secret');
+    expect(JSON.stringify({ ...window.sessionStorage })).not.toContain('rt_secret');
   });
 
   it('forgets the stored id once the run is ended, so it is not reopened later', async () => {
@@ -641,8 +641,8 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
       ok: true as const,
       value: {
         runId: 'run-1',
-        endpoint: 'https://mcpwn.dev/api/mcp/run-1',
-        token: 'mcpwn_rt_secret',
+        endpoint: 'https://mcproof.dev/api/mcp/run-1',
+        token: 'rt_secret',
         expiresAt: '2099-01-01T00:00:00.000Z',
         category: 'ASI06' as const,
         kind: 'malicious' as const,
@@ -874,8 +874,8 @@ describe('ConnectScreen · the radio groups from the keyboard', () => {
 describe('ConnectScreen · the section 03 heading on an expired run', () => {
   const ticket = (expiresAt: string) => ({
     runId: 'run-1',
-    endpoint: 'https://mcpwn.dev/api/mcp/run-1',
-    token: 'mcpwn_rt_secret',
+    endpoint: 'https://mcproof.dev/api/mcp/run-1',
+    token: 'rt_secret',
     expiresAt,
     category: 'ASI06' as const,
     kind: 'malicious' as const,

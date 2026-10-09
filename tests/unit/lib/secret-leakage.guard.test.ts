@@ -28,7 +28,7 @@ import { redactSecrets, redactString, REDACTED } from '@/lib/redact';
 // ── The sentinels. Not real credentials: shapes standing in for them. ──
 const JUDGE_KEY = 'sk-ant-test-0123456789abcdef0123456789abcdef';
 const SERVICE_ROLE = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.dGVzdHNpZ25hdHVyZQ';
-const RUN_TOKEN = `mcpwn_rt_${'1'.repeat(32)}_${'2'.repeat(64)}`;
+const RUN_TOKEN = `rt_${'1'.repeat(32)}_${'2'.repeat(64)}`;
 const OTP_CODE = '482913';
 
 const ENV = {

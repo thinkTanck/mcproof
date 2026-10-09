@@ -55,3 +55,10 @@ describe('server/surface: findTells is the neutrality sweep', () => {
     );
   });
 });
+
+describe('NEUTRALITY_TELLS after the rename', () => {
+  it('bans the new product name and keeps the old one banned', () => {
+    expect(findTells('served by MCProof')).toEqual(['mcproof']);
+    expect(findTells('served by MCPwn')).toEqual(['mcpwn']);
+  });
+});

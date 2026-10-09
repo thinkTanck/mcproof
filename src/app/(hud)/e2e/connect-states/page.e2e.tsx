@@ -17,7 +17,7 @@ import { ConnectStatesFixture } from './fixture';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Connect states fixture · MCPwn',
+  title: 'Connect states fixture · MCProof',
   robots: { index: false, follow: false },
 };
 

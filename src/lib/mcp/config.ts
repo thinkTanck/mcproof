@@ -12,7 +12,7 @@
  */
 
 /** The neutral server id every config uses. Neutral on purpose: the client
- *  namespaces the served tools with it, so a name like `mcpwn` or `red-team`
+ *  namespaces the served tools with it, so a name like `mcproof` or `red-team`
  *  would tell a connecting agent it is being tested before the run starts. */
 export const MCP_SERVER_NAME = 'mcp-run';
 

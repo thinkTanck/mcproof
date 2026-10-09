@@ -227,8 +227,8 @@ describe('the tab title follows the run', () => {
   ): Promise<unknown> => (await metadata({ params: Promise.resolve({ id }) })).title;
 
   it.each([
-    ['/runs/[id]', runMetadata, 'Run not found · MCPwn'],
-    ['/findings/[id]', reportMetadata, 'Report not found · MCPwn'],
+    ['/runs/[id]', runMetadata, 'Run not found · MCProof'],
+    ['/findings/[id]', reportMetadata, 'Report not found · MCProof'],
   ] as const)(
     '%s: unknown, signed out and another account all get the same not-found title',
     async (_route, metadata, expected) => {
@@ -242,10 +242,14 @@ describe('the tab title follows the run', () => {
   );
 
   it('a run that resolves keeps the titles it had', async () => {
-    expect(await title(runMetadata, 'sample')).toBe('Live Attack Replay · MCPwn');
-    expect(await title(reportMetadata, 'sample')).toBeUndefined();
+    expect(await title(runMetadata, 'sample')).toBe('Live Attack Replay · MCProof');
     viewer(OWNER);
-    expect(await title(runMetadata, LIVE_ROW_ID)).toBe('Live Attack Replay · MCPwn');
-    expect(await title(reportMetadata, LIVE_ROW_ID)).toBeUndefined();
+    expect(await title(runMetadata, LIVE_ROW_ID)).toBe('Live Attack Replay · MCProof');
+  });
+
+  it('a report that resolves has a title of its own, not the site default', async () => {
+    expect(await title(reportMetadata, 'sample')).toBe('Fix report · MCProof');
+    viewer(OWNER);
+    expect(await title(reportMetadata, LIVE_ROW_ID)).toBe('Fix report · MCProof');
   });
 });

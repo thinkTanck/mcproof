@@ -32,7 +32,7 @@ import { openMcpSession, type McpSession, type McpTransportOptions } from './tra
  *    produces a trace with no reasoning steps.
  *  - `memory_read` / `memory_write` — NOT OBSERVABLE through an outbound client.
  *    The agent's memory lives on the agent's side of the wire. Recording those
- *    honestly requires the inverted architecture (MCPwn hosting the MCP server
+ *    honestly requires the inverted architecture (MCProof hosting the MCP server
  *    the agent connects to), which is the spike's conclusion.
  *  - `task_complete` — OBSERVABLE (the call returned).
  *

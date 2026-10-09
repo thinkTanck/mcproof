@@ -2,7 +2,7 @@
  * HOSTED MCP SERVER — inbound (SERVER-side) JSON-RPC surface.
  *
  * The mirror image of `src/harness/mcp/protocol.ts`. That module is a CLIENT: it
- * validates the *results* a remote server sends back. Here MCPwn is the server
+ * validates the *results* a remote server sends back. Here MCProof is the server
  * ([ADR-0006](../../../docs/adr/0006-mcpwn-is-the-mcp-server.md)), so we validate
  * the *requests* an agent sends us and PRODUCE results. The envelope constants
  * and the Zod discipline are reused from that client layer; the request-handling

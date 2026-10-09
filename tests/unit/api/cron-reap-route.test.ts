@@ -29,7 +29,7 @@ vi.mock('@/runs/reaper', async (importOriginal) => {
 function call(header?: string): Promise<Response> {
   const headers = new Headers();
   if (header !== undefined) headers.set('authorization', header);
-  return GET(new Request('https://mcpwn.test/api/cron/reap-runs', { headers }));
+  return GET(new Request('https://mcproof.test/api/cron/reap-runs', { headers }));
 }
 
 beforeEach(() => {

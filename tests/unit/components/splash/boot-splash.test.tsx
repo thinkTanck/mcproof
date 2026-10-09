@@ -30,7 +30,7 @@ describe('BootSplash', () => {
       vi.advanceTimersByTime(320);
     });
 
-    const status = screen.getByRole('status', { name: /mcpwn booting/i });
+    const status = screen.getByRole('status', { name: /mcproof booting/i });
     // The radar names the Core-7 as the acquisition targets.
     expect(within(status).getByText(/signatures acquired/i)).toBeInTheDocument();
     expect(within(status).getByText('ASI01')).toBeInTheDocument();
@@ -47,7 +47,7 @@ describe('BootSplash', () => {
   });
 
   it('never shows on a repeat visit in the same session (session flag)', () => {
-    sessionStorage.setItem('mcpwn.boot.v1.seen', '1');
+    sessionStorage.setItem('mcproof.boot.v1.seen', '1');
     render(<BootSplash />);
     act(() => {
       vi.advanceTimersByTime(600);

@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import { assertE2eFixturesAllowed, pageExtensionsFor } from './src/config/e2e-fixtures';
+import { legacyHostRedirects } from './src/config/legacy-host';
 
 // Fixture routes (`page.e2e.tsx`) exist only in a build made with E2E_FIXTURES=1,
 // and never on a production deploy. See src/config/e2e-fixtures.ts.
@@ -15,6 +16,11 @@ const nextConfig: NextConfig = {
   // FLEET STATUS cluster sits — it occludes the caution/breach labels in every
   // dev screenshot and review (it never ships to production). Move it clear.
   devIndicators: { position: 'bottom-right' },
+  // The old host's page routes move to the new origin; its /api/* stays served,
+  // so a run issued before the rename keeps its endpoint. See src/config/legacy-host.ts.
+  async redirects() {
+    return legacyHostRedirects();
+  },
 };
 
 export default nextConfig;

@@ -7,7 +7,7 @@ import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
 // sessionStorage, not localStorage: the boot splash shows once PER SESSION/TAB —
 // a returning-in-the-same-tab reload skips it, but a fresh visit (new tab, new
 // session) sees it again.
-const SEEN_KEY = 'mcpwn.boot.v1.seen';
+const SEEN_KEY = 'mcproof.boot.v1.seen';
 
 /**
  * The Core-7 signatures as radar contacts. Angles (deg from top, clockwise) +
@@ -129,7 +129,7 @@ export function BootSplash() {
   return (
     <div
       role="status"
-      aria-label="MCPwn booting"
+      aria-label="MCProof booting"
       aria-live="off"
       className={cn(
         'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-base transition-opacity duration-[400ms] ease-out',
@@ -227,7 +227,7 @@ export function BootSplash() {
       {/* One terminal SR announcement — the overlay's aria-live is off so the
           per-lock count does not churn a polite live region; only the end lands. */}
       <span className="sr-only" aria-live="polite">
-        {online ? 'MCPwn ready. Core-7 signatures locked.' : ''}
+        {online ? 'MCProof ready. Core-7 signatures locked.' : ''}
       </span>
 
       <button

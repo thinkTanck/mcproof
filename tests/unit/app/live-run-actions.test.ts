@@ -82,7 +82,7 @@ beforeEach(() => {
     tokens: new InMemoryRunTokenStore(),
     repository,
     resolveDetector: () => detector,
-    origin: 'https://mcpwn.test',
+    origin: 'https://mcproof.test',
   });
 });
 
@@ -144,8 +144,8 @@ describe('startLiveRun', () => {
 
   it('issues a per-run endpoint, token and out-of-band goal', async () => {
     const ticket = await startOk();
-    expect(ticket.endpoint).toBe(`https://mcpwn.test/api/mcp/${ticket.runId}`);
-    expect(ticket.token.startsWith('mcpwn_rt_')).toBe(true);
+    expect(ticket.endpoint).toBe(`https://mcproof.test/api/mcp/${ticket.runId}`);
+    expect(ticket.token.startsWith('rt_')).toBe(true);
     expect(new Date(ticket.expiresAt).getTime()).toBeGreaterThan(Date.now());
     expect(ticket.taskGoal.length).toBeGreaterThan(0);
     expect(ticket.promptName).toBe('session_brief');
@@ -282,7 +282,7 @@ describe('getLiveRunStatus', () => {
         sessions,
         repository,
         resolveDetector: () => detector,
-        origin: 'https://mcpwn.test',
+        origin: 'https://mcproof.test',
       });
     host = build();
     const ticket = await startOk();

@@ -46,7 +46,7 @@ const measure = (page: Page) =>
     const marker = breach.querySelector('[data-testid="hero-breach-marker"]')!;
     const list = rows[0]!.parentElement!;
     const header = document.querySelector('header')!;
-    const svg = header.querySelector('a[aria-label="MCPwn home"] svg')!;
+    const svg = header.querySelector('a[aria-label="MCProof home"] svg')!;
     const arc = svg.querySelectorAll('circle')[1]!;
     const pulse = header.querySelector<HTMLElement>('[data-header-pulse]')!;
     const glint = pulse.firstElementChild as HTMLElement;

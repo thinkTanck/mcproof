@@ -36,7 +36,7 @@ describe.runIf(LIVE)('SupabaseRunRepository — live Supabase + RLS isolation', 
   let rowId = '';
 
   const provision = async (tag: string) => {
-    const email = `mcpwn-e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}-${tag}@example.com`;
+    const email = `mcproof-e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}-${tag}@example.com`;
     const password = `Pw!${Math.random().toString(36).slice(2)}${Date.now()}`;
     const { data, error } = await admin.auth.admin.createUser({
       email,

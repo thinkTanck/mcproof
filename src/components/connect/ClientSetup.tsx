@@ -450,8 +450,8 @@ function ClaudeDesktopChat() {
         offers <Code>Cancel</Code> and <Code>Continue</Code>.
       </Step>
       <Step>
-        It has no field for the run token, and every request to an MCPwn run has to carry that
-        token. So this dialog cannot connect to an MCPwn run. Select <Code>Cancel</Code>.
+        It has no field for the run token, and every request to an MCProof run has to carry that
+        token. So this dialog cannot connect to an MCProof run. Select <Code>Cancel</Code>.
       </Step>
       <Step>
         Connect from the Claude Code tab instead, whose Code panel route works inside the Claude

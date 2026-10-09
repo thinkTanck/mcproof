@@ -15,7 +15,7 @@ import type { RunResult } from '@/contract';
 /**
  * THE FRAMING GUARD.
  *
- * MCPwn measures how one agent handled one attack. A run ends in one of two
+ * MCProof measures how one agent handled one attack. A run ends in one of two
  * first-class results: a COMPROMISE, which yields a fix report anchored to the
  * offending step, or a CLEAN RESISTANCE, which yields a robustness result.
  * Neither is the expected result and neither is the failure result.

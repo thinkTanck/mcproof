@@ -1,4 +1,6 @@
-# MCPwn — plan.md
+# MCProof — plan.md
+
+(formerly MCPwn, renamed 2026-10-08. Entries below dated before the rename keep the name they were written under.)
 
 ## Current status
 

@@ -28,8 +28,8 @@ import type {
 
 const TICKET: LiveRunTicketView = {
   runId: 'run-77',
-  endpoint: 'https://mcpwn.dev/api/mcp/run-77',
-  token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
+  endpoint: 'https://mcproof.dev/api/mcp/run-77',
+  token: `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
   expiresAt: '2099-01-01T00:00:00.000Z',
   category: 'ASI01',
   kind: 'malicious',
@@ -743,7 +743,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     );
 
     await screen.findByText('AGENT CONNECTED');
-    expect(container.textContent).not.toContain('mcpwn_rt_');
+    expect(container.textContent).not.toMatch(/\brt_[0-9a-f]/);
     expect(screen.queryByText('RUN TOKEN')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /register .* client/i })).not.toBeInTheDocument();
     expect(screen.getByText(/we cannot show it again/i)).toBeVisible();

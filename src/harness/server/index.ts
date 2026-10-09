@@ -1,5 +1,5 @@
 /**
- * HOSTED MCP SERVER (module 1) — the per-run MCP server MCPwn hosts and the
+ * HOSTED MCP SERVER (module 1) — the per-run MCP server MCProof hosts and the
  * user's agent connects to ([ADR-0006](../../../docs/adr/0006-mcpwn-is-the-mcp-server.md)).
  *
  * It serves the attack's poisoned tool surface (the Core-7, some tools

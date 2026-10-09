@@ -20,7 +20,7 @@ import { isE2eFixturesEnabled } from '@/config/e2e-fixtures';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Header states fixture · MCPwn',
+  title: 'Header states fixture · MCProof',
   robots: { index: false, follow: false },
 };
 

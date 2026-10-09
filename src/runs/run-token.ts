@@ -15,7 +15,7 @@
  * cannot be replayed after the run ends, and it dies on a wall clock even if the
  * run is abandoned. That bound is the point of the design, not a side effect.
  *
- * ── THE FORMAT: a split token, `mcpwn_rt_<selector>_<verifier>` ──
+ * ── THE FORMAT: a split token, `rt_<selector>_<verifier>` ──
  *
  * A single opaque secret would force verification to either scan every stored
  * hash or index the secret itself. So the token carries two independent random
@@ -35,9 +35,14 @@
  * Hex with `_` separators, not base64url, ON PURPOSE: base64url's alphabet
  * CONTAINS `_`, so a `_`-separated base64url token has no unambiguous parse. Hex
  * costs a few characters and buys a grammar that is one anchored regex, has a
- * fixed length, and cannot be split two ways. The `mcpwn_rt_` prefix makes a
- * leaked token identifiable on sight (and greppable by secret scanners) without
- * revealing whose it is.
+ * fixed length, and cannot be split two ways. The `rt_` prefix makes a leaked
+ * token identifiable on sight (and greppable by secret scanners) without
+ * revealing whose it is, and names no product: the token sits in the agent's own
+ * MCP config, where a product name would tell the agent what it is talking to.
+ *
+ * Tokens issued before the rename (2026-10-08) carry the legacy `mcpwn_rt_`
+ * prefix. They are accepted for ONE token lifetime and no longer: see
+ * {@link LEGACY_RUN_TOKEN_PREFIX}.
  *
  * ── THE HASH: SHA-256, and why NOT a slow KDF ──
  *
@@ -137,7 +142,14 @@ type Env = Record<string, string | undefined>;
 // ── Format ──
 
 /** Identifies a leaked token on sight (and to secret scanners) without naming an owner. */
-export const RUN_TOKEN_PREFIX = 'mcpwn_rt';
+export const RUN_TOKEN_PREFIX = 'rt';
+/**
+ * The prefix every token carried before the rename. Accepted, never issued, and
+ * only while the token is younger than the longest lifetime a token can be given
+ * ({@link RUN_TOKEN_TTL_BOUNDS}.max), so once that much time has passed since the
+ * deploy no legacy token can verify and this can be removed.
+ */
+export const LEGACY_RUN_TOKEN_PREFIX = 'mcpwn_rt';
 /** Lookup key. Unique, not secret. */
 export const RUN_TOKEN_SELECTOR_BYTES = 16;
 /** THE secret: 256 bits of CSPRNG output. */
@@ -147,7 +159,7 @@ export const RUN_TOKEN_HASH_ALGORITHM = 'sha256' as const;
 
 /** The complete wire grammar. Anchored and fixed-length: one token parses one way. */
 export const RUN_TOKEN_PATTERN = new RegExp(
-  `^${RUN_TOKEN_PREFIX}_([0-9a-f]{${RUN_TOKEN_SELECTOR_BYTES * 2}})_([0-9a-f]{${RUN_TOKEN_VERIFIER_BYTES * 2}})$`,
+  `^(?:${RUN_TOKEN_PREFIX}|${LEGACY_RUN_TOKEN_PREFIX})_([0-9a-f]{${RUN_TOKEN_SELECTOR_BYTES * 2}})_([0-9a-f]{${RUN_TOKEN_VERIFIER_BYTES * 2}})$`,
 );
 
 // ── Refusal ──
@@ -401,6 +413,8 @@ const PresentedSchema = z.string().regex(RUN_TOKEN_PATTERN);
 export interface ParsedRunToken {
   readonly selector: string;
   readonly verifier: string;
+  /** Carried the pre-rename prefix: verifiable only within one token lifetime. */
+  readonly legacy: boolean;
 }
 
 /**
@@ -418,7 +432,7 @@ export function parseRunToken(presented: unknown): ParsedRunToken | null {
   // a comment, and a parser for hostile input should not need a non-null
   // assertion to compile.
   if (!selector || !verifier) return null;
-  return { selector, verifier };
+  return { selector, verifier, legacy: result.data.startsWith(`${LEGACY_RUN_TOKEN_PREFIX}_`) };
 }
 
 // ── Verify ──
@@ -501,6 +515,14 @@ export async function verifyRunToken(query: VerifyRunTokenQuery): Promise<RunTok
 
   // Axis 2: the wall clock, for the run that simply stopped being attended.
   if (now.getTime() >= new Date(record.expiresAt).getTime()) return refuse('EXPIRED');
+
+  // The legacy prefix is honoured for one token lifetime at most, measured from
+  // issue, whatever the stored expiry says. Every legacy token was issued before
+  // the rename, so this bounds how long the old prefix can open anything at all.
+  const lifetimeMs = RUN_TOKEN_TTL_BOUNDS.max * 60_000;
+  if (parsed.legacy && now.getTime() >= new Date(record.issuedAt).getTime() + lifetimeMs) {
+    return refuse('EXPIRED');
+  }
 
   query.logger?.info('run token accepted', { runId: record.runId, userId: record.userId });
   return { valid: true, record };

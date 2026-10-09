@@ -201,7 +201,7 @@ describe('server: NEUTRALITY of everything the agent can see', () => {
   );
 
   it('names itself with an ordinary, non-zero version', () => {
-    expect(SERVER_NAME).not.toMatch(/mcpwn|spike|sandbox/i);
+    expect(findTells(SERVER_NAME)).toEqual([]);
     expect(SERVER_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(SERVER_VERSION).not.toBe('0.0.0');
   });

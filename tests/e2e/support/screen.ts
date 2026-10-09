@@ -5,7 +5,7 @@ import AxeBuilder from '@axe-core/playwright';
 export const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /** The flag `BootSplash` reads to decide it has already been shown this session. */
-export const SPLASH_SEEN_KEY = 'mcpwn.boot.v1.seen';
+export const SPLASH_SEEN_KEY = 'mcproof.boot.v1.seen';
 
 /**
  * DETERMINISM, the hard-won kind.

@@ -13,26 +13,26 @@ describe('auth callback route', () => {
 
   it('exchanges the code and redirects to next (default /account)', async () => {
     withExchange({ error: null });
-    const res = await GET(new Request('https://mcpwn.test/auth/callback?code=abc'));
-    expect(res.headers.get('location')).toBe('https://mcpwn.test/account');
+    const res = await GET(new Request('https://mcproof.test/auth/callback?code=abc'));
+    expect(res.headers.get('location')).toBe('https://mcproof.test/account');
   });
 
   it('honours an explicit next target', async () => {
     withExchange({ error: null });
     const res = await GET(
-      new Request('https://mcpwn.test/auth/callback?code=abc&next=/leaderboard'),
+      new Request('https://mcproof.test/auth/callback?code=abc&next=/leaderboard'),
     );
-    expect(res.headers.get('location')).toBe('https://mcpwn.test/leaderboard');
+    expect(res.headers.get('location')).toBe('https://mcproof.test/leaderboard');
   });
 
   it('bounces to sign-in when the code is missing', async () => {
-    const res = await GET(new Request('https://mcpwn.test/auth/callback'));
-    expect(res.headers.get('location')).toBe('https://mcpwn.test/sign-in?error=auth');
+    const res = await GET(new Request('https://mcproof.test/auth/callback'));
+    expect(res.headers.get('location')).toBe('https://mcproof.test/sign-in?error=auth');
   });
 
   it('bounces to sign-in when the exchange fails', async () => {
     withExchange({ error: { message: 'bad code' } });
-    const res = await GET(new Request('https://mcpwn.test/auth/callback?code=abc'));
-    expect(res.headers.get('location')).toBe('https://mcpwn.test/sign-in?error=auth');
+    const res = await GET(new Request('https://mcproof.test/auth/callback?code=abc'));
+    expect(res.headers.get('location')).toBe('https://mcproof.test/sign-in?error=auth');
   });
 });

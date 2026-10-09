@@ -12,7 +12,7 @@ import { StatusBar } from '@/components/shell/StatusBar';
  */
 describe('StatusBar logo ring', () => {
   const ring = () =>
-    screen.getByRole('link', { name: 'MCPwn home' }).querySelector('svg') as SVGSVGElement;
+    screen.getByRole('link', { name: 'MCProof home' }).querySelector('svg') as SVGSVGElement;
 
   it('is drawn at 34px, and keeps 30px below 360px where the header has none to spare', () => {
     render(<StatusBar pathname="/" />);
@@ -56,6 +56,19 @@ describe('StatusBar logo ring', () => {
     render(<StatusBar pathname="/" />);
 
     expect(ring()).toHaveAttribute('aria-hidden', 'true');
-    expect(screen.getByRole('link', { name: 'MCPwn home' })).toHaveTextContent('MCPwn');
+    expect(screen.getByRole('link', { name: 'MCProof home' })).toHaveTextContent('MCProof');
+  });
+});
+
+describe('the wordmark below 360px', () => {
+  it('sets MCProof without letter-spacing below 360px, and at the design 0.09em from 360px up', () => {
+    render(<StatusBar pathname="/" />);
+    const word = screen.getByRole('link', { name: 'MCProof home' }).querySelector('span')!;
+
+    // MCProof is two letters longer than the old name. At 320 a run screen's
+    // header (ring, wordmark, chip, menu) has no room for 0.09em on seven letters.
+    expect(word).toHaveClass('tracking-[0em]', 'min-[360px]:tracking-[0.09em]');
+    expect(word).not.toHaveClass('tracking-[0.09em]');
+    expect(word).toHaveClass('text-[21px]');
   });
 });

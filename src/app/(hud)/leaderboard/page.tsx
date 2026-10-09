@@ -7,7 +7,7 @@ import { measuredLeaderboard } from '@/leaderboard/measured';
 import { getUser } from '@/lib/auth/user';
 
 export const metadata: Metadata = {
-  title: 'Robustness Leaderboard · MCPwn',
+  title: 'Robustness Leaderboard · MCProof',
   description:
     'Per-model, per-category robustness. Measured runs only, with an empty board while none exist.',
 };
