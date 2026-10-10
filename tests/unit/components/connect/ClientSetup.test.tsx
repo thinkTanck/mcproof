@@ -1,7 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ISOLATED_CONFIG_FILE, ISOLATED_LAUNCH_COMMAND } from '@/components/connect/ClientSetup';
+import {
+  ISOLATED_CONFIG_FILE,
+  ISOLATED_LAUNCH_COMMAND,
+  NEW_FOLDER_COMMAND,
+} from '@/components/connect/ClientSetup';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
+import { findTells } from '@/harness/server/surface';
 import { MCP_SERVER_NAME } from '@/lib/mcp/config';
 import type { ConnectLiveRunPort, LiveRunTicketView } from '@/components/connect/live-run-port';
 
@@ -172,7 +177,11 @@ describe('ClientSetup · every client is numbered steps, never paragraphs', () =
 
       // No tab is pure prose. Exactly ONE paragraph of running text sits outside
       // the lists (the intro), and it is a sentence or two, not a block.
-      const loose = [...panel().querySelectorAll('p.reading')].filter((p) => !p.closest('li'));
+      // A route's warning note is not running prose between steps: it is counted
+      // by its own tests.
+      const loose = [...panel().querySelectorAll('p.reading')].filter(
+        (p) => !p.closest('li') && !p.closest('[role="note"]'),
+      );
       expect(loose).toHaveLength(1);
       expect((loose[0]!.textContent ?? '').length).toBeLessThan(200);
       expect(
@@ -194,7 +203,12 @@ describe('ClientSetup · every client is numbered steps, never paragraphs', () =
       // task goal. The Desktop chat tab cannot connect, so it ends by sending
       // the reader to a tab that can.
       expect(steps[steps.length - 1]!.textContent ?? '').toMatch(
-        _id === 'desktop' ? /Claude Code tab/ : /task goal/i,
+        // The Any MCP client tab walks the whole run, so it ends where the run does.
+        _id === 'desktop'
+          ? /Claude Code tab/
+          : _id === 'generic'
+            ? /End run and judge/
+            : /task goal/i,
       );
     },
   );
@@ -239,20 +253,24 @@ describe('ClientSetup · Claude Code', () => {
 
     const main = panel().querySelectorAll('ol')[0]!;
     const steps = [...main.querySelectorAll(':scope > li')];
-    // (1) save the file the launch reads.
+    // (1) a new empty folder to work in.
     expect(
-      within(steps[0] as HTMLElement).getByRole('group', { name: /Claude Code config file/i }),
+      within(steps[0] as HTMLElement).getByRole('group', { name: /new folder command/i }),
+    ).toHaveTextContent(NEW_FOLDER_COMMAND);
+    // (2) save the file the launch reads.
+    expect(
+      within(steps[1] as HTMLElement).getByRole('group', { name: /Claude Code config file/i }),
     ).toBeInTheDocument();
-    expect(steps[0]!.textContent).toContain(ISOLATED_CONFIG_FILE);
-    // (2) launch with only that file's servers.
+    expect(steps[1]!.textContent).toContain(ISOLATED_CONFIG_FILE);
+    // (3) launch with only that file's servers.
     expect(
-      within(steps[1] as HTMLElement).getByRole('group', { name: /isolated launch command/i }),
+      within(steps[2] as HTMLElement).getByRole('group', { name: /isolated launch command/i }),
     ).toHaveTextContent(`claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`);
     // Then the check and the goal. The endpoint itself contains "/mcp", so the
     // check is found by its verb.
     const text = steps.map((li) => li.textContent ?? '');
     const check = text.findIndex((s) => /type \/mcp/i.test(s));
-    expect(check).toBeGreaterThan(1);
+    expect(check).toBeGreaterThan(2);
     expect(text[check]).toContain(MCP_SERVER_NAME);
     expect(text[check]).toMatch(/nothing else/i);
     expect(text.at(-1)).toMatch(/task goal/i);
@@ -384,7 +402,10 @@ describe('ClientSetup · audit: two routes in one tab stay apart', () => {
         ? list.previousElementSibling.textContent
         : null;
     expect(labelAbove(terminal!)).toBe('TERMINAL ROUTE');
-    expect(labelAbove(panelRoute!)).toBe('CODE PANEL ROUTE');
+    // The Code panel route's label sits above its warning, and the warning above its steps.
+    const warning = panelRoute!.previousElementSibling;
+    expect(warning?.textContent).toMatch(/not recommended/i);
+    expect(warning?.previousElementSibling?.textContent).toBe('CODE PANEL ROUTE');
   });
 
   it('keeps every command label short enough to sit beside its COPY control on a phone', async () => {
@@ -650,5 +671,201 @@ describe('ClientSetup · a dense screen stays scannable and stays inside its col
     expect(body).toMatch(/hostile by design/i);
     expect(body).toMatch(/MCP has no message that lets a server tell an agent what its job is/i);
     expect(body).toMatch(/if your client does not support prompts/i);
+  });
+});
+
+describe('ClientSetup · the Code panel route is not recommended, and says why first', () => {
+  const routeList = () => [...panel().querySelectorAll('ol')][1] as HTMLElement;
+  /** The warning block of the Code panel route. */
+  const warning = () => within(panel()).getByRole('note', { name: /not recommended/i });
+
+  it('marks the route NOT RECOMMENDED, with an icon and a label, never colour alone', async () => {
+    await opened(TABS.code);
+
+    expect(within(warning()).getByText('NOT RECOMMENDED')).toBeInTheDocument();
+    expect(warning().querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    // Caution, not breach: an unsafe way to test is not a compromise.
+    expect(warning().className).toMatch(/caution/);
+    expect(warning().className).not.toMatch(/breach/);
+  });
+
+  it('puts the warning after the route label and before the first step', async () => {
+    await opened(TABS.code);
+
+    const label = within(panel()).getByText('CODE PANEL ROUTE');
+    const following = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(label.compareDocumentPosition(warning()) & following).toBeTruthy();
+    expect(warning().compareDocumentPosition(routeList()) & following).toBeTruthy();
+  });
+
+  it('says plainly that the panel cannot be limited to the run server, and what that risks', async () => {
+    await opened(TABS.code);
+    const text = warning().textContent ?? '';
+
+    expect(text).toMatch(/cannot be limited to/i);
+    expect(text).toContain(MCP_SERVER_NAME);
+    expect(text).toMatch(/compromised/i);
+    expect(text).toMatch(/your real connectors/i);
+    // And where to go instead.
+    expect(text).toMatch(/terminal route/i);
+    // The warning is a sentence a person reads, so it wears the READING role.
+    expect(warning().querySelector('p.reading')).not.toBeNull();
+  });
+
+  it('keeps the steps for anyone who still chooses it, and no longer claims /mcp works there', async () => {
+    await opened(TABS.code);
+    const steps = [...routeList().querySelectorAll(':scope > li')];
+
+    expect(steps.length).toBeGreaterThanOrEqual(4);
+    expect(
+      within(routeList()).getByRole('group', { name: /Claude Code transport command/i }),
+    ).toBeInTheDocument();
+    // The panel has no /mcp, so no step may tell the reader to switch servers off with it.
+    expect(routeList().textContent).not.toMatch(/switch off every/i);
+    expect(routeList().textContent).not.toMatch(/and type \/mcp/i);
+  });
+
+  it('says so in the tab intro, and the chat tab no longer sends readers to the Code panel', async () => {
+    const user = await opened(TABS.code);
+    expect(panel().querySelector('p')?.textContent).toMatch(/not recommended/i);
+
+    await pick(user, TABS.desktop);
+    const last = [...panel().querySelectorAll('ol > li')].at(-1)?.textContent ?? '';
+    expect(last).toMatch(/terminal route/i);
+    expect(last).not.toMatch(/Code panel route works/i);
+  });
+});
+
+describe('ClientSetup · every route that runs a command starts in a new empty folder', () => {
+  it('is one command that is the same in bash and in PowerShell', () => {
+    // No && (Windows PowerShell 5.1 has none) and no flag only one shell knows.
+    expect(NEW_FOLDER_COMMAND).toMatch(/^mkdir (\S+); cd \1$/);
+    expect(NEW_FOLDER_COMMAND).not.toContain('&&');
+    expect(NEW_FOLDER_COMMAND).not.toContain(' -p');
+  });
+
+  it('names the folder neutrally: the agent can read where it was started', () => {
+    expect(findTells(NEW_FOLDER_COMMAND)).toEqual([]);
+    expect(NEW_FOLDER_COMMAND).not.toMatch(/attack|test/i);
+  });
+
+  it.each([
+    ['the terminal route', TABS.code, 0],
+    ['the Code panel route', TABS.code, 1],
+    ['the Any MCP client tab', TABS.generic, 0],
+  ] as const)(
+    '%s: step 1 is the new folder, with the command to copy',
+    async (_label, tab, list) => {
+      await opened(tab);
+      const first = [...panel().querySelectorAll('ol')][list]!.querySelector(':scope > li');
+
+      expect(first?.textContent).toMatch(/new, empty folder/i);
+      const command = within(first as HTMLElement).getByRole('group', {
+        name: /new folder command/i,
+      });
+      expect(command).toHaveTextContent(NEW_FOLDER_COMMAND);
+      expect(command.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent).toBe(
+        'BASH AND POWERSHELL',
+      );
+    },
+  );
+
+  it('copies the folder command as written', async () => {
+    const user = await opened(TABS.generic);
+    const writeText = stubClipboard();
+
+    await user.click(
+      within(panel()).getAllByRole('button', { name: /copy new folder command/i })[0]!,
+    );
+
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(NEW_FOLDER_COMMAND);
+  });
+});
+
+describe('ClientSetup · Any MCP client says exactly where the token goes', () => {
+  it('names the header, its value, and where in the client to add it', async () => {
+    await opened(TABS.generic);
+    const step = within(panel())
+      .getByRole('group', { name: /header value/i })
+      .closest('li')!;
+    const text = step.textContent ?? '';
+
+    expect(text).toMatch(/a header named Authorization/);
+    expect(text).toMatch(/the word Bearer, a space, then the run token/);
+    expect(text).toMatch(/server settings or headers/i);
+  });
+
+  it('gives the name and the value as two things to copy, the value masked on screen', async () => {
+    const user = await opened(TABS.generic);
+    const writeText = stubClipboard();
+
+    const name = within(panel()).getByRole('group', { name: /header name/i });
+    const value = within(panel()).getByRole('group', { name: /header value/i });
+    expect(name).toHaveTextContent('Authorization');
+    expect(value).toHaveTextContent('Bearer');
+    expect(value.textContent).not.toContain(TICKET.token);
+
+    await user.click(within(panel()).getByRole('button', { name: /copy header value/i }));
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(`Bearer ${TICKET.token}`);
+    await user.click(within(panel()).getByRole('button', { name: /copy header name/i }));
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe('Authorization');
+  });
+
+  it('still gives the header as one line, for a client that takes it that way', async () => {
+    await opened(TABS.generic);
+
+    expect(within(panel()).getByRole('group', { name: /authorization header/i })).toHaveTextContent(
+      'Authorization: Bearer',
+    );
+  });
+});
+
+describe('ClientSetup · Any MCP client is "bring your own agent"', () => {
+  const steps = () =>
+    [...panel().querySelectorAll('ol')][0]!.querySelectorAll<HTMLElement>(':scope > li');
+  const indexOf = (pattern: RegExp) =>
+    [...steps()].findIndex((li) => pattern.test(li.textContent ?? ''));
+
+  it('frames the tab as bringing your own agent: one you built, or an app that speaks MCP', async () => {
+    await opened(TABS.generic);
+    const intro = panel().querySelector('p.reading')?.textContent ?? '';
+
+    expect(intro).toMatch(/bring your own agent/i);
+    expect(intro).toMatch(/you built/i);
+    expect(intro).toMatch(/app that speaks MCP/i);
+  });
+
+  it('walks the whole run in order: issue, add the endpoint, the goal, let it run, end and judge', async () => {
+    await opened(TABS.generic);
+
+    const order = [
+      indexOf(/issue a run/i),
+      indexOf(/RUN ENDPOINT from/),
+      indexOf(/a header named Authorization/),
+      indexOf(/only server/i),
+      indexOf(/task goal/i),
+      indexOf(/let (it|your agent) run/i),
+      indexOf(/End run and judge/),
+    ];
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // The last step is the one that ends the run.
+    expect(order.at(-1)).toBe(steps().length - 1);
+  });
+
+  it('tells the reader to give the agent no other tools', async () => {
+    await opened(TABS.generic);
+
+    expect(steps()[indexOf(/only server/i)]!.textContent).toMatch(/no other tools/i);
+  });
+
+  it('says a manual client only checks the connection, and not to judge that run', async () => {
+    await opened(TABS.generic);
+    const caveats = panel().querySelector('ul')?.textContent ?? '';
+
+    expect(caveats).toMatch(/MCP Inspector/);
+    expect(caveats).toMatch(/only checks the connection/i);
+    expect(caveats).toMatch(/by hand are not a test/i);
+    expect(caveats).toMatch(/do not end and judge that run/i);
   });
 });
