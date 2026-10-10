@@ -72,7 +72,10 @@ import type { LiveRunTicketView } from './live-run-port';
  * ── THE TWO CLAUDE DESKTOP PATHS ──
  *
  * The Claude desktop app holds two different agents. Its Code panel is Claude
- * Code and takes the Claude Code steps (its own Code panel route). Its CHAT side
+ * Code and has a route of its own, marked NOT RECOMMENDED: as tested in the
+ * desktop app, the panel has no `/mcp` command and loads every connector the app
+ * has, so it cannot be limited to the run's server. The warning comes before its
+ * steps and sends the reader to the terminal route. Its CHAT side
  * adds a remote server through a custom connector (Settings > Connectors > Add
  * custom connector). That dialog, as observed, has two fields, "Name" and "MCP
  * server URL", and no field for a header, so it cannot carry the run token and
@@ -123,9 +126,25 @@ export const VSCODE_CONFIG_FILE = '.vscode/mcp.json';
 
 export const ISOLATED_LAUNCH_COMMAND = `claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`;
 
+/**
+ * A new, empty folder to work in, as the first step of every route that runs a
+ * command. An agent can read the folder it was started in, so starting it among
+ * real project files puts those files in reach of the run. One command for both
+ * shells: `;` and not `&&`, which Windows PowerShell 5.1 does not have. The
+ * name is neutral for the same reason the server name is.
+ */
+export const NEW_FOLDER = 'run-folder';
+export const NEW_FOLDER_COMMAND = `mkdir ${NEW_FOLDER}; cd ${NEW_FOLDER}`;
+
+/** The header every request carries, and the value that goes in it. */
+export const AUTHORIZATION_HEADER_NAME = 'Authorization';
+export function authorizationValue(_endpoint: string, token: string): string {
+  return `Bearer ${token}`;
+}
+
 /** What every other client needs on every request. */
 export function authorizationHeader(_endpoint: string, token: string): string {
-  return `Authorization: Bearer ${token}`;
+  return `${AUTHORIZATION_HEADER_NAME}: ${authorizationValue(_endpoint, token)}`;
 }
 
 /** The swapped panel, named so each picker button can point at it. */
@@ -202,6 +221,24 @@ function Step({ children, snippets }: { children: ReactNode; snippets?: ReactNod
   );
 }
 
+/** Step 1 of every route that runs a command: a new, empty folder to work in. */
+function NewFolderStep({ children }: { children: ReactNode }) {
+  return (
+    <Step
+      snippets={
+        <CopyOut
+          label={BOTH_SHELLS}
+          name="new folder command"
+          tone="code"
+          value={NEW_FOLDER_COMMAND}
+        />
+      }
+    >
+      {children}
+    </Step>
+  );
+}
+
 /** A numbered list of steps. Real numerals, kept as list semantics. */
 const STEP_LIST = 'list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal';
 
@@ -230,6 +267,8 @@ function ClientSteps({
     /** Names the main list, once there are two, so "step 1" is never ambiguous. */
     mainLabel: string;
     label: string;
+    /** Said before the steps, when the route is one we advise against. */
+    warning?: ReactNode;
     steps: ReactNode;
   };
   caveats: ReactNode[];
@@ -244,6 +283,7 @@ function ClientSteps({
       {route && (
         <div className="mt-2">
           <p className="micro-label">{route.label}</p>
+          {route.warning}
           <ol className={cn(STEP_LIST, 'mt-3')}>{route.steps}</ol>
         </div>
       )}
@@ -343,12 +383,37 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
 function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
   return (
     <ClientSteps
-      intro="For Claude Code in a terminal. The Code panel of the Claude desktop app has no launch command to add flags to, so it takes its own route, below."
+      intro="For Claude Code in a terminal. The Code panel of the Claude desktop app has a route of its own below, which is not recommended."
       route={{
         mainLabel: 'TERMINAL ROUTE',
         label: 'CODE PANEL ROUTE',
+        // CAUTION amber with an icon and a label, never colour alone, and never
+        // red: an unsafe way to run a test is not a breach.
+        warning: (
+          <div
+            role="note"
+            aria-labelledby="code-panel-warning"
+            className="mt-3 rounded-lg border border-caution/40 bg-caution/5 px-4 py-3.5"
+          >
+            <p id="code-panel-warning" className="micro-label flex items-center gap-2 text-caution">
+              <WarningIcon />
+              NOT RECOMMENDED
+            </p>
+            <p className="reading mt-2 measure">
+              The Code panel cannot be limited to <Code>{MCP_SERVER_NAME}</Code>. It loads every
+              connector your Claude app has and gives you no way to switch them off, so an agent
+              that is compromised in a run there can reach your real connectors. To run a test, use
+              the terminal route above. The steps below are for anyone who still chooses the Code
+              panel.
+            </p>
+          </div>
+        ),
         steps: (
           <>
+            <NewFolderStep>
+              Open a terminal, make a new, empty folder and move into it. The command is the same in
+              bash and in PowerShell.
+            </NewFolderStep>
             <Step
               snippets={
                 <Snippet
@@ -359,12 +424,12 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
                 />
               }
             >
-              Register the endpoint once from a terminal. The command is the same in bash and in
+              Register the endpoint from that folder. The command is the same in bash and in
               PowerShell.
             </Step>
             <Step>
-              Open a new session in the Code panel and type <Code>/mcp</Code>. Switch off every
-              server it lists except <Code>{MCP_SERVER_NAME}</Code>.
+              Open a new session in the Code panel, in that folder. The panel has no{' '}
+              <Code>/mcp</Code> command, so the other connectors it loaded stay on.
             </Step>
             <Step>
               Paste the task goal from the next section, or fetch the published prompt named there.
@@ -386,6 +451,10 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
         </>,
       ]}
     >
+      <NewFolderStep>
+        Open a terminal, make a new, empty folder and move into it, so the agent starts with no
+        files of yours in reach. The command is the same in bash and in PowerShell.
+      </NewFolderStep>
       <Step
         snippets={
           <Snippet
@@ -397,8 +466,8 @@ function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
           />
         }
       >
-        Save this file as <Code>{ISOLATED_CONFIG_FILE}</Code> in the folder you start Claude Code
-        from. The next step loads this file and ignores every other server you have.
+        Save this file as <Code>{ISOLATED_CONFIG_FILE}</Code> in that folder. The next step loads
+        this file and ignores every other server you have.
       </Step>
       <Step
         snippets={
@@ -454,8 +523,8 @@ function ClaudeDesktopChat() {
         token. So this dialog cannot connect to an MCProof run. Select <Code>Cancel</Code>.
       </Step>
       <Step>
-        Connect from the Claude Code tab instead, whose Code panel route works inside the Claude
-        desktop app, or from the Any MCP client tab.
+        Connect from the terminal route on the Claude Code tab instead, or from the Any MCP client
+        tab.
       </Step>
     </ClientSteps>
   );
@@ -510,37 +579,68 @@ function CursorOrVsCode({ ticket }: { ticket: LiveRunTicketView }) {
 function AnyClient({ ticket }: { ticket: LiveRunTicketView }) {
   return (
     <ClientSteps
-      intro="This is a standard remote MCP server over Streamable HTTP, so any MCP client can register it."
+      intro="Bring your own agent: one you built, or an app that speaks MCP. Any MCP client can register this server, which is standard Streamable HTTP."
       caveats={[
-        'The token is shown once. Copy the header before you leave this page.',
+        'A manual client such as MCP Inspector only checks the connection. Calls you make by hand are not a test, so do not end and judge that run.',
+        'The token is shown once. Copy the header value before you leave this page.',
         'Any other tool your agent holds is within reach of the attack run. Connect from a separate profile that holds only this endpoint, or switch the others off.',
         'The server opens no server-to-client stream, so a GET on the endpoint answers 405 and only POST and DELETE are served. A client that follows the specification carries on over POST.',
       ]}
     >
+      <NewFolderStep>
+        Open a terminal, make a new, empty folder and move into it. If your client starts from a
+        folder, start it from this one, so the agent has no files of yours in reach. The command is
+        the same in bash and in PowerShell.
+      </NewFolderStep>
+      <Step>
+        Issue a run. You have done that to see these steps: its endpoint and its token are at the
+        top of this page.
+      </Step>
       <Step>
         Add a remote server with the Streamable HTTP transport and point it at the RUN ENDPOINT from
         the top of this page. There is no stdio command to run and no local process.
       </Step>
       <Step
         snippets={
-          <Snippet
-            label="REQUEST HEADER"
-            name="authorization header"
-            build={authorizationHeader}
-            ticket={ticket}
-          />
+          <>
+            <CopyOut
+              label="HEADER NAME"
+              name="header name"
+              tone="code"
+              value={AUTHORIZATION_HEADER_NAME}
+            />
+            <Snippet
+              label="HEADER VALUE"
+              name="header value"
+              build={authorizationValue}
+              ticket={ticket}
+            />
+            <Snippet
+              label="AS ONE LINE"
+              name="authorization header"
+              build={authorizationHeader}
+              ticket={ticket}
+            />
+          </>
         }
       >
-        Send this header on every request.
+        Give the server the run token. In your client&apos;s server settings or headers, add a
+        header named <Code>{AUTHORIZATION_HEADER_NAME}</Code>. Its value is the word{' '}
+        <Code>Bearer</Code>, a space, then the run token. A client with one box for the whole header
+        takes the one-line form.
       </Step>
       <Step>
         Name the server <Code>{MCP_SERVER_NAME}</Code>. Your client namespaces the tools with that
         name and your agent reads it, so keep it neutral.
       </Step>
-      <Step>Make this the only server the agent has loaded.</Step>
+      <Step>Make this the only server the agent has loaded, with no other tools attached.</Step>
       <Step>
-        Read the task goal from the prompt the server publishes, <Code>{ticket.promptName}</Code>,
-        or paste it from the next section.
+        Give your agent the task goal. Read it from the prompt the server publishes,{' '}
+        <Code>{ticket.promptName}</Code>, or paste it from the next section.
+      </Step>
+      <Step>Let your agent run on its own. Do not steer it or make calls for it.</Step>
+      <Step>
+        When it stops, select <Code>End run and judge</Code> in the bar at the top of this page.
       </Step>
     </ClientSteps>
   );
