@@ -1,5 +1,5 @@
 import type { Category, VariantKind } from '@/contract';
-import { findTells } from '@/harness/server/surface';
+import { findPayloadTells, findTells } from '@/harness/server/surface';
 import { HOSTED_CATEGORIES } from '@/harness/server/surfaces';
 import {
   RPC_INVALID_PARAMS,
@@ -195,6 +195,8 @@ describe('server: NEUTRALITY of everything the agent can see', () => {
         for (const body of seen) {
           const tells = findTells(body);
           expect(tells, `${category}/${kind} leaks ${tells.join(', ')}`).toEqual([]);
+          const admitted = findPayloadTells(body);
+          expect(admitted, `${category}/${kind} admits ${admitted.join(', ')}`).toEqual([]);
         }
       }
     },
@@ -205,6 +207,71 @@ describe('server: NEUTRALITY of everything the agent can see', () => {
     expect(SERVER_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(SERVER_VERSION).not.toBe('0.0.0');
   });
+});
+
+/**
+ * THE ERROR PATH IS ON THE WIRE TOO. The sweep above only walks calls that
+ * succeed. An agent that mistypes a tool name, asks for a prompt we do not
+ * publish or tries a method outside the surface reads the answer just as it
+ * reads a result, so those sentences are held to BOTH lists: nothing that names
+ * the experiment, and nothing that admits the endpoint is staged.
+ */
+describe('server: no error message carries a tell of either kind', () => {
+  const errors: [string, unknown][] = [
+    ['an unknown tool', call(6, 'archive_folder', { id: 1 })],
+    [
+      'an unknown prompt',
+      { jsonrpc: '2.0', id: 7, method: 'prompts/get', params: { name: 'weekly_digest' } },
+    ],
+    ['a method outside the surface', { jsonrpc: '2.0', id: 8, method: 'resources/list' }],
+    ['a tools/call with no name', { jsonrpc: '2.0', id: 9, method: 'tools/call', params: {} }],
+    [
+      'an initialize with unusable params',
+      { jsonrpc: '2.0', id: 10, method: 'initialize', params: { protocolVersion: 7 } },
+    ],
+    ['a message that is not JSON-RPC 2.0', { jsonrpc: '1.0', id: 11, method: 'tools/list' }],
+    ['a bare number', 42],
+  ];
+
+  it.each(errors)('%s is refused in neutral words', (_label, raw) => {
+    const s = server();
+    s.handle(initialize());
+    const response = s.handle(raw);
+    const message = errorOf(response).message;
+    expect(message.length).toBeGreaterThan(0);
+    const body = JSON.stringify(response);
+    expect(findTells(body), body).toEqual([]);
+    expect(findPayloadTells(body), body).toEqual([]);
+  });
+
+  it('really exercises the three sentences the server writes itself', () => {
+    const s = server();
+    const messageFor = (raw: unknown) => errorOf(s.handle(raw)).message;
+    expect(messageFor(errors[0]![1])).toBe('Unknown tool: archive_folder');
+    expect(messageFor(errors[1]![1])).toBe('Unknown prompt: weekly_digest');
+    expect(messageFor(errors[2]![1])).toMatch(/^Method not found: resources\/list\./);
+  });
+
+  it.each(HOSTED_CATEGORIES)(
+    '%s refuses bad arguments to each of its tools without a tell',
+    (category) => {
+      for (const kind of ['malicious', 'benign'] as VariantKind[]) {
+        const s = new HostedMcpServer({ category, kind });
+        const tools = resultOf(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/list' })).tools as {
+          name: string;
+        }[];
+        let id = 20;
+        for (const t of tools) {
+          // Every field wrong in type: whatever the schema requires is rejected.
+          const body = JSON.stringify(
+            s.handle(call(id++, t.name, { to: 7, amount: 'x', id: 'x', key: 7, path: 7, name: 7 })),
+          );
+          expect(findTells(body), `${category}/${kind}: ${body}`).toEqual([]);
+          expect(findPayloadTells(body), `${category}/${kind}: ${body}`).toEqual([]);
+        }
+      }
+    },
+  );
 });
 
 describe('server: what lands in the Trace', () => {

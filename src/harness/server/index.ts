@@ -30,8 +30,11 @@ export {
 } from './recorder';
 export {
   defineTool,
+  findPayloadTells,
   findTells,
   NEUTRALITY_TELLS,
+  PAYLOAD_TELLS,
+  PAYLOAD_WORD_TELLS,
   type HostedSurface,
   type HostedTool,
   type HostedToolOutcome,

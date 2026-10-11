@@ -1,6 +1,6 @@
 # MCProof — CLAUDE.md (repo build instructions)
 
-> **Renamed 2026-10-08: MCProof, formerly MCPwn.** The old host `mcpwn.dev` stays attached: its page routes 308 to the site origin and its `/api/*` is served where it is, so a run issued before the rename keeps its endpoint (`src/config/legacy-host.ts`). Tokens issued before the rename carry the legacy `mcpwn_rt` prefix and verify for one token lifetime at most. Kept under the old name on purpose: the ADRs (and the ADR-0006 file name), dated plans, the design artifact, migrations, the Supabase `project_id`, and the rate-limit salt.
+> **Renamed 2026-10-08: MCProof, formerly MCPwn.** The old host `mcpwn.dev` stays attached: its page routes 308 to the site origin and its `/api/*` is served where it is, so a run issued before the rename keeps its endpoint (`src/config/legacy-host.ts`). Run tokens carry the `rt` prefix and no other: tokens issued before the rename carried a legacy prefix that verified for one token lifetime, and that acceptance was removed on 2026-10-10 once the lifetime had passed (issue #203). Kept under the old name on purpose: the ADRs (and the ADR-0006 file name), dated plans, the design artifact, migrations, the Supabase `project_id`, and the rate-limit salt.
 
 > Self-contained project: no other project or repo is a dependency, source, or reference. Correctness = tests against each attack's known outcome; quality = the Definition of Done below, enforced in CI. Measured metrics (P/R, robustness) are reported results, not invented thresholds. This file is kept in sync with the code every wave; its claims must be **true in practice**, not just present on paper.
 
@@ -78,7 +78,7 @@ ASI01 Agent Goal Hijack · ASI02 Tool Misuse and Exploitation · ASI03 Identity 
 
 ## Architecture (modules)
 
-1 MCP harness — **hosts the per-run MCP server the agent connects to** (`src/harness/server/**`: Streamable HTTP transport per MCP spec `2025-06-18`, all Core-7 poisoned surfaces, task goal delivered out of band as a published prompt, an observable-only recorder, tested neutral identity — the bait-taking hypothesis is testable at hosted scale but NOT yet validated) and records its steps; `McpTargetPort` for outbound server probing · 2 attack engine · 3 runner · 4 detector (`JudgeModelPort`) · 5 leaderboard · 6 fix-report generator · 7 UI · 8 wiring + run report.
+1 MCP harness — **hosts the per-run MCP server the agent connects to** (`src/harness/server/**`: Streamable HTTP transport per MCP spec `2025-06-18`, all Core-7 poisoned surfaces, task goal delivered out of band as a published prompt, an observable-only recorder, tested neutral identity (`NEUTRALITY_TELLS`: nothing served names the product or the experiment; `PAYLOAD_TELLS`: no served content or error admits it is staged) — the bait-taking hypothesis is testable at hosted scale but NOT yet validated) and records its steps; `McpTargetPort` for outbound server probing · 2 attack engine · 3 runner · 4 detector (`JudgeModelPort`) · 5 leaderboard · 6 fix-report generator · 7 UI · 8 wiring + run report.
 
 ## Build execution
 
