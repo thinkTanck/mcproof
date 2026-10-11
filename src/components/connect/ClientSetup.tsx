@@ -242,6 +242,11 @@ const STATUS_LABELS: Record<Exclude<LiveRunPhase, 'finished'>, string> = {
  * in the inert state while nobody has connected, a ticked ring in the normal
  * state once an agent has. It is never caution and never red.
  *
+ * VISUAL ONLY, on purpose: it carries no `role="status"` and no `aria-live`.
+ * The pinned run bar is the one live region that announces a connection, and a
+ * second one here made a screen reader say the same change twice. The words are
+ * still ordinary text, so a reader moving through the step reads them.
+ *
  * A finished run draws no setup at all, so that phase never reaches this.
  */
 function AgentStatus({ phase }: { phase: LiveRunPhase | null }) {
@@ -251,7 +256,6 @@ function AgentStatus({ phase }: { phase: LiveRunPhase | null }) {
   return (
     <div className="flex flex-col gap-2">
       <div
-        role="status"
         data-testid="agent-status"
         className={cn(
           'inline-flex items-center gap-2 font-mono text-[13px] tracking-[0.08em]',

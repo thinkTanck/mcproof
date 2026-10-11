@@ -304,7 +304,9 @@ describe('ClientSetup · every tab is the same three steps', () => {
     await opened(id);
 
     const status = within(steps()[0]!).getByTestId('agent-status');
-    expect(status).toHaveAttribute('role', 'status');
+    // Visual only: the run bar is the one live announcement of the connection.
+    expect(status).not.toHaveAttribute('role');
+    expect(status).not.toHaveAttribute('aria-live');
     expect(status).toHaveTextContent('AWAITING AGENT');
     expect(status.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
     // After the config block: it reports whether the block worked.
@@ -838,5 +840,52 @@ describe('ClientSetup · plain words, the right type roles, boxes that stay in t
     expect(body).toMatch(/hostile by design/i);
     expect(body).toMatch(/MCP has no message that lets a server tell an agent what its job is/i);
     expect(body).toMatch(/if your client does not support prompts/i);
+  });
+});
+
+describe('ClientSetup · a connection is announced once', () => {
+  /** Everything a screen reader would announce on its own when its text changes. */
+  const liveRegions = () =>
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        '[role="status"], [role="alert"], [role="log"], [aria-live]:not([aria-live="off"])',
+      ),
+    ].filter((el) => !el.parentElement?.closest('[role="status"], [role="alert"], [aria-live]'));
+
+  it('exactly one live region changes when the agent connects, and it is the run bar', async () => {
+    let phase: LiveRunPhase = 'waiting';
+    const port = portWith();
+    port.readState = vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        runId: 'run-77',
+        phase,
+        connectedAt: null,
+        lastSeenAt: null,
+        steps: 2,
+        toolCalls: 0,
+        finishedAt: null,
+      },
+    }));
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={port} category="ASI01" signedIn pollIntervalMs={20} />);
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await screen.findByText(TICKET.endpoint);
+    await pick(user, 'code');
+    const tabStatus = within(steps()[0]!).getByTestId('agent-status');
+    await within(tabStatus).findByText('AWAITING AGENT');
+
+    const before = new Map(liveRegions().map((el) => [el, el.textContent ?? '']));
+    phase = 'connected';
+    await within(tabStatus).findByText('AGENT CONNECTED');
+
+    const after = liveRegions();
+    const changed = after.filter((el) => (before.get(el) ?? '') !== (el.textContent ?? ''));
+    expect(changed).toHaveLength(1);
+    // The one that spoke is the bar, and it said the new state.
+    expect(changed[0]!.textContent).toContain('AGENT CONNECTED');
+    expect(panel().contains(changed[0]!)).toBe(false);
+    // The reading in the open tab changed on screen without announcing itself.
+    expect(tabStatus.closest('[role="status"], [role="alert"], [aria-live]')).toBeNull();
   });
 });

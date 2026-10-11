@@ -156,6 +156,8 @@ test('the status under step 1 follows the run: AGENT CONNECTED once the agent is
 
   const status = panel(page).getByTestId('agent-status');
   await expect(status).toHaveText('AGENT CONNECTED');
-  await expect(status).toHaveAttribute('role', 'status');
+  // Visual only: the run bar is the one live announcement of the connection.
+  await expect(status).not.toHaveAttribute('role');
+  await expect(status).not.toHaveAttribute('aria-live');
   await expect(status.locator('svg')).toHaveCount(1);
 });
