@@ -373,8 +373,12 @@ export function sidewaysOverflow(page: Page): Promise<number> {
  */
 export function widerThanThePage(page: Page): Promise<{ selector: string; inHeader: boolean }[]> {
   return page.evaluate(() => {
+    // In page coordinates, not viewport ones. Once the page can scroll
+    // sideways, stepping through the replay can scroll it (WebKit on Linux CI
+    // did), and then the element that made the overflow sits inside the
+    // viewport and a viewport-relative test finds nothing to name.
     const limit = document.documentElement.clientWidth + 1;
-    const past = (el: Element) => el.getBoundingClientRect().right > limit;
+    const past = (el: Element) => el.getBoundingClientRect().right + window.scrollX > limit;
     const found: { selector: string; inHeader: boolean }[] = [];
     for (const el of document.body.querySelectorAll('*')) {
       if (el.closest('svg') || !el.checkVisibility()) continue;
