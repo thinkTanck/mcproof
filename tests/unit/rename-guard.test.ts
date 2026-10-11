@@ -63,11 +63,6 @@ const ALLOWED: readonly Allowed[] = [
     reason: 'asserts the old name is still caught as a tell',
   },
   {
-    path: /^(src\/runs\/run-token\.ts|src\/lib\/redact\.ts|tests\/unit\/runs\/run-token\.test\.ts|tests\/unit\/lib\/redact\.test\.ts|tests\/unit\/lib\/secret-leakage\.guard\.test\.ts)$/,
-    text: /\(\?:mcpwn_\)\?rt|mcpwn_rt/gi,
-    reason: 'tokens issued before the rename carry the legacy prefix until they expire',
-  },
-  {
     path: /^src\/lib\/auth\/otp-rate-limit\.ts$/,
     text: /'mcpwn\/otp-rate-limit\/v1'/g,
     reason: 'the salt of stored rate-limit hashes; changing it orphans the counters',
@@ -84,8 +79,8 @@ const ALLOWED: readonly Allowed[] = [
   },
   {
     path: /^(README\.md|NOTICE|CLAUDE\.md)$/,
-    text: /formerly MCPwn|`mcpwn_rt`|`mcpwn\.dev`/g,
-    reason: 'so the old name, the legacy prefix and the old host stay findable in the docs',
+    text: /formerly MCPwn|`mcpwn\.dev`/g,
+    reason: 'so the old name and the old host stay findable in the docs',
   },
 ];
 
@@ -140,6 +135,37 @@ describe('rename guard: MCPwn is MCProof', () => {
         });
     }
     expect(hits).toEqual([]);
+  });
+
+  it('has no allowlist entry for the pre-rename token prefix', () => {
+    // Pre-rename tokens stopped verifying one token lifetime after the rename
+    // deploy, and the acceptance was removed, so nothing may say `mcpwn_rt` again.
+    // This file is excluded from its own scan, which is why it can spell it here.
+    const mentionsPrefix = ALLOWED.filter(
+      (a) => /_rt\b|\)\\\?rt\b/i.test(a.text.source) || /prefix/i.test(a.reason),
+    ).map((a) => a.reason);
+    expect(mentionsPrefix).toEqual([]);
+
+    // And by behaviour: the prefix survives the allowlist in every file that used
+    // to be permitted to carry it, in both of the forms that were permitted.
+    for (const file of [
+      'src/runs/run-token.ts',
+      'src/lib/redact.ts',
+      'tests/unit/runs/run-token.test.ts',
+      'tests/unit/lib/redact.test.ts',
+      'tests/unit/lib/secret-leakage.guard.test.ts',
+      'README.md',
+      'NOTICE',
+      'CLAUDE.md',
+    ]) {
+      for (const sample of ["'mcpwn_rt'", '`mcpwn_rt`', 'MCPWN_RT_', '/((?:mcpwn_)?rt)_/']) {
+        expect(strip(file, sample), `the allowlist lets ${file} say ${sample}`).toMatch(/mcpwn/i);
+      }
+    }
+  });
+
+  it('still lets the docs say the old name and the old host', () => {
+    expect(strip('CLAUDE.md', 'MCProof, formerly MCPwn. Host `mcpwn.dev`.')).not.toMatch(/mcpwn/i);
   });
 
   it('no source draws the old split wordmark, MCP plus an accented "wn"', () => {
