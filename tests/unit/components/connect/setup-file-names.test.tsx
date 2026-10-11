@@ -2,7 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   ClientSetup,
+  CODEX_CONFIG_FILE,
   CURSOR_CONFIG_FILE,
+  GEMINI_CONFIG_FILE,
   ISOLATED_CONFIG_FILE,
   ISOLATED_LAUNCH_COMMAND,
   VSCODE_CONFIG_FILE,
@@ -42,7 +44,7 @@ const TICKET: LiveRunTicketView = {
 /** Every file name a label shows, in document order. */
 const fileNames = () => screen.queryAllByTestId('copy-out-file');
 
-async function openTab(name: string) {
+async function openTab(name: string | RegExp) {
   const user = userEvent.setup();
   render(<ClientSetup ticket={TICKET} />);
   await user.click(
@@ -55,6 +57,8 @@ describe('the constants are the names as typed', () => {
     expect(ISOLATED_CONFIG_FILE).toBe('run-mcp.json');
     expect(CURSOR_CONFIG_FILE).toBe('.cursor/mcp.json');
     expect(VSCODE_CONFIG_FILE).toBe('.vscode/mcp.json');
+    expect(CODEX_CONFIG_FILE).toBe('~/.codex/config.toml');
+    expect(GEMINI_CONFIG_FILE).toBe('.gemini/settings.json');
   });
 
   it('the launch command loads the file the label says to save', () => {
@@ -111,29 +115,46 @@ describe('ClientSetup · Claude Code, terminal route', () => {
   });
 });
 
-describe('ClientSetup · Cursor and VS Code', () => {
-  it('each label names its config path exactly, from the constant', async () => {
-    await openTab('CURSOR / VS CODE');
+describe('ClientSetup · the four tabs that save or edit one file', () => {
+  it.each([
+    [/^GITHUB COPILOT \/ VS CODE/, 'SAVE AS', VSCODE_CONFIG_FILE],
+    [/^CURSOR/, 'SAVE AS', CURSOR_CONFIG_FILE],
+    [/^CODEX/, 'ADD TO', CODEX_CONFIG_FILE],
+    [/^GEMINI CLI/, 'SAVE AS', GEMINI_CONFIG_FILE],
+  ] as const)('%s: the label names its config path exactly', async (tab, verb, file) => {
+    await openTab(tab);
 
-    expect(fileNames().map((el) => el.textContent)).toEqual([
-      CURSOR_CONFIG_FILE,
-      VSCODE_CONFIG_FILE,
-    ]);
-    expect(fileNames().map((el) => el.closest('.micro-label')!.textContent)).toEqual([
-      `CURSOR · ${CURSOR_CONFIG_FILE}`,
-      `VS CODE · ${VSCODE_CONFIG_FILE}`,
-    ]);
-    for (const el of fileNames()) expect(el.className).toMatch(/\bnormal-case\b/);
+    expect(fileNames().map((el) => el.textContent)).toEqual([file]);
+    expect(fileNames()[0]!.closest('.micro-label')!.textContent).toBe(`${verb} ${file}`);
+    expect(fileNames()[0]!.className).toMatch(/\bnormal-case\b/);
+    // Nowhere else in a label, where the uppercase transform would reach it.
+    for (const label of document.querySelectorAll('.micro-label')) {
+      const outside = [...label.childNodes]
+        .filter((node) => node.nodeType === Node.TEXT_NODE)
+        .map((node) => node.textContent ?? '')
+        .join('');
+      expect(outside).not.toMatch(/\.json|\.toml/i);
+    }
+  });
+
+  it('a global file is ADDED TO, never saved over', async () => {
+    await openTab(/^CODEX/);
+    expect(CODEX_CONFIG_FILE.startsWith('~/')).toBe(true);
+    for (const label of document.querySelectorAll('.micro-label')) {
+      if (label.textContent?.includes(CODEX_CONFIG_FILE)) {
+        expect(label.textContent).not.toMatch(/SAVE AS/);
+      }
+    }
   });
 });
 
-describe('ClientSetup · the tabs that name no file', () => {
-  it.each(['CLAUDE DESKTOP (CHAT)', 'ANY MCP CLIENT'])('%s shows none', async (tab) => {
-    await openTab(tab);
+describe('ClientSetup · the tab that names no file', () => {
+  it('OTHER AGENT shows none', async () => {
+    await openTab('OTHER AGENT');
 
     expect(fileNames()).toHaveLength(0);
     for (const label of document.querySelectorAll('.micro-label')) {
-      expect(label.textContent).not.toMatch(/\.json/i);
+      expect(label.textContent).not.toMatch(/\.json|\.toml/i);
     }
   });
 });

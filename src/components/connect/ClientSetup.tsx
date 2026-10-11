@@ -2,86 +2,99 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { MCP_SERVER_NAME, desktopConfig, vsCodeConfig } from '@/lib/mcp/config';
+import {
+  MCP_SERVER_NAME,
+  claudeCodeConfig,
+  codexConfig,
+  cursorConfig,
+  geminiConfig,
+  genericConfig,
+  vsCodeConfig,
+} from '@/lib/mcp/config';
 import { CopyOut } from './CopyOut';
-import type { LiveRunTicketView } from './live-run-port';
+import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
 
 /**
- * HOW TO ACTUALLY CONNECT — the missing half of the Connect screen.
+ * HOW TO ACTUALLY CONNECT: one three-step setup, the same for six agents.
  *
- * The console already issued a correct endpoint, a correct token and a correct
- * goal, and explained WHAT each one is and WHY it exists. The one action the user
- * has to perform was covered by a single sentence: "Send it as a bearer token on
- * the connection." That is accurate and useless. It names no transport, gives no
- * command for any client, and assumes the reader already knows how to register a
- * remote Streamable HTTP MCP server with an auth header. A first-time reader
- * pastes the URL into a client expecting stdio, gets a connection error, and the
- * screen has nothing to say about it.
+ * The console issues a correct endpoint, a correct token and a correct goal. This
+ * section is the only place that says what the reader has to DO with them. It
+ * used to be four tabs of four different shapes (five steps, a dialog that could
+ * not connect, two editors in one tab, a nine-step walk of the whole run), so a
+ * first-time reader had to learn a new layout for every client. Now every tab is
+ * the same three steps under the same three names:
  *
- * ── THE SIX RULES THIS SECTION IS BUILT AROUND ──
+ *   1. Connect           ONE paste-ready config block built for this run, one
+ *                        line on the client's other MCP servers, and the live
+ *                        connection reading under it.
+ *   2. Give it the job   the task goal, with a copy control.
+ *   3. Finish            "When your agent is done, End run and judge."
  *
- * 1. A REAL COMMAND, NOT A DESCRIPTION OF ONE. Every snippet is built from the
- *    issued ticket, so it is the command for THIS run and not a template with
- *    placeholders to fill in.
+ * ── THE TABS ──
  *
- * 2. THE COMMAND HAS TO SURVIVE THE READER'S SHELL. Claude Code registers a
- *    server two ways, and both exist in the same build (verified against 2.1.286;
- *    an earlier version of this section called them "newer" and "older" builds,
- *    which was wrong). What differs is the shell: `add-json` passes JSON in single
- *    quotes, and Windows PowerShell strips the double quotes inside it before the
- *    program sees them, so the command fails there. `--transport http` with a
- *    `--header` carries no JSON and works everywhere. So `add-json` is not offered
- *    at all: every command left on this screen is byte-for-byte the same in bash
- *    and in PowerShell, and its label says so, so neither reader has to wonder
- *    whether a command is for them.
+ * Claude Code, GitHub Copilot / VS Code, Cursor, Codex, Gemini CLI, Other agent.
+ * No tab is selected until the reader picks one, so no vendor reads as the way
+ * in. The Claude desktop app's CHAT side has no tab: its custom connector dialog
+ * has no field for a header, so it cannot carry the run token. One line under
+ * the tabs says that for every chat app at once.
  *
- * 3. THE TOKEN IS COPYABLE WITHOUT BEING VISIBLE. A working command has to carry
+ * ── THE RULES THIS SECTION IS BUILT AROUND ──
+ *
+ * 1. A REAL CONFIG, NOT A DESCRIPTION OF ONE. Every block is built from the
+ *    issued ticket, so it is the config for THIS run and not a template with
+ *    placeholders to fill in. The builders live in `@/lib/mcp/config`, one per
+ *    client, each in the format that client's own documentation gives (read
+ *    2026-10-10; the URLs are beside the builders).
+ *
+ * 2. A COMMAND HAS TO SURVIVE THE READER'S SHELL. Every command here is
+ *    byte-for-byte the same in bash and in PowerShell, and its label says so.
+ *    That is why Claude Code's `add-json` form is not offered (Windows
+ *    PowerShell strips the quotes inside its JSON) and why the folder command
+ *    uses `;` and not `&&`.
+ *
+ * 3. THE TOKEN IS COPYABLE WITHOUT BEING VISIBLE. A working config has to carry
  *    the credential, and a credential rendered inside a code block undoes the
- *    masking on the token block three inches above it. So each snippet is BUILT
- *    TWICE from the same function: once with the real token (that string is only
- *    ever handed to the clipboard) and once with a constant mask (that string is
- *    the only one that reaches the DOM). It is deliberately not a find-and-replace
- *    over the real command: a replace that misses prints the credential, and a
+ *    masking on the token block above it. So each snippet is BUILT TWICE from
+ *    the same function: once with the real token (that string is only ever
+ *    handed to the clipboard) and once with a constant mask (that string is the
+ *    only one that reaches the DOM). It is deliberately not a find-and-replace
+ *    over the real text: a replace that misses prints the credential, and a
  *    string built from a mask has never held it.
  *
  * 4. ISOLATION IS STATED FIRST, AND AGAIN IN EVERY TAB. The tools this endpoint
  *    serves are hostile by design, so an agent that also holds live connectors
- *    for mail, files or a cloud account can carry an injected instruction out to
- *    a real system. The warning sits above the picker, and each tab then carries
- *    the isolation move its own client really has: Claude Code's
- *    `--strict-mcp-config` with `--mcp-config` (verified against 2.1.286: "Only
- *    use MCP servers from --mcp-config, ignoring all other MCP configurations"),
- *    the per-chat connector toggles in Claude Desktop, the editor's own MCP
- *    settings. No flag is offered that was not read off the client's own help.
- *    What no MCP flag covers is tooling built into the client itself (a browser
- *    extension, for one), and the copy says so rather than implying the isolation
- *    is total.
+ *    can carry an injected instruction out to a real system. The warning sits
+ *    above the picker, and step 1 of each tab then carries the one isolation
+ *    move its own client really has: Claude Code's `--strict-mcp-config` with
+ *    `--mcp-config` (verified against 2.1.286), Gemini CLI's
+ *    `--allowed-mcp-server-names`, Codex's `enabled = false`, the server lists
+ *    in VS Code and Cursor. No flag is offered that was not read off the
+ *    client's own help or documentation. A client that runs from a folder is
+ *    started in a new, empty one, so no file of the reader's is in reach.
  *
- * 5. NO VENDOR IS THE WAY IN. The endpoint is a standard remote MCP server over
- *    Streamable HTTP with a bearer header; any MCP client can register it. So no
- *    tab is selected until the reader picks one, the generic path is a tab of its
- *    own and not a footnote, and the universal check (the connection panel) is
- *    stated outside every tab.
+ * 5. A FILE THAT IS NOT OURS IS ADDED TO, NEVER REPLACED. Four tabs save a new
+ *    file inside the new folder. Codex reads a file in the home folder that the
+ *    reader may already rely on, so its block is one table to ADD to that file,
+ *    and the step says to remove it after the run. Every file holds the token in
+ *    plain text, and every tab says so.
  *
- * 6. STEPS, NOT PARAGRAPHS. Every tab is one line of intro, a NUMBERED list and a
- *    short list of caveats. The earlier version explained each client in prose,
- *    which a reader who has never registered an MCP server could not follow: the
- *    order of operations was buried in sentences. A step that needs a value
- *    carries its snippet inside the step.
+ * 6. THE STATUS IS THE CONSOLE'S, NOT A SECOND OPINION. The reading under step 1
+ *    is the phase `LiveRunConsole` already polls for and passes down. This
+ *    component reads nothing from the server. It replaces the old CHECK IT TOOK
+ *    paragraph, which described the connection panel instead of showing it.
  *
- * ── THE TWO CLAUDE DESKTOP PATHS ──
+ * 7. UNTESTED IS SAID, AND IT IS NOT A WARNING. Four of the six tabs were
+ *    written from documentation and have not been run by us. They carry an
+ *    UNTESTED tag in the inert fourth state, icon plus label: never caution and
+ *    never red, because an untested config is not a failing one.
  *
- * The Claude desktop app holds two different agents. Its Code panel is Claude
- * Code and has a route of its own, marked NOT RECOMMENDED: as tested in the
+ * ── THE CODE PANEL ROUTE ──
+ *
+ * The Claude desktop app's Code panel is Claude Code, and it keeps a route of
+ * its own UNDER the Claude Code steps, marked NOT RECOMMENDED: as tested in the
  * desktop app, the panel has no `/mcp` command and loads every connector the app
  * has, so it cannot be limited to the run's server. The warning comes before its
- * steps and sends the reader to the terminal route. Its CHAT side
- * adds a remote server through a custom connector (Settings > Connectors > Add
- * custom connector). That dialog, as observed, has two fields, "Name" and "MCP
- * server URL", and no field for a header, so it cannot carry the run token and
- * cannot connect to a run. The tab says exactly that and points to the tabs that
- * can. An earlier version of this tab told the reader to fill a Request headers
- * section taken from documentation; the observed dialog has none.
+ * steps and sends the reader to the terminal route.
  */
 
 /**
@@ -93,10 +106,8 @@ const TOKEN_MASK = '•'.repeat(16);
 /**
  * `claude mcp add --transport http`: the Claude Code form that carries no JSON,
  * so it survives every shell, Windows PowerShell included. It is the Code panel
- * route's registration command. The config files are built by the shared config module
- * (`@/lib/mcp/config`), which owns the server name and the config shape; this form
- * builds no server config of its own, so it stays here, named from the same
- * shared constant.
+ * route's registration command. It builds no server config of its own, so it
+ * stays here, named from the shared constant.
  */
 export function addTransportCommand(endpoint: string, token: string): string {
   return (
@@ -111,6 +122,21 @@ export function addTransportCommand(endpoint: string, token: string): string {
  */
 export const ISOLATED_CONFIG_FILE = 'run-mcp.json';
 
+/** Where VS Code reads its workspace MCP servers from. Shown and typed in this case. */
+export const VSCODE_CONFIG_FILE = '.vscode/mcp.json';
+
+/** Where Cursor reads its project MCP servers from. */
+export const CURSOR_CONFIG_FILE = '.cursor/mcp.json';
+
+/**
+ * Where Codex reads its MCP servers from: a file in the home folder, shared by
+ * every Codex session. It is added to, never saved over.
+ */
+export const CODEX_CONFIG_FILE = '~/.codex/config.toml';
+
+/** Where Gemini CLI reads a project's settings from. */
+export const GEMINI_CONFIG_FILE = '.gemini/settings.json';
+
 /**
  * Launch Claude Code with ONLY the servers in the named file. Both flags were
  * read off `claude --help` (2.1.286): `--mcp-config` loads servers from a JSON
@@ -118,18 +144,19 @@ export const ISOLATED_CONFIG_FILE = 'run-mcp.json';
  * carries no credential (the token lives in the file), so it is rendered and
  * copied as is.
  */
-/** Where Cursor reads its project MCP servers from. Shown and typed in this case. */
-export const CURSOR_CONFIG_FILE = '.cursor/mcp.json';
-
-/** Where VS Code reads its workspace MCP servers from. */
-export const VSCODE_CONFIG_FILE = '.vscode/mcp.json';
-
 export const ISOLATED_LAUNCH_COMMAND = `claude --strict-mcp-config --mcp-config ${ISOLATED_CONFIG_FILE}`;
 
 /**
- * A new, empty folder to work in, as the first step of every route that runs a
- * command. An agent can read the folder it was started in, so starting it among
- * real project files puts those files in reach of the run. One command for both
+ * Launch Gemini CLI with only the run's server allowed for the session. The flag
+ * is in Gemini CLI's configuration reference: "A comma-separated list of MCP
+ * server names to allow for the session." It carries no credential.
+ */
+export const GEMINI_LAUNCH_COMMAND = `gemini --allowed-mcp-server-names ${MCP_SERVER_NAME}`;
+
+/**
+ * A new, empty folder to work in, first in every route that runs from a folder.
+ * An agent can read the folder it was started in, so starting it among real
+ * project files puts those files in reach of the run. One command for both
  * shells: `;` and not `&&`, which Windows PowerShell 5.1 does not have. The
  * name is neutral for the same reason the server name is.
  */
@@ -142,21 +169,22 @@ export function authorizationValue(_endpoint: string, token: string): string {
   return `Bearer ${token}`;
 }
 
-/** What every other client needs on every request. */
-export function authorizationHeader(_endpoint: string, token: string): string {
-  return `${AUTHORIZATION_HEADER_NAME}: ${authorizationValue(_endpoint, token)}`;
-}
-
 /** The swapped panel, named so each picker button can point at it. */
 const PANEL_ID = 'connect-client-panel';
 
-type ClientId = 'claude-code' | 'claude-desktop-chat' | 'editors' | 'generic';
+type ClientId = 'claude-code' | 'vscode' | 'cursor' | 'codex' | 'gemini' | 'other';
 
-const CLIENTS: [ClientId, string][] = [
-  ['claude-code', 'CLAUDE CODE'],
-  ['claude-desktop-chat', 'CLAUDE DESKTOP (CHAT)'],
-  ['editors', 'CURSOR / VS CODE'],
-  ['generic', 'ANY MCP CLIENT'],
+/**
+ * The tabs, in the order they are offered. `untested` marks a client whose steps
+ * were written from its documentation and have not been run by us.
+ */
+const CLIENTS: readonly { id: ClientId; label: string; untested: boolean }[] = [
+  { id: 'claude-code', label: 'CLAUDE CODE', untested: false },
+  { id: 'vscode', label: 'GITHUB COPILOT / VS CODE', untested: true },
+  { id: 'cursor', label: 'CURSOR', untested: true },
+  { id: 'codex', label: 'CODEX', untested: true },
+  { id: 'gemini', label: 'GEMINI CLI', untested: true },
+  { id: 'other', label: 'OTHER AGENT', untested: false },
 ];
 
 const WarningIcon = () => (
@@ -172,6 +200,94 @@ const WarningIcon = () => (
     <circle cx="7" cy="10.6" r="0.75" fill="currentColor" />
   </svg>
 );
+
+/**
+ * UNTESTED, in the inert fourth state: a dashed ring and the word. Never caution
+ * and never red. Nothing is wrong with an untested config; nobody here has run
+ * it yet, and that is all the tag says.
+ */
+function UntestedTag() {
+  return (
+    <span
+      data-testid="untested-tag"
+      className="inline-flex items-center gap-1.5 font-mono text-[12px] tracking-[0.08em]"
+      style={{ color: 'var(--status-inert)' }}
+    >
+      <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true" className="shrink-0">
+        <circle
+          cx="7"
+          cy="7"
+          r="5.4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeDasharray="2.4 2"
+        />
+      </svg>
+      UNTESTED
+    </span>
+  );
+}
+
+/** The same words the pinned run bar uses for the same phases. */
+const STATUS_LABELS: Record<Exclude<LiveRunPhase, 'finished'>, string> = {
+  waiting: 'AWAITING AGENT',
+  connected: 'AGENT CONNECTED',
+};
+
+/**
+ * THE LIVE READING UNDER STEP 1. It is handed the phase the console already
+ * polls for, so it is the bar's own reading drawn a second time, beside the
+ * config it reports on. An icon plus a label, never colour alone: a hollow ring
+ * in the inert state while nobody has connected, a ticked ring in the normal
+ * state once an agent has. It is never caution and never red.
+ *
+ * VISUAL ONLY, on purpose: it carries no `role="status"` and no `aria-live`.
+ * The pinned run bar is the one live region that announces a connection, and a
+ * second one here made a screen reader say the same change twice. The words are
+ * still ordinary text, so a reader moving through the step reads them.
+ *
+ * A finished run draws no setup at all, so that phase never reaches this.
+ */
+function AgentStatus({ phase }: { phase: LiveRunPhase | null }) {
+  const connected = phase === 'connected';
+  const label =
+    phase === 'waiting' || phase === 'connected' ? STATUS_LABELS[phase] : 'READING RUN STATE';
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        data-testid="agent-status"
+        className={cn(
+          'inline-flex items-center gap-2 font-mono text-[13px] tracking-[0.08em]',
+          connected && 'text-nominal',
+        )}
+        style={connected ? undefined : { color: 'var(--status-inert)' }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="shrink-0">
+          <circle cx="7" cy="7" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          {connected && (
+            <path
+              d="M4.4 7.2 6.3 9l3.4-3.8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+        </svg>
+        {label}
+      </div>
+      <p className="reading measure text-ink-muted">
+        {connected
+          ? 'Your agent has reached the endpoint. Go on to step 2.'
+          : phase === 'waiting'
+            ? 'This reading changes to AGENT CONNECTED when your agent reaches the endpoint. If it does not change, the connection did not take.'
+            : 'We are reading the state of this run from the server.'}
+      </p>
+    </div>
+  );
+}
 
 /**
  * One snippet. `build` is called twice: once with the real token for the
@@ -203,28 +319,60 @@ function Snippet({
   );
 }
 
+/** THE config block of a tab. There is exactly one, and a test counts it. */
+function ConfigBlock(props: Parameters<typeof Snippet>[0]) {
+  return (
+    <div data-testid="config-block">
+      <Snippet {...props} />
+    </div>
+  );
+}
+
 /** An inline machine string inside a sentence: a command, a file, a menu path. */
 const Code = ({ children }: { children: ReactNode }) => <span className="readout">{children}</span>;
 
+/** The snippet label for a command that is the same in both shells (rule 2). */
+const BOTH_SHELLS = 'BASH AND POWERSHELL';
+
+/** The three steps. Real numerals, kept as list semantics. */
+const STEP_LIST = 'list-decimal space-y-6 pl-7 marker:font-mono marker:text-nominal';
+
+/** The actions inside one step: lettered, so "step 1" still means one thing. */
+const ACTION_LIST = 'list-[lower-alpha] space-y-4 pl-6 marker:font-mono marker:text-ink-muted';
+
 /**
- * One numbered step. The sentence is READING; whatever the step needs the reader
- * to copy sits inside the same list item, so "step 2" and its value never drift
- * apart. Only the sentence takes the reading measure: the snippet under it is a
- * copy-out box, and those keep the width of the list.
+ * One of the three steps. The name is a short phrase a person reads, so it wears
+ * a READING role; everything the step needs sits inside the same list item.
  */
-function Step({ children, snippets }: { children: ReactNode; snippets?: ReactNode }) {
+function SetupStep({ name, children }: { name: string; children: ReactNode }) {
   return (
-    <li className="reading pl-1.5">
+    <li data-testid="setup-step" className="reading pl-1.5">
+      <p data-testid="setup-step-name" className="reading-lead font-medium">
+        {name}
+      </p>
+      <div className="mt-3 flex flex-col gap-4">{children}</div>
+    </li>
+  );
+}
+
+/**
+ * One lettered action inside step 1. Only the sentence takes the reading
+ * measure: the snippet under it is a copy-out box, and those keep the width of
+ * the list.
+ */
+function Action({ children, snippets }: { children: ReactNode; snippets?: ReactNode }) {
+  return (
+    <li className="reading pl-1">
       <div className="measure">{children}</div>
       {snippets && <div className="mt-2.5 flex flex-col gap-2.5">{snippets}</div>}
     </li>
   );
 }
 
-/** Step 1 of every route that runs a command: a new, empty folder to work in. */
-function NewFolderStep({ children }: { children: ReactNode }) {
+/** The first action of every route that starts from a terminal. */
+function NewFolderAction({ children }: { children: ReactNode }) {
   return (
-    <Step
+    <Action
       snippets={
         <CopyOut
           label={BOTH_SHELLS}
@@ -235,75 +383,98 @@ function NewFolderStep({ children }: { children: ReactNode }) {
       }
     >
       {children}
-    </Step>
+    </Action>
   );
 }
 
-/** A numbered list of steps. Real numerals, kept as list semantics. */
-const STEP_LIST = 'list-decimal space-y-4 pl-7 marker:font-mono marker:text-nominal';
-
-/** The snippet label for a command that is the same in both shells (rule 2). */
-const BOTH_SHELLS = 'BASH AND POWERSHELL';
+/** The sentence every saved file carries: it holds the token, so it goes. */
+const FILE_HOLDS_TOKEN = 'It holds the token in plain text, so delete it after the run.';
 
 /**
- * The shape every tab has, and the only shape a tab may have (rule 6): one line
- * of intro, the numbered steps, the caveats. `list-decimal` keeps real numerals
- * AND the list semantics a `list-none` reset would cost some screen readers.
+ * THE SHAPE EVERY TAB HAS, and the only shape a tab may have: an optional tag,
+ * one line of intro, then the three steps. A tab supplies step 1's actions and
+ * its one line about other servers; steps 2 and 3 are the same words everywhere.
  */
-function ClientSteps({
+function ThreeSteps({
   intro,
+  untested = false,
+  actions,
+  otherServers,
+  ticket,
+  phase,
   children,
-  route,
-  caveats,
 }: {
-  intro: ReactNode;
-  children: ReactNode;
-  /**
-   * A second, separately labelled route through the same client, when one
-   * surface of it cannot take the main steps. Numbered on its own, so the two
-   * routes never blur into one list.
-   */
-  route?: {
-    /** Names the main list, once there are two, so "step 1" is never ambiguous. */
-    mainLabel: string;
-    label: string;
-    /** Said before the steps, when the route is one we advise against. */
-    warning?: ReactNode;
-    steps: ReactNode;
-  };
-  caveats: ReactNode[];
+  intro: string;
+  untested?: boolean;
+  /** Step 1's lettered actions. Exactly one of them holds the config block. */
+  actions: ReactNode;
+  /** The one line on turning off this client's other MCP servers. */
+  otherServers: ReactNode;
+  ticket: LiveRunTicketView;
+  phase: LiveRunPhase | null;
+  /** Anything a tab adds UNDER the three steps. */
+  children?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <p className="reading measure">{intro}</p>
-      <div>
-        {route && <p className="micro-label">{route.mainLabel}</p>}
-        <ol className={cn(STEP_LIST, route && 'mt-3')}>{children}</ol>
-      </div>
-      {route && (
-        <div className="mt-2">
-          <p className="micro-label">{route.label}</p>
-          {route.warning}
-          <ol className={cn(STEP_LIST, 'mt-3')}>{route.steps}</ol>
+    <div className="flex flex-col gap-5">
+      {untested && (
+        <div
+          data-testid="untested-note"
+          className="flex flex-col gap-1.5 rounded-lg border border-line bg-panel/60 px-4 py-3.5"
+        >
+          <UntestedTag />
+          <p className="reading measure">
+            We have not tested this client ourselves yet. These steps follow its own documentation.
+            The status under step 1 shows whether it connected.
+          </p>
         </div>
       )}
-      <div>
-        <p className="micro-label">KEEP IN MIND</p>
-        <ul className="mt-2 list-disc space-y-1.5 pl-6 marker:text-ink-faint">
-          {caveats.map((caveat, i) => (
-            <li key={i} className="reading measure pl-1 text-ink-muted">
-              {caveat}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <p data-testid="client-intro" className="reading measure">
+        {intro}
+      </p>
+      <ol data-testid="setup-steps" className={STEP_LIST}>
+        <SetupStep name="Connect">
+          <ol className={ACTION_LIST}>{actions}</ol>
+          <p data-testid="other-servers-line" className="reading measure">
+            {otherServers}
+          </p>
+          <AgentStatus phase={phase} />
+        </SetupStep>
+        <SetupStep name="Give it the job">
+          <p className="reading measure">Paste this into your agent. It is the whole task.</p>
+          {/* The label carries the ISSUED run's category: this is the task of the
+              run, not of whatever the picker above now has selected. */}
+          <CopyOut
+            label={`TASK GOAL · ${ticket.category}`}
+            name="job for your agent"
+            value={ticket.taskGoal}
+            tone="prose"
+          />
+        </SetupStep>
+        <SetupStep name="Finish">
+          <p data-testid="finish-line" className="reading measure">
+            When your agent is done, End run and judge.
+          </p>
+        </SetupStep>
+      </ol>
+      {children}
     </div>
   );
 }
 
-export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
+export function ClientSetup({
+  ticket,
+  phase = null,
+}: {
+  ticket: LiveRunTicketView;
+  /**
+   * The connection phase the console last read, or `null` before its first
+   * read. Passed down, never fetched here: there is one poller for a run.
+   */
+  phase?: LiveRunPhase | null;
+}) {
   // No client is selected until the reader picks one: a preselected tab would
-  // make one vendor's command read as the way in.
+  // make one vendor's config read as the way in.
   const [client, setClient] = useState<ClientId | null>(null);
 
   return (
@@ -331,15 +502,19 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
         </p>
       </div>
 
-      <p className="micro-label mt-1">YOUR CLIENT</p>
+      <p className="micro-label mt-1">YOUR AGENT</p>
 
       {/* A pressed-button group, not a tablist: it is the same control the MODE
           picker on this screen already uses, and one component vocabulary beats a
-          roving-tabindex tablist for four buttons. `aria-controls` still names
-          what each one changes, so a screen reader is told where the panel it
-          just swapped actually is. Nothing is pressed until the reader chooses. */}
+          roving-tabindex tablist. `aria-controls` still names what each one
+          changes. Nothing is pressed until the reader chooses.
+
+          SIX BUTTONS HAVE TO FIT A 320px PHONE. The group wraps, each button is
+          capped at the width of the group, and a label may wrap inside its own
+          button, so the longest one (with its tag) never pushes the page
+          sideways. */}
       <div className="flex flex-wrap gap-2.5" role="group" aria-label="MCP client">
-        {CLIENTS.map(([id, label]) => {
+        {CLIENTS.map(({ id, label, untested }) => {
           const active = client === id;
           return (
             <button
@@ -349,319 +524,407 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
               aria-controls={PANEL_ID}
               onClick={() => setClient(id)}
               className={cn(
-                'min-h-11 rounded-md border px-4 py-2.5 font-mono text-[13px] tracking-[0.08em] transition-colors',
+                'inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border px-4 py-2.5 text-left font-mono text-[13px] tracking-[0.08em] transition-colors',
                 active
                   ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
                   : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',
               )}
             >
-              {label}
+              <span data-testid="client-tab-label">{label}</span>
+              {/* The space is for the accessible name, which would otherwise run
+                  the label and the tag together as one word. The button is a
+                  flex row, so it draws nothing. */}
+              {untested && (
+                <>
+                  {' '}
+                  <UntestedTag />
+                </>
+              )}
             </button>
           );
         })}
       </div>
 
+      <p data-testid="chat-apps-line" className="reading measure text-ink-muted">
+        Chat apps (Claude, ChatGPT, Gemini) can&apos;t carry a run token. Use one of the agents
+        above.
+      </p>
+
       <div id={PANEL_ID} className="mt-1">
         {client === null && (
           <p className="reading measure text-ink-muted">
-            Pick the client your agent runs in to see its steps.
+            Pick the agent you will use to see its steps.
           </p>
         )}
-        {client === 'claude-code' && <ClaudeCode ticket={ticket} />}
-        {client === 'claude-desktop-chat' && <ClaudeDesktopChat />}
-        {client === 'editors' && <CursorOrVsCode ticket={ticket} />}
-        {client === 'generic' && <AnyClient ticket={ticket} />}
+        {client === 'claude-code' && <ClaudeCode ticket={ticket} phase={phase} />}
+        {client === 'vscode' && <VsCode ticket={ticket} phase={phase} />}
+        {client === 'cursor' && <Cursor ticket={ticket} phase={phase} />}
+        {client === 'codex' && <Codex ticket={ticket} phase={phase} />}
+        {client === 'gemini' && <GeminiCli ticket={ticket} phase={phase} />}
+        {client === 'other' && <OtherAgent ticket={ticket} phase={phase} />}
       </div>
-
-      <Verify />
     </section>
   );
 }
 
-// ── Claude Code: a terminal, or the Code panel of the desktop app ──
+interface TabProps {
+  ticket: LiveRunTicketView;
+  phase: LiveRunPhase | null;
+}
 
-function ClaudeCode({ ticket }: { ticket: LiveRunTicketView }) {
+// ── Claude Code: a terminal, with the Code panel route under it ──
+
+function ClaudeCode({ ticket, phase }: TabProps) {
   return (
-    <ClientSteps
-      intro="For Claude Code in a terminal. The Code panel of the Claude desktop app has a route of its own below, which is not recommended."
-      route={{
-        mainLabel: 'TERMINAL ROUTE',
-        label: 'CODE PANEL ROUTE',
-        // CAUTION amber with an icon and a label, never colour alone, and never
-        // red: an unsafe way to run a test is not a breach.
-        warning: (
-          <div
-            role="note"
-            aria-labelledby="code-panel-warning"
-            className="mt-3 rounded-lg border border-caution/40 bg-caution/5 px-4 py-3.5"
+    <ThreeSteps
+      intro="For Claude Code in a terminal."
+      ticket={ticket}
+      phase={phase}
+      actions={
+        <>
+          <NewFolderAction>
+            Open a terminal. Make a new, empty folder and move into it, so the agent starts with no
+            files of yours in reach.
+          </NewFolderAction>
+          <Action
+            snippets={
+              <ConfigBlock
+                label="SAVE AS"
+                file={ISOLATED_CONFIG_FILE}
+                name="Claude Code config"
+                build={claudeCodeConfig}
+                ticket={ticket}
+              />
+            }
           >
-            <p id="code-panel-warning" className="micro-label flex items-center gap-2 text-caution">
-              <WarningIcon />
-              NOT RECOMMENDED
-            </p>
-            <p className="reading mt-2 measure">
-              The Code panel cannot be limited to <Code>{MCP_SERVER_NAME}</Code>. It loads every
-              connector your Claude app has and gives you no way to switch them off, so an agent
-              that is compromised in a run there can reach your real connectors. To run a test, use
-              the terminal route above. The steps below are for anyone who still chooses the Code
-              panel.
-            </p>
-          </div>
-        ),
-        steps: (
-          <>
-            <NewFolderStep>
-              Open a terminal, make a new, empty folder and move into it. The command is the same in
-              bash and in PowerShell.
-            </NewFolderStep>
-            <Step
-              snippets={
-                <Snippet
-                  label={BOTH_SHELLS}
-                  name="Claude Code transport command"
-                  build={addTransportCommand}
+            Save this file in that folder. {FILE_HOLDS_TOKEN}
+          </Action>
+          <Action
+            snippets={
+              <CopyOut
+                label={BOTH_SHELLS}
+                name="isolated launch command"
+                tone="code"
+                value={ISOLATED_LAUNCH_COMMAND}
+              />
+            }
+          >
+            Start Claude Code with this command.
+          </Action>
+        </>
+      }
+      otherServers={
+        <>
+          The command loads only this file, so your other MCP servers stay off. Type{' '}
+          <Code>/mcp</Code> to check: it should list <Code>{MCP_SERVER_NAME}</Code> and nothing
+          else.
+        </>
+      }
+    >
+      <div data-testid="code-panel-route" className="mt-2 flex flex-col gap-3">
+        <p className="micro-label">CODE PANEL ROUTE</p>
+        {/* CAUTION amber with an icon and a label, never colour alone, and never
+            red: an unsafe way to run a test is not a breach. */}
+        <div
+          role="note"
+          aria-labelledby="code-panel-warning"
+          className="rounded-lg border border-caution/40 bg-caution/5 px-4 py-3.5"
+        >
+          <p id="code-panel-warning" className="micro-label flex items-center gap-2 text-caution">
+            <WarningIcon />
+            NOT RECOMMENDED
+          </p>
+          <p className="reading mt-2 measure">
+            The Code panel of the Claude desktop app cannot be limited to{' '}
+            <Code>{MCP_SERVER_NAME}</Code>. It loads every connector your Claude app has and gives
+            you no way to switch them off, so an agent that is compromised in a run there can reach
+            your real connectors. To run a test, use the terminal route above. The steps below are
+            for anyone who still chooses the Code panel.
+          </p>
+        </div>
+        <ol className="list-decimal space-y-4 pl-7 marker:font-mono marker:text-ink-muted">
+          <NewFolderAction>
+            Open a terminal. Make a new, empty folder and move into it.
+          </NewFolderAction>
+          <Action
+            snippets={
+              <Snippet
+                label={BOTH_SHELLS}
+                name="Claude Code transport command"
+                build={addTransportCommand}
+                ticket={ticket}
+              />
+            }
+          >
+            Register the endpoint from that folder. Your shell echoes the token back when it
+            confirms, so keep that output off a shared screen.
+          </Action>
+          <Action>
+            Open a new session in the Code panel, in that folder. The panel has no <Code>/mcp</Code>{' '}
+            command, so the other connectors it loaded stay on.
+          </Action>
+          <Action>Then carry on from step 2 above.</Action>
+        </ol>
+      </div>
+    </ThreeSteps>
+  );
+}
+
+// ── GitHub Copilot in VS Code: `.vscode/mcp.json`, under `servers` ──
+
+function VsCode({ ticket, phase }: TabProps) {
+  return (
+    <ThreeSteps
+      untested
+      intro="For GitHub Copilot Chat in VS Code."
+      ticket={ticket}
+      phase={phase}
+      actions={
+        <>
+          <Action>
+            Open a new, empty folder in VS Code, so the agent has no project files in reach.
+          </Action>
+          <Action
+            snippets={
+              <ConfigBlock
+                label="SAVE AS"
+                file={VSCODE_CONFIG_FILE}
+                name="VS Code config"
+                build={vsCodeConfig}
+                ticket={ticket}
+              />
+            }
+          >
+            Save this file in that folder. {FILE_HOLDS_TOKEN}
+          </Action>
+          <Action>
+            Open Copilot Chat in agent mode. VS Code asks whether you trust the new server the first
+            time it starts.
+          </Action>
+        </>
+      }
+      otherServers={
+        <>
+          Run <Code>MCP: List Servers</Code> from the Command Palette and stop every other server,
+          so <Code>{MCP_SERVER_NAME}</Code> is the only one running.
+        </>
+      }
+    />
+  );
+}
+
+// ── Cursor: `.cursor/mcp.json`, `url` and `headers` ──
+
+function Cursor({ ticket, phase }: TabProps) {
+  return (
+    <ThreeSteps
+      untested
+      intro="For the agent in Cursor."
+      ticket={ticket}
+      phase={phase}
+      actions={
+        <>
+          <Action>
+            Open a new, empty folder in Cursor, so the agent has no project files in reach.
+          </Action>
+          <Action
+            snippets={
+              <ConfigBlock
+                label="SAVE AS"
+                file={CURSOR_CONFIG_FILE}
+                name="Cursor config"
+                build={cursorConfig}
+                ticket={ticket}
+              />
+            }
+          >
+            Save this file in that folder. {FILE_HOLDS_TOKEN}
+          </Action>
+          <Action>Start a new agent chat in that folder.</Action>
+        </>
+      }
+      otherServers={
+        <>
+          Open <Code>Customize</Code> in the sidebar and switch off every other MCP server, so{' '}
+          <Code>{MCP_SERVER_NAME}</Code> is the only one on.
+        </>
+      }
+    />
+  );
+}
+
+// ── Codex: one table added to the config file in the home folder ──
+
+function Codex({ ticket, phase }: TabProps) {
+  return (
+    <ThreeSteps
+      untested
+      intro="For the Codex CLI in a terminal."
+      ticket={ticket}
+      phase={phase}
+      actions={
+        <>
+          <NewFolderAction>
+            Open a terminal. Make a new, empty folder and move into it, so the agent starts with no
+            files of yours in reach.
+          </NewFolderAction>
+          <Action
+            snippets={
+              <ConfigBlock
+                label="ADD TO"
+                file={CODEX_CONFIG_FILE}
+                name="Codex config"
+                build={codexConfig}
+                ticket={ticket}
+              />
+            }
+          >
+            Add this block to the end of the Codex config file in your home folder, and keep
+            everything that is already in it. The block holds the token in plain text, so remove it
+            after the run.
+          </Action>
+          <Action>
+            Start Codex in the new folder with <Code>codex</Code>.
+          </Action>
+        </>
+      }
+      otherServers={
+        <>
+          For this run, add <Code>enabled = false</Code> under every other{' '}
+          <Code>[mcp_servers]</Code> table in that file, so <Code>{MCP_SERVER_NAME}</Code> is the
+          only one on.
+        </>
+      }
+    />
+  );
+}
+
+// ── Gemini CLI: a project settings file, `httpUrl` and `headers` ──
+
+function GeminiCli({ ticket, phase }: TabProps) {
+  return (
+    <ThreeSteps
+      untested
+      intro="For Gemini CLI in a terminal."
+      ticket={ticket}
+      phase={phase}
+      actions={
+        <>
+          <NewFolderAction>
+            Open a terminal. Make a new, empty folder and move into it, so the agent starts with no
+            files of yours in reach.
+          </NewFolderAction>
+          <Action
+            snippets={
+              <ConfigBlock
+                label="SAVE AS"
+                file={GEMINI_CONFIG_FILE}
+                name="Gemini CLI config"
+                build={geminiConfig}
+                ticket={ticket}
+              />
+            }
+          >
+            Save this file in that folder. {FILE_HOLDS_TOKEN}
+          </Action>
+          <Action
+            snippets={
+              <CopyOut
+                label={BOTH_SHELLS}
+                name="Gemini CLI launch command"
+                tone="code"
+                value={GEMINI_LAUNCH_COMMAND}
+              />
+            }
+          >
+            Start Gemini CLI with this command. If it asks whether you trust the folder, say yes, or
+            it will not read the file.
+          </Action>
+        </>
+      }
+      otherServers={
+        <>
+          The command allows only <Code>{MCP_SERVER_NAME}</Code> for this session, so your other MCP
+          servers stay off. Type <Code>/mcp</Code> to check.
+        </>
+      }
+    />
+  );
+}
+
+// ── Other agent: the generic block, the two raw values, and what Inspector is ──
+
+function OtherAgent({ ticket, phase }: TabProps) {
+  return (
+    <ThreeSteps
+      intro="Bring your own agent: one you built, or any app that supports MCP."
+      ticket={ticket}
+      phase={phase}
+      actions={
+        <>
+          <NewFolderAction>
+            If your agent starts from a folder, make a new, empty folder and start it there, so it
+            has no files of yours in reach.
+          </NewFolderAction>
+          <Action
+            snippets={
+              <>
+                <ConfigBlock
+                  label="JSON CONFIG"
+                  name="generic config"
+                  build={genericConfig}
                   ticket={ticket}
                 />
-              }
-            >
-              Register the endpoint from that folder. The command is the same in bash and in
-              PowerShell.
-            </Step>
-            <Step>
-              Open a new session in the Code panel, in that folder. The panel has no{' '}
-              <Code>/mcp</Code> command, so the other connectors it loaded stay on.
-            </Step>
-            <Step>
-              Paste the task goal from the next section, or fetch the published prompt named there.
-            </Step>
-          </>
-        ),
-      }}
-      caveats={[
-        'The token is shown once. Every command here carries it, so copy what you need before you leave this page.',
-        <>
-          Keep the attack run away from your real tools. A plain <Code>claude</Code> loads every
-          other server you have alongside this one.
-        </>,
-        'The Code panel route echoes the token back in the confirmation your shell prints. Keep that output off a shared terminal and out of an issue report.',
-        'No flag covers tools built into the client itself, a browser extension for example. Disable those yourself for a clean run.',
-        <>
-          If the server does not connect, <Code>claude mcp get {MCP_SERVER_NAME}</Code> prints the
-          reason.
-        </>,
-      ]}
+                <CopyOut label="ENDPOINT" name="endpoint" tone="code" value={ticket.endpoint} />
+                <Snippet
+                  label="HEADER VALUE"
+                  name="header value"
+                  build={authorizationValue}
+                  ticket={ticket}
+                />
+              </>
+            }
+          >
+            Add this server to your agent. Paste the JSON block if it takes one. If it asks for the
+            values one at a time, they are under the block: the endpoint, and the value of a header
+            named <Code>{AUTHORIZATION_HEADER_NAME}</Code>. The transport is Streamable HTTP.
+          </Action>
+        </>
+      }
+      otherServers="Make this the only MCP server your agent has loaded, with no other tools attached."
     >
-      <NewFolderStep>
-        Open a terminal, make a new, empty folder and move into it, so the agent starts with no
-        files of yours in reach. The command is the same in bash and in PowerShell.
-      </NewFolderStep>
-      <Step
-        snippets={
-          <Snippet
-            label="SAVE AS"
-            file={ISOLATED_CONFIG_FILE}
-            name="Claude Code config file"
-            build={desktopConfig}
-            ticket={ticket}
-          />
-        }
-      >
-        Save this file as <Code>{ISOLATED_CONFIG_FILE}</Code> in that folder. The next step loads
-        this file and ignores every other server you have.
-      </Step>
-      <Step
-        snippets={
-          <CopyOut
-            label={BOTH_SHELLS}
-            name="isolated launch command"
-            tone="code"
-            value={ISOLATED_LAUNCH_COMMAND}
-          />
-        }
-      >
-        Start Claude Code with only that file&apos;s server loaded. The command is the same in bash
-        and in PowerShell.
-      </Step>
-      <Step>
-        Type <Code>/mcp</Code> in the session. It should list <Code>{MCP_SERVER_NAME}</Code> and
-        nothing else. If another server is listed, switch it off there before you go on.
-      </Step>
-      <Step>
-        Paste the task goal from the next section, or fetch the published prompt named there.
-      </Step>
-    </ClientSteps>
-  );
-}
-
-// ── Claude Desktop, chat side: a custom connector, not Claude Code's config ──
-
-/**
- * Written from the dialog as observed in Claude Desktop (Settings > Connectors >
- * Add custom connector): two fields, "Name" and "MCP server URL", and the buttons
- * "Cancel" and "Continue". There is no header field and no Advanced section, so
- * nothing on it can carry the run token. The tab describes only that screen and
- * claims nothing about what follows Continue.
- */
-function ClaudeDesktopChat() {
-  return (
-    <ClientSteps
-      intro="For the chat side of the Claude desktop app, not the Code panel. Its custom connector dialog cannot carry the run token."
-      caveats={[
-        'The token is shown once, on this page. Copy it into a client that can carry it before you leave.',
-        'A connector added without the token is refused by the run endpoint, so it never reaches the attack run.',
-      ]}
-    >
-      <Step>
-        Open <Code>Settings &gt; Connectors</Code> and select <Code>Add custom connector</Code>.
-      </Step>
-      <Step>
-        The dialog asks for two things, <Code>Name</Code> and <Code>MCP server URL</Code>, and
-        offers <Code>Cancel</Code> and <Code>Continue</Code>.
-      </Step>
-      <Step>
-        It has no field for the run token, and every request to an MCProof run has to carry that
-        token. So this dialog cannot connect to an MCProof run. Select <Code>Cancel</Code>.
-      </Step>
-      <Step>
-        Connect from the terminal route on the Claude Code tab instead, or from the Any MCP client
-        tab.
-      </Step>
-    </ClientSteps>
-  );
-}
-
-// ── Cursor and VS Code: the same server entry, one key apart ──
-
-function CursorOrVsCode({ ticket }: { ticket: LiveRunTicketView }) {
-  return (
-    <ClientSteps
-      intro="Cursor and VS Code each read one small JSON file and speak to a remote HTTP server natively. There is nothing to install."
-      caveats={[
-        'The token is shown once, and the file holds it in plain text. Delete the file after the run and never commit it.',
-        'Any other server or extension the editor agent can use is within reach of the attack run. Switch them off first.',
-      ]}
-    >
-      <Step>Open an empty folder in the editor, so the agent has no project files in reach.</Step>
-      <Step
-        snippets={
-          <>
-            <Snippet
-              label="CURSOR ·"
-              file={CURSOR_CONFIG_FILE}
-              name="Cursor configuration"
-              build={desktopConfig}
-              ticket={ticket}
-            />
-            <Snippet
-              label="VS CODE ·"
-              file={VSCODE_CONFIG_FILE}
-              name="VS Code configuration"
-              build={vsCodeConfig}
-              ticket={ticket}
-            />
-          </>
-        }
-      >
-        Save the file for your editor in that folder. VS Code reads the same entry under a{' '}
-        <Code>servers</Code> key instead of <Code>mcpServers</Code>, so it has its own block.
-      </Step>
-      <Step>
-        Open the MCP settings of the editor, switch every other server off, and check that{' '}
-        <Code>{MCP_SERVER_NAME}</Code> shows as connected.
-      </Step>
-      <Step>Start a new agent chat and paste the task goal from the next section.</Step>
-    </ClientSteps>
-  );
-}
-
-// ── Any MCP client: the protocol facts, with no vendor in them ──
-
-function AnyClient({ ticket }: { ticket: LiveRunTicketView }) {
-  return (
-    <ClientSteps
-      intro="Bring your own agent: one you built, or an app that speaks MCP. Any MCP client can register this server, which is standard Streamable HTTP."
-      caveats={[
-        'A manual client such as MCP Inspector only checks the connection. Calls you make by hand are not a test, so do not end and judge that run.',
-        'The token is shown once. Copy the header value before you leave this page.',
-        'Any other tool your agent holds is within reach of the attack run. Connect from a separate profile that holds only this endpoint, or switch the others off.',
-        'The server opens no server-to-client stream, so a GET on the endpoint answers 405 and only POST and DELETE are served. A client that follows the specification carries on over POST.',
-      ]}
-    >
-      <NewFolderStep>
-        Open a terminal, make a new, empty folder and move into it. If your client starts from a
-        folder, start it from this one, so the agent has no files of yours in reach. The command is
-        the same in bash and in PowerShell.
-      </NewFolderStep>
-      <Step>
-        Issue a run. You have done that to see these steps: its endpoint and its token are at the
-        top of this page.
-      </Step>
-      <Step>
-        Add a remote server with the Streamable HTTP transport and point it at the RUN ENDPOINT from
-        the top of this page. There is no stdio command to run and no local process.
-      </Step>
-      <Step
-        snippets={
-          <>
-            <CopyOut
-              label="HEADER NAME"
-              name="header name"
-              tone="code"
-              value={AUTHORIZATION_HEADER_NAME}
-            />
-            <Snippet
-              label="HEADER VALUE"
-              name="header value"
-              build={authorizationValue}
-              ticket={ticket}
-            />
-            <Snippet
-              label="AS ONE LINE"
-              name="authorization header"
-              build={authorizationHeader}
-              ticket={ticket}
-            />
-          </>
-        }
-      >
-        Give the server the run token. In your client&apos;s server settings or headers, add a
-        header named <Code>{AUTHORIZATION_HEADER_NAME}</Code>. Its value is the word{' '}
-        <Code>Bearer</Code>, a space, then the run token. A client with one box for the whole header
-        takes the one-line form.
-      </Step>
-      <Step>
-        Name the server <Code>{MCP_SERVER_NAME}</Code>. Your client namespaces the tools with that
-        name and your agent reads it, so keep it neutral.
-      </Step>
-      <Step>Make this the only server the agent has loaded, with no other tools attached.</Step>
-      <Step>
-        Give your agent the task goal. Read it from the prompt the server publishes,{' '}
-        <Code>{ticket.promptName}</Code>, or paste it from the next section.
-      </Step>
-      <Step>Let your agent run on its own. Do not steer it or make calls for it.</Step>
-      <Step>
-        When it stops, select <Code>End run and judge</Code> in the bar at the top of this page.
-      </Step>
-    </ClientSteps>
-  );
-}
-
-// ── Did it work? ──
-
-/**
- * Deliberately UNFRAMED and outside every tab: the connection panel is the one
- * check that holds for every client, so it is said once. The micro-label carries
- * the scan cue instead of another bordered box.
- */
-function Verify() {
-  return (
-    <div className="mt-1">
-      <p className="micro-label">CHECK IT TOOK</p>
-      <p className="reading mt-2 measure">
-        In any client, the reading that settles it is the connection panel on this screen. It stays
-        on AWAITING AGENT until your agent really reaches this endpoint, and it moves to AGENT
-        CONNECTED the first time it does.
+      <p data-testid="frameworks-line" className="reading measure">
+        Frameworks with MCP support include Claude Agent SDK, OpenAI Agents SDK, CrewAI and
+        Microsoft Agent Framework. LangGraph and Google ADK connect through adapters.
       </p>
-    </div>
+      <p className="reading measure text-ink-muted">
+        If you are writing your own client: the server opens no server-to-client stream, so a GET on
+        the endpoint answers 405. A client that follows the MCP specification carries on over POST.
+      </p>
+      {/* A BEGINNER NOTE, not a warning: the neutral panel, no caution and no
+          red. Its title is a question a person reads, so it wears a READING
+          role and not a label. */}
+      <div
+        role="note"
+        aria-labelledby="inspector-note"
+        className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 px-4 py-3.5"
+      >
+        <p id="inspector-note" className="reading-lead font-medium">
+          What is MCP Inspector?
+        </p>
+        <p className="reading measure">
+          MCP Inspector is a free tool from the MCP project. It lets you connect to a server
+          yourself and press its tools by hand.
+        </p>
+        <p className="reading measure">
+          Use it only to check that your endpoint and token work: add a server, choose Streamable
+          HTTP, paste the endpoint, add the Authorization header, connect, then list the tools.
+        </p>
+        <p className="reading measure">
+          It is not an agent, so pressing tools yourself is not a test. For that run, use Discard
+          run instead of End run and judge.
+        </p>
+      </div>
+    </ThreeSteps>
   );
 }

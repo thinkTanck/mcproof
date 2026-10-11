@@ -136,17 +136,20 @@ function expectNoDeadSetup(container: HTMLElement) {
   expect(screen.queryByRole('button', { name: /reveal run token/i })).not.toBeInTheDocument();
   expect(container.textContent).not.toMatch(/token is shown once|we cannot show it again/i);
   expect(container.textContent).not.toMatch(/keeps working/i);
-  // The client steps, the four client tabs and the connection check.
+  // The client steps, the six client tabs and the connection check.
   expect(screen.queryByRole('region', { name: /register .* client/i })).not.toBeInTheDocument();
   expect(screen.queryByRole('group', { name: 'MCP client' })).not.toBeInTheDocument();
   for (const tab of [
-    'CLAUDE CODE',
-    'CLAUDE DESKTOP (CHAT)',
-    'CURSOR / VS CODE',
-    'ANY MCP CLIENT',
+    /^CLAUDE CODE/,
+    /^GITHUB COPILOT \/ VS CODE/,
+    /^CURSOR/,
+    /^CODEX/,
+    /^GEMINI CLI/,
+    /^OTHER AGENT/,
   ]) {
     expect(screen.queryByRole('button', { name: tab })).not.toBeInTheDocument();
   }
+  expect(screen.queryByTestId('chat-apps-line')).not.toBeInTheDocument();
   expect(screen.queryByText('ATTACH NOTHING ELSE')).not.toBeInTheDocument();
   expect(screen.queryByText('CHECK IT TOOK')).not.toBeInTheDocument();
   expect(container.textContent).not.toMatch(/AWAITING AGENT/);
@@ -395,7 +398,7 @@ describe('LiveRunConsole · guards: the other states are unchanged', () => {
     expect(screen.getByText('RUN TOKEN')).toBeVisible();
     expect(screen.getByRole('region', { name: /register .* client/i })).toBeVisible();
     expect(screen.getByRole('group', { name: 'MCP client' })).toBeVisible();
-    expect(screen.getByText('CHECK IT TOOK')).toBeVisible();
+    expect(screen.getByTestId('chat-apps-line')).toBeVisible();
     expect(screen.getByRole('region', { name: /give your agent its task/i })).toBeVisible();
     expect(screen.getByText(TICKET.taskGoal)).toBeVisible();
     expect(screen.queryByRole('region', { name: 'See the result.' })).not.toBeInTheDocument();
