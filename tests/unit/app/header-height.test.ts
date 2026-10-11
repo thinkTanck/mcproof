@@ -53,8 +53,9 @@ describe('--header-h', () => {
     const classes = [...read(file).matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)]
       .map((m) => m[1] ?? m[2] ?? '')
       .join(' ')
-      // The icon rail is 72px WIDE. That is its own measurement, which happens to
-      // equal the header's height; it does not follow the header.
+      // A rail width of 72px would be its own measurement (the narrow rail was
+      // 72px wide until S4), which happens to equal the header's height; it does
+      // not follow the header.
       .replace(/\S*\bw-\[72px\]/g, '');
 
     expect(classes).not.toMatch(/72px/);

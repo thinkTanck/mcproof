@@ -17,11 +17,16 @@ import { isActive, type NavItem } from './nav-items';
 export function NavLink({
   item,
   pathname,
-  labelClassName,
+  rail = false,
 }: {
   item: NavItem;
   pathname: string;
-  labelClassName?: string;
+  /**
+   * Drawn in the persistent rail (760px and up) rather than the drawer. Below
+   * 1100px the rail is narrow: the full label goes and the short word stacks
+   * under the icon instead. From 1100px the link is exactly the drawer's row.
+   */
+  rail?: boolean;
 }) {
   const livePathname = usePathname();
   const active = isActive(livePathname ?? pathname, item);
@@ -36,14 +41,19 @@ export function NavLink({
       // Next would RSC-404 them on load. Fan-out PRs flip `available` per route.
       prefetch={item.available ? undefined : false}
       aria-current={active ? 'page' : undefined}
-      // The 72px icon-rail (760-1100px) hides the label and the icon is
-      // aria-hidden, so without this the link has no accessible name and a mouse
-      // user sees an unlabelled glyph. aria-label keeps the name (with its purpose)
-      // at every width; title gives every width a hover tooltip.
+      // The name, with its purpose, at every width. The icon is aria-hidden and the
+      // narrow rail shows only a short word, so the name cannot come from the
+      // content. The short word is a piece of this name (WCAG 2.5.3) and is
+      // aria-hidden, so a screen reader hears the name once. title keeps the
+      // purpose on hover for a mouse.
       aria-label={name}
       title={name}
       className={cn(
         'relative flex items-center gap-3 rounded-md px-3.5 py-3.5 font-mono text-xs tracking-[0.06em] transition-colors',
+        // Narrow rail only (760 to 1099px; the rail is not drawn below 760): the
+        // word stacks under the icon, and the target is at least 44px.
+        rail &&
+          'max-[1099px]:min-h-11 max-[1099px]:flex-col max-[1099px]:justify-center max-[1099px]:gap-1 max-[1099px]:px-0.5 max-[1099px]:py-2',
         active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised/70',
       )}
     >
@@ -55,7 +65,16 @@ export function NavLink({
         )}
       />
       <span className="shrink-0 opacity-90">{item.icon}</span>
-      <span className={labelClassName}>{item.label}</span>
+      <span className={rail ? 'hidden min-[1100px]:inline' : undefined}>{item.label}</span>
+      {rail && (
+        <span
+          data-rail-label
+          aria-hidden="true"
+          className="instrument one-line whitespace-nowrap text-current min-[1100px]:hidden"
+        >
+          {item.short}
+        </span>
+      )}
     </Link>
   );
 }
