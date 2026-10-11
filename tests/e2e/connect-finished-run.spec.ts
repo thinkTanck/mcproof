@@ -55,7 +55,7 @@ for (const [width, height] of [
       await expect(column.getByText('RUN TOKEN', { exact: true })).toHaveCount(0);
       await expect(column.getByText('https://example.invalid/api/mcp/fixture-run')).toHaveCount(0);
       await expect(page.getByRole('group', { name: 'MCP client' })).toHaveCount(0);
-      await expect(column.getByText('CHECK IT TOOK')).toHaveCount(0);
+      await expect(column.getByTestId('chat-apps-line')).toHaveCount(0);
       await expect(column.getByText(/AWAITING AGENT/)).toHaveCount(0);
       await expect(column.getByRole('button', { name: /^copy /i })).toHaveCount(0);
     });

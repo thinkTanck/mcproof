@@ -609,7 +609,9 @@ export function LiveRunConsole({
           {/* The setup commands embed the token, so a reopened run has none to
           show. Drawing them with a placeholder would be a command that cannot
           work, which is worse than no command. */}
-          {run.token !== null && <ClientSetup ticket={{ ...run, token: run.token }} />}
+          {run.token !== null && (
+            <ClientSetup ticket={{ ...run, token: run.token }} phase={phase} />
+          )}
           <TaskGoal run={run} />
         </>
       )}

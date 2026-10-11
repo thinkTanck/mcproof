@@ -19,6 +19,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { findTells } from '@/harness/server/surface';
 
 /** One server entry in an MCP config. `type` is fixed to the HTTP transport. */
 interface McpServerEntry {
@@ -38,6 +39,11 @@ interface ConfigModule {
   addJsonCommand: (endpoint: string, token: string) => string;
   desktopConfig: (endpoint: string, token: string) => string;
   vsCodeConfig: (endpoint: string, token: string) => string;
+  claudeCodeConfig: (endpoint: string, token: string) => string;
+  cursorConfig: (endpoint: string, token: string) => string;
+  codexConfig: (endpoint: string, token: string) => string;
+  geminiConfig: (endpoint: string, token: string) => string;
+  genericConfig: (endpoint: string, token: string) => string;
 }
 
 // A string-typed specifier keeps `tsc` from resolving the missing module, so the
@@ -156,6 +162,128 @@ describe('shared MCP config builder (RED: src/lib/mcp/config does not exist yet)
       expect(source, `${relativePath} should not inline a "workspace" server name`).not.toMatch(
         /['"]workspace['"]/,
       );
+    }
+  });
+});
+
+/**
+ * ONE BUILDER PER CLIENT, EACH IN THE FORMAT THAT CLIENT'S OWN DOCUMENTATION
+ * GIVES for a remote Streamable HTTP server with a static Authorization header
+ * (read 2026-10-10; the URLs are in the header comment of the module). The
+ * formats differ in ways a reader cannot guess: the top-level key, whether a
+ * `type` is wanted, the name of the URL field, and JSON against TOML. Each
+ * output is asserted exactly, because a config that is nearly right connects to
+ * nothing.
+ */
+describe('per-client config builders', () => {
+  const endpoint = 'https://example.invalid/api/mcp/run-1';
+  const token = 'rt_token-under-test';
+  const bearer = `Bearer ${token}`;
+
+  it('Claude Code: mcpServers, type http, url, headers', async () => {
+    const { claudeCodeConfig, MCP_SERVER_NAME } = await loadConfig();
+    const text = claudeCodeConfig(endpoint, token);
+    expect(JSON.parse(text)).toEqual({
+      mcpServers: {
+        [MCP_SERVER_NAME]: { url: endpoint, type: 'http', headers: { Authorization: bearer } },
+      },
+    });
+    // Pretty-printed: it is a file a person saves and may read.
+    expect(text).toBe(JSON.stringify(JSON.parse(text), null, 2));
+  });
+
+  it('VS Code: servers (not mcpServers), type http, url, headers', async () => {
+    const { vsCodeConfig, MCP_SERVER_NAME } = await loadConfig();
+    expect(JSON.parse(vsCodeConfig(endpoint, token))).toEqual({
+      servers: {
+        [MCP_SERVER_NAME]: { url: endpoint, type: 'http', headers: { Authorization: bearer } },
+      },
+    });
+  });
+
+  it('Cursor: mcpServers, url and headers, and no type field', async () => {
+    const { cursorConfig, MCP_SERVER_NAME } = await loadConfig();
+    const text = cursorConfig(endpoint, token);
+    expect(JSON.parse(text)).toEqual({
+      mcpServers: { [MCP_SERVER_NAME]: { url: endpoint, headers: { Authorization: bearer } } },
+    });
+    expect(text).not.toContain('"type"');
+    expect(text).toBe(JSON.stringify(JSON.parse(text), null, 2));
+  });
+
+  it('Gemini CLI: mcpServers, httpUrl (not url), headers, and no type field', async () => {
+    const { geminiConfig, MCP_SERVER_NAME } = await loadConfig();
+    const text = geminiConfig(endpoint, token);
+    expect(JSON.parse(text)).toEqual({
+      mcpServers: { [MCP_SERVER_NAME]: { httpUrl: endpoint, headers: { Authorization: bearer } } },
+    });
+    // `url` selects the SSE transport in Gemini CLI, which this endpoint does not speak.
+    expect(text).not.toContain('"url"');
+    expect(text).not.toContain('"type"');
+  });
+
+  it('Codex: one TOML table, url and a static http_headers map', async () => {
+    const { codexConfig, MCP_SERVER_NAME } = await loadConfig();
+    const text = codexConfig(endpoint, token);
+    expect(text).toBe(
+      `[mcp_servers.${MCP_SERVER_NAME}]\n` +
+        `url = "${endpoint}"\n` +
+        `http_headers = { "Authorization" = "${bearer}" }\n`,
+    );
+    // The shape of valid TOML: a table header, then key = value lines only.
+    const lines = text.trimEnd().split('\n');
+    expect(lines[0]).toMatch(/^\[mcp_servers\.[A-Za-z0-9_-]+\]$/);
+    for (const line of lines.slice(1)) expect(line).toMatch(/^[a-z_]+ = \S.*$/);
+    // A bare TOML key may hold letters, digits, dashes and underscores only.
+    expect(MCP_SERVER_NAME).toMatch(/^[A-Za-z0-9_-]+$/);
+    // No experimental switch and no environment variable: neither is needed.
+    expect(text).not.toMatch(/experimental|bearer_token_env_var|env_http_headers/);
+  });
+
+  it('Codex: a value that needs escaping stays one valid TOML basic string', async () => {
+    const { codexConfig } = await loadConfig();
+    const text = codexConfig('https://example.invalid/a"b', 'to"ken');
+    expect(text).toContain('url = "https://example.invalid/a\\"b"');
+    expect(text).toContain('"Bearer to\\"ken"');
+  });
+
+  it('generic: the mcpServers shape with url, type http and the Authorization header', async () => {
+    const { genericConfig, buildMcpConfig } = await loadConfig();
+    expect(JSON.parse(genericConfig(endpoint, token))).toEqual(buildMcpConfig(endpoint, token));
+  });
+
+  it('every builder is built from its arguments alone: a mask in, a mask out, no token', async () => {
+    const mod = await loadConfig();
+    const mask = '•'.repeat(16);
+    for (const build of [
+      mod.claudeCodeConfig,
+      mod.vsCodeConfig,
+      mod.cursorConfig,
+      mod.codexConfig,
+      mod.geminiConfig,
+      mod.genericConfig,
+    ]) {
+      expect(build(endpoint, token)).toContain(bearer);
+      const masked = build(endpoint, mask);
+      expect(masked).toContain(`Bearer ${mask}`);
+      expect(masked).not.toContain(token);
+      expect(masked).toContain(endpoint);
+    }
+  });
+
+  it('every builder names the server neutrally and carries no tell of its own', async () => {
+    const mod = await loadConfig();
+    for (const build of [
+      mod.claudeCodeConfig,
+      mod.vsCodeConfig,
+      mod.cursorConfig,
+      mod.codexConfig,
+      mod.geminiConfig,
+      mod.genericConfig,
+    ]) {
+      const text = build(endpoint, token);
+      expect(text).toContain(mod.MCP_SERVER_NAME);
+      expect(findTells(text)).toEqual([]);
     }
   });
 });

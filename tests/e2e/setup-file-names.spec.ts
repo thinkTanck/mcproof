@@ -17,7 +17,7 @@ test.skip(
   'NOT COVERED: E2E_FIXTURES=1 is unset, so the fixture route this suite drives is not built.',
 );
 
-async function openTab(page: Page, name: string) {
+async function openTab(page: Page, name: string | RegExp) {
   await suppressBootSplash(page);
   await page.goto('/e2e/connect-states?state=waiting');
   await page.getByRole('button', { name: /^LIVE/ }).click();
@@ -45,19 +45,27 @@ test('Claude Code: the label shows run-mcp.json as the command spells it', async
   ).toBeVisible();
 });
 
-test('Cursor and VS Code: the labels show the config paths in lower case', async ({ page }) => {
-  await openTab(page, 'CURSOR / VS CODE');
+for (const [tab, label] of [
+  [/^GITHUB COPILOT \/ VS CODE/, 'SAVE AS .vscode/mcp.json'],
+  [/^CURSOR/, 'SAVE AS .cursor/mcp.json'],
+  [/^CODEX/, 'ADD TO ~/.codex/config.toml'],
+  [/^GEMINI CLI/, 'SAVE AS .gemini/settings.json'],
+] as const) {
+  test(`${label}: the label shows the config path in the case it is typed`, async ({ page }) => {
+    await openTab(page, tab);
 
-  const rendered = await labels(page);
-  expect(rendered).toContain('CURSOR · .cursor/mcp.json');
-  expect(rendered).toContain('VS CODE · .vscode/mcp.json');
-  expect(rendered.join(' | ')).not.toMatch(/\.CURSOR|\.VSCODE|MCP\.JSON/);
-});
+    const rendered = await labels(page);
+    expect(rendered).toContain(label);
+    expect(rendered.join(' | ')).not.toMatch(
+      /\.CURSOR|\.VSCODE|\.CODEX|\.GEMINI|MCP\.JSON|CONFIG\.TOML|SETTINGS\.JSON/,
+    );
+  });
+}
 
 test('the rest of each label is still an uppercase micro-label', async ({ page }) => {
   await openTab(page, 'CLAUDE CODE');
 
   const rendered = await labels(page);
-  expect(rendered).toContain('TERMINAL ROUTE');
+  expect(rendered).toContain('CODE PANEL ROUTE');
   expect(rendered).toContain('BASH AND POWERSHELL');
 });
