@@ -16,6 +16,7 @@ import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
 import { LiveRunConsole, RUN_EXPIRED_LABEL, RUN_FINISHED_LABEL } from './LiveRunConsole';
+import { PhoneNote } from './PhoneNote';
 import { RUN_DISCARDED_LABEL } from '@/runs/discard-copy';
 import { readActiveRunId, subscribeActiveRunId, writeActiveRunId } from './active-run-store';
 import {
@@ -342,6 +343,9 @@ export function ConnectScreen({
 
   return (
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
+      {/* Below 768px only, and first: a phone cannot run a test, so the visitor
+          is told before they read the setup, and shown what they can do. */}
+      <PhoneNote />
       <p className="micro-label mb-2.5 tracking-[0.18em] text-nominal">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
       <p className="reading-lead mb-4 measure">
