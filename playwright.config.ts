@@ -14,7 +14,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 const BASE_URL = `http://localhost:${PORT}`;
 
 /** The only specs the WebKit project runs. Everything else is Chromium-only. */
-const WEBKIT_SPECS = /small-text-line-spacing\.spec\.ts$/;
+const WEBKIT_SPECS = /(small-text-line-spacing|run-bar-short-screens)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -34,11 +34,13 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     // WebKit is the engine on every iPhone, and small wrapped text is a phone
-    // problem, so the text-spacing spec is measured there too. ONLY that spec:
-    // the rest of the suite stays Chromium-only, so CI time barely moves. The
-    // spec sets its own viewports; this supplies the touch, mobile and user-agent
-    // half of a phone. WebKit rejects the clipboard permissions above, and the
-    // spec copies nothing, so they are dropped here.
+    // problem, so the text-spacing spec is measured there too, and so is the
+    // short-screen run bar spec (S1: the discard question first opened below the
+    // fold in WebKit). ONLY those specs: the rest of the suite stays
+    // Chromium-only, so CI time barely moves. The specs set their own viewports;
+    // this supplies the touch, mobile and user-agent half of a phone. WebKit
+    // rejects the clipboard permissions above, and the specs copy nothing, so
+    // they are dropped here.
     {
       name: 'webkit',
       testMatch: WEBKIT_SPECS,

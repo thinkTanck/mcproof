@@ -651,7 +651,11 @@ export function LiveRunConsole({
     // wrapped under the status, ending at 214px, plus a 26px buffer. It was 18rem
     // while the finished pair stacked on phones (#173); re-measure if the bar
     // grows again (tests/e2e/connect-run-bar.spec.ts walks focus in every state).
-    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-60">
+    // Under 500px of height the bar is not pinned (S1), so there is nothing to
+    // clear but the header, which the page's own scroll padding already clears;
+    // kept at 15rem there, the margin was taller than the room under the header
+    // at 568x320 and parked a focused answer below the fold.
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-60 [@media(max-height:499px)]:[&_:is(a,button,[tabindex])]:scroll-mt-0">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
@@ -1225,8 +1229,8 @@ function Connection({
   // ── THE CONFIRM STEP, AND WHERE FOCUS GOES ──
   //
   // Discarding cannot be undone, so it is asked for twice. The question opens
-  // inline in the bar, which is pinned, so it is in view wherever the page is
-  // scrolled. It is not a modal: nothing behind it is blocked, END RUN still
+  // directly under the bar, never inside it, so the pinned bar never grows to
+  // hold it; focus moving into it brings it into view. It is not a modal: nothing behind it is blocked, END RUN still
   // works, and Escape or KEEP RUNNING puts everything back.
   //
   // Focus is moved by hand, because the things it has to land on do not exist
@@ -1297,7 +1301,11 @@ function Connection({
       </h3>
       {/* THE RUN BAR. One compact strip: the state, the count, and the control
           that ends the run. It is pinned under the 72px header at every width,
-          so all three stay in view while the setup below is read. It is kept
+          so all three stay in view while the setup below is read, on any screen
+          at least 500px tall. UNDER 500px OF HEIGHT IT IS NOT PINNED (S1): on a
+          phone held sideways the header and the pinned bar took 35% to 58% of
+          the screen, so there it scrolls with the page like the setup does. A
+          height query, not a script, so nothing reflows on a resize. It is kept
           SHORT on purpose: the sentences that explain a reading live in the
           block underneath and scroll with the page, because a pinned panel tall
           enough to hold them covered close to half of a phone screen.
@@ -1308,7 +1316,7 @@ function Connection({
           transformed ancestor re-anchors `position: fixed`. */}
       <section
         aria-labelledby="connect-state"
-        className="sticky top-[calc(var(--header-h)+8px)] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
+        className="sticky top-[calc(var(--header-h)+8px)] z-40 -mt-3 [@media(max-height:499px)]:static flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
       >
         {/* A CONNECTED RUN ON A PHONE IS TWO ROWS (C3). At 320 the status wrapped
             to two lines, END RUN AND JUDGE fell to a row of its own and its label
@@ -1479,44 +1487,10 @@ function Connection({
             <p className="reading measure">{discardRefusal.message}</p>
           </div>
         )}
-        {/* THE CONFIRM STEP. Caution, not breach: it is a decision that cannot
-            be undone, and nothing has gone wrong. The question is prose, so it
-            wears the READING role; it also names the group, so a screen reader
-            hears it when focus arrives on KEEP RUNNING. DISCARD comes first in
-            the order and KEEP RUNNING takes the focus. */}
-        {confirmOpen && (
-          <div
-            role="group"
-            aria-labelledby={questionId}
-            onKeyDown={onConfirmKey}
-            className="flex flex-col gap-3 rounded-md border border-caution/40 bg-caution/5 px-4 py-3"
-          >
-            <p id={questionId} className="reading measure">
-              {DISCARD_CONFIRM_QUESTION}
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={confirmDiscard}
-                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-caution/60 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-caution transition-colors hover:bg-caution/10"
-              >
-                {DISCARD_CONFIRM_YES}
-              </button>
-              <button
-                ref={keepButton}
-                type="button"
-                onClick={keepRunning}
-                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-line-em px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
-              >
-                {DISCARD_CONFIRM_NO}
-              </button>
-            </div>
-          </div>
-        )}
       </section>
       {/* THE SAME CONTROL ON A NARROW SCREEN, directly under the bar. It is not
           pinned: it is the rare way out, and pinning it would cost every reader
-          the row it took. Pressing it opens the question in the bar above. */}
+          the row it took. Pressing it opens the question directly under it. */}
       {canDiscard && (
         <div data-testid="discard-run-narrow" className="-mt-3 lg:hidden">
           <button
@@ -1528,6 +1502,45 @@ function Connection({
           >
             {DISCARD_RUN_LABEL}
           </button>
+        </div>
+      )}
+      {/* THE CONFIRM STEP, UNDER THE BAR AND NEVER IN IT (S1). Opened inside
+          the pinned bar it made the bar 71% to 106% of a phone held sideways,
+          with its answers below the fold in WebKit. Here it follows the bar, or
+          the narrow control that opened it, and scrolls with the page; moving
+          focus onto KEEP RUNNING brings it into view, clear of the bar, by the
+          column's scroll margin. Caution, not breach: it is a decision that
+          cannot be undone, and nothing has gone wrong. The question is prose, so it
+          wears the READING role; it also names the group, so a screen reader
+          hears it when focus arrives on KEEP RUNNING. DISCARD comes first in
+          the order and KEEP RUNNING takes the focus. */}
+      {confirmOpen && (
+        <div
+          role="group"
+          aria-labelledby={questionId}
+          onKeyDown={onConfirmKey}
+          className="-mt-3 flex flex-col gap-3 rounded-md border border-caution/40 bg-caution/5 px-4 py-3"
+        >
+          <p id={questionId} className="reading measure">
+            {DISCARD_CONFIRM_QUESTION}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={confirmDiscard}
+              className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-caution/60 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-caution transition-colors hover:bg-caution/10"
+            >
+              {DISCARD_CONFIRM_YES}
+            </button>
+            <button
+              ref={keepButton}
+              type="button"
+              onClick={keepRunning}
+              className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-line-em px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+            >
+              {DISCARD_CONFIRM_NO}
+            </button>
+          </div>
         </div>
       )}
       {/* What the bar's readings mean. Prose, so it scrolls with the page. */}

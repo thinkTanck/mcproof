@@ -161,7 +161,9 @@ and nothing went wrong ([ADR-0003](0003-core-7-scope-and-measurability-bar.md)).
 On a screen narrower than 1024px the control sits directly under the pinned bar
 rather than in it. It does not fit beside the tool-call count and END RUN at
 phone widths, and a third row would undo the ceiling the bar was given on
-phones. The bar itself is unchanged below that width.
+phones. The bar itself is unchanged below that width. At every width the
+question opens under the bar, never inside it, so the bar does not grow when it
+is asked.
 
 ## How this differs from abandon
 
