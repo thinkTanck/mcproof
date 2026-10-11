@@ -8,9 +8,11 @@ import { StatusBar } from './StatusBar';
 import { CommandDeck } from './CommandDeck';
 
 /**
- * The HUD frame: status bar + command deck + main. A Server Component with NO
- * client JS — the active nav comes from the `x-pathname` request header
- * (middleware) and the mobile drawer is a native popover. Uses natural document
+ * The HUD frame: status bar + command deck + main. A Server Component: the
+ * active nav is seeded from the `x-pathname` request header (middleware) and the
+ * mobile drawer is a native popover; the only client code is the small islands
+ * inside them (the live active link, the account entry, the drawer closing on
+ * navigation). Uses natural document
  * flow with a sticky header/rail (not a fixed-height overflow container), which
  * avoids the synchronous-layout cost that was delaying LCP.
  */

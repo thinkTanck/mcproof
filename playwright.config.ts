@@ -14,7 +14,8 @@ const PORT = Number(process.env.PORT ?? 3000);
 const BASE_URL = `http://localhost:${PORT}`;
 
 /** The only specs the WebKit project runs. Everything else is Chromium-only. */
-const WEBKIT_SPECS = /(small-text-line-spacing|run-bar-short-screens)\.spec\.ts$/;
+const WEBKIT_SPECS =
+  /(small-text-line-spacing|run-bar-short-screens|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -33,14 +34,12 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    // WebKit is the engine on every iPhone, and small wrapped text is a phone
-    // problem, so the text-spacing spec is measured there too, and so is the
-    // short-screen run bar spec (S1: the discard question first opened below the
-    // fold in WebKit). ONLY those specs: the rest of the suite stays
-    // Chromium-only, so CI time barely moves. The specs set their own viewports;
-    // this supplies the touch, mobile and user-agent half of a phone. WebKit
-    // rejects the clipboard permissions above, and the specs copy nothing, so
-    // they are dropped here.
+    // WebKit is the engine on every iPhone, so the phone-specific specs listed in
+    // WEBKIT_SPECS are measured there too. ONLY those specs: the rest of the suite
+    // stays Chromium-only, so CI time barely moves. Each spec sets its own viewports;
+    // this supplies the touch, mobile and user-agent half of a phone. WebKit rejects
+    // the clipboard permissions above, so they are dropped here; a spec that needs
+    // the clipboard refuses or skips it itself.
     {
       name: 'webkit',
       testMatch: WEBKIT_SPECS,
