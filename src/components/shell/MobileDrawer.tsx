@@ -1,19 +1,25 @@
 import { NAV_ITEMS } from './nav-items';
 import { NavLink } from './NavLink';
 import { AccountEntry } from './AccountEntry';
+import { DrawerAutoClose } from './DrawerAutoClose';
 import type { ShellAccount } from '@/lib/shell-account';
 
 /**
  * Mobile command-deck: the hamburger + a drawer via the native HTML Popover API
- * — zero client JS (native light-dismiss: Esc + click-outside; top-layer focus).
- * Server-rendered, so it adds no hydration cost to the shell. The button is
- * hidden ≥760px, where the persistent rail takes over.
+ * (native light-dismiss: Esc + click-outside; top-layer focus). Opening and
+ * closing it by hand needs no script. Server-rendered, with one small client
+ * island beside it, `DrawerAutoClose`, which renders nothing and closes the
+ * drawer when a link in it is tapped or the route changes: the layout is not
+ * re-rendered on a client navigation, so the popover would otherwise stay open
+ * over the new page.
+ * The button is hidden ≥760px, where the persistent rail takes over.
  */
 export function MobileDrawer({ pathname, account }: { pathname: string; account: ShellAccount }) {
   return (
     <>
       <button
         type="button"
+        id="mobile-deck-trigger"
         popoverTarget="mobile-deck"
         aria-label="Open command deck"
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line text-ink hover:border-line-em hover:text-ink-hi min-[760px]:hidden"
@@ -47,6 +53,7 @@ export function MobileDrawer({ pathname, account }: { pathname: string; account:
           <AccountEntry account={account} pathname={pathname} />
         </div>
       </div>
+      <DrawerAutoClose drawerId="mobile-deck" triggerId="mobile-deck-trigger" />
     </>
   );
 }
