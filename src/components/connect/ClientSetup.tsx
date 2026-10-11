@@ -61,6 +61,16 @@ import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
  *    over the real text: a replace that misses prints the credential, and a
  *    string built from a mask has never held it.
  *
+ *    ONE APPROVED EXCEPTION, AND ONLY ONE PATH TO IT: when copying a snippet
+ *    FAILS (the clipboard is refused or missing), the box offers SHOW CONFIG
+ *    (SHOW COMMAND, SHOW VALUE for the other masked snippets), and only when the
+ *    reader then presses it is the real string drawn, as selectable text beside
+ *    "This contains your run token. Don't share it." Without it a reader whose
+ *    browser cannot copy could only select a config that cannot connect. A
+ *    working copy never offers it, a failed copy alone draws nothing, and
+ *    pressing it again, switching tabs or issuing a new run masks it again. See
+ *    WHEN COPYING FAILS in `CopyOut`.
+ *
  * 4. ISOLATION IS STATED FIRST, AND AGAIN IN EVERY TAB. The tools this endpoint
  *    serves are hostile by design, so an agent that also holds live connectors
  *    can carry an injected instruction out to a real system. The warning sits
@@ -255,7 +265,8 @@ function AgentStatus({ phase }: { phase: LiveRunPhase | null }) {
 
 /**
  * One snippet. `build` is called twice: once with the real token for the
- * clipboard, once with the mask for the screen. See rule 3 above.
+ * clipboard, once with the mask for the screen. See rule 3 above, and its one
+ * exception, which `reveal` names the button of.
  */
 function Snippet({
   label,
@@ -263,6 +274,7 @@ function Snippet({
   name,
   build,
   ticket,
+  reveal,
 }: {
   label: string;
   /** A file name the label ends with, kept in its own case. See `CopyOut`. */
@@ -270,6 +282,8 @@ function Snippet({
   name: string;
   build: (endpoint: string, token: string) => string;
   ticket: LiveRunTicketView;
+  /** What SHOW offers after a failed copy: CONFIG, COMMAND or VALUE. */
+  reveal: string;
 }) {
   return (
     <CopyOut
@@ -279,15 +293,16 @@ function Snippet({
       tone="code"
       value={build(ticket.endpoint, ticket.token)}
       display={build(ticket.endpoint, TOKEN_MASK)}
+      reveal={reveal}
     />
   );
 }
 
 /** THE config block of a tab. There is exactly one, and a test counts it. */
-function ConfigBlock(props: Parameters<typeof Snippet>[0]) {
+function ConfigBlock(props: Omit<Parameters<typeof Snippet>[0], 'reveal'>) {
   return (
     <div data-testid="config-block">
-      <Snippet {...props} />
+      <Snippet {...props} reveal="CONFIG" />
     </div>
   );
 }
@@ -594,6 +609,7 @@ function ClaudeCode({ ticket, phase }: TabProps) {
                 name="Claude Code transport command"
                 build={addTransportCommand}
                 ticket={ticket}
+                reveal="COMMAND"
               />
             }
           >
@@ -818,6 +834,7 @@ function OtherAgent({ ticket, phase }: TabProps) {
                   name="header value"
                   build={authorizationValue}
                   ticket={ticket}
+                  reveal="VALUE"
                 />
               </>
             }
