@@ -125,7 +125,9 @@ export function Replay({
             />
           </span>
         </div>
-        {provenance ? <p className="instrument mt-2 text-ink-faint">{provenance}</p> : null}
+        {provenance ? (
+          <p className="instrument mt-(--instrument-stack) text-ink-faint">{provenance}</p>
+        ) : null}
       </header>
 
       {/* Stage — two terminals in a row, then a full-width transport and the

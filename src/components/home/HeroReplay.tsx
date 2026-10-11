@@ -192,7 +192,7 @@ export function HeroReplay({
               </span>
               <span
                 className={cn(
-                  'min-w-0 flex-1 truncate font-mono text-[13px]',
+                  'min-w-0 flex-1 font-mono text-[13px] [overflow-wrap:anywhere]',
                   breach ? 'font-semibold text-breach-text' : 'text-ink',
                 )}
               >

@@ -35,8 +35,10 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
                 {c.num}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="instrument block">{c.id}</span>
-                <span className="block font-sans text-sm text-ink">{c.title}</span>
+                {/* One line by contract (an ASI code never wraps), inside a link row
+                    whose height it sets: `one-line` keeps the row its size. */}
+                <span className="instrument one-line block">{c.id}</span>
+                <span className="block font-sans text-[14px] text-ink">{c.title}</span>
               </span>
               <span className="flex shrink-0 items-center gap-1 font-mono text-[13px] tracking-[0.08em] text-nominal">
                 Watch

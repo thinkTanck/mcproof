@@ -229,6 +229,71 @@ describe('DTCG token layer (globals.css)', () => {
     expect(must(vars.get('--instrument-font'), 'instrument font')).toContain('mono');
   });
 
+  describe('INSTRUMENT line spacing: wrapping text breathes, one-line controls keep their size', () => {
+    /** The declarations of the FIRST rule whose selector list is exactly `selector`. */
+    const ruleBody = (selector: string): string => {
+      const escaped = selector
+        .split(',')
+        .map((part) => part.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('\\s*,\\s*');
+      const match = cssNoComments.match(new RegExp(`(?:^|[}{;])\\s*${escaped}\\s*\\{([^}]*)\\}`));
+      return must(match?.[1], `no rule for ${selector} in globals.css`);
+    };
+    const lineHeightOf = (selector: string) =>
+      must(ruleBody(selector).match(/line-height:\s*([^;]+);/)?.[1], `${selector} line-height`);
+
+    it('the wrapping line-height is at least 1.5 (WCAG 1.4.12)', () => {
+      // Small mono text that holds one line on a desk wraps on a phone. The
+      // role default is the value that is safe to wrap, so a new label is
+      // spaced correctly without anyone remembering to ask.
+      const line = Number(must(vars.get('--instrument-line'), '--instrument-line'));
+      expect(line).toBeGreaterThanOrEqual(1.5);
+    });
+
+    it('every INSTRUMENT role class takes the wrapping line-height by default', () => {
+      // No role hardcodes a tighter number of its own (`.micro-label` used to,
+      // at 1.2): a literal here is a role that has drifted off the token.
+      for (const role of ['.instrument', '.instrument-faint', '.readout', '.micro-label']) {
+        expect(lineHeightOf(role), role).toBe('var(--instrument-line)');
+      }
+    });
+
+    it('the one-line control variant keeps exactly the values the roles had before', () => {
+      // A chip, tag, button or bar readout that holds ONE line is sized by that
+      // line. These are the pre-2026-10-10 role values, kept by name so those
+      // boxes measure what they always did. Changing either resizes controls.
+      expect(vars.get('--instrument-line-single')).toBe('1.3');
+      expect(vars.get('--instrument-line-single-label')).toBe('1.2');
+      expect(
+        lineHeightOf('.instrument.one-line, .instrument-faint.one-line, .readout.one-line'),
+      ).toBe('var(--instrument-line-single)');
+      expect(lineHeightOf('.micro-label.one-line')).toBe('var(--instrument-line-single-label)');
+    });
+
+    it('the one-line variant is tighter than the wrapping one, so it can never be the default', () => {
+      const wrapping = Number(vars.get('--instrument-line'));
+      expect(Number(vars.get('--instrument-line-single'))).toBeLessThan(wrapping);
+      expect(Number(vars.get('--instrument-line-single-label'))).toBeLessThan(wrapping);
+    });
+
+    it('stacked small-text blocks get more room than the 4px they had, from tokens', () => {
+      // In rem: 16px root, so 0.75rem is 12px between blocks and 0.5rem is 8px
+      // between the rows of one list. Rem and not px on purpose (see the role
+      // distinctness spec below, which reads bare px `--instrument-*` as sizes).
+      const rem = (name: string) => {
+        const value = must(vars.get(name), name);
+        expect(value, name).toMatch(/^\d*\.?\d+rem$/);
+        return parseFloat(value) * 16;
+      };
+      const blocks = rem('--instrument-stack');
+      const rows = rem('--instrument-stack-rows');
+      expect(rows).toBeGreaterThan(4);
+      expect(blocks).toBeGreaterThan(rows);
+      // "A little more", not a new layout: still under one line of body text.
+      expect(blocks).toBeLessThanOrEqual(16);
+    });
+  });
+
   it('READING body is the design 17px; h1 scales with the CONTAINER (cqi), never vw', () => {
     // THE PRINCIPLE (CLAUDE.md / ADR-0004): the design is the default reference
     // and a token role DESCRIBES it, it does not silently redesign it. DESIGN.md

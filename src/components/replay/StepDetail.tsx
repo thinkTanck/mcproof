@@ -52,10 +52,10 @@ export function StepDetail({
       <dl
         aria-label="Step payload"
         tabIndex={0}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
+        className="grid min-h-0 flex-1 grid-cols-[minmax(5.5rem,max-content)_minmax(0,1fr)] content-start gap-3 overflow-y-auto px-4 py-3"
       >
         {rows.map((row) => (
-          <div key={row.k} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3">
+          <div key={row.k} className="contents">
             <dt className="font-mono text-[13px] uppercase tracking-[0.08em] text-ink-faint">
               {row.k}
             </dt>

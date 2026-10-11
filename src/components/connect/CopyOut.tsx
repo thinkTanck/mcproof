@@ -150,7 +150,11 @@ export function CopyOut({
           {display ?? value}
         </pre>
       ) : hidden ? (
-        <p className="readout break-all text-ink-faint" aria-hidden="true">
+        // `line-break: anywhere` is for WebKit. A row of bullets is punctuation,
+        // and Safari will not break inside a run of punctuation for `break-all`
+        // alone, so on an iPhone the mask ran off the edge of the page and was
+        // cut there. Chromium already wrapped it.
+        <p className="readout break-all text-ink-faint [line-break:anywhere]" aria-hidden="true">
           {MASK}
         </p>
       ) : (
