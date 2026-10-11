@@ -16,7 +16,7 @@ export type RunContext = {
 
 /**
  * Top status bar (banner). Server-rendered — the mobile drawer is a native
- * popover, so the shell ships no client JS. Dominant MCProof lockup + a one-line
+ * popover, whose only script closes it on navigation (DrawerAutoClose). Dominant MCProof lockup + a one-line
  * condensing meta. On a run screen it also carries the RUN · TARGET · DETECTOR
  * context and the outcome + severity (desktop only, so it never wraps).
  */
@@ -77,8 +77,8 @@ export function StatusBar({
           bottom border from the wordmark to the chip. The pulse is a 2.5px line
           laid on that edge (its track hangs 5px below the bar: one pixel so the
           line covers the border, four of padding for the glow), with a slow line of light travelling along it
-          left to right (`.header-pulse` in globals.css). CSS only, so the
-          shell still ships no client JS.
+          left to right (`.header-pulse` in globals.css). CSS only: the pulse
+          adds no client JS.
 
           It rides the border rather than the blank space on purpose. On a run
           screen at desktop width the telemetry fills the bar and leaves a few
