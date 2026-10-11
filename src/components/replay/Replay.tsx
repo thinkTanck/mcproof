@@ -7,6 +7,7 @@ import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
+import { useReplayLayout } from './phone-layout';
 
 /**
  * Live Attack Replay (the hero) — two terminals over a full-width transport. The
@@ -14,6 +15,15 @@ import { VerdictRail } from './VerdictRail';
  * verdict terminal prints the detector's summary + an export prompt. The transport
  * (full width) and the step-detail box sit beneath both. The step-detail panel is
  * fixed-height, so advancing never reflows the page (no CLS).
+ *
+ * ON A PHONE (Part D; narrower than 768px, or a phone on its side) the order is
+ * terminal, transport, verdict, in the DOCUMENT, so Tab and a screen reader meet
+ * the controls where they are seen. The terminal and the transport share one box
+ * capped at a viewport under the header, the terminal shrinking to fit and
+ * scrolling inside itself. Nothing is pinned. The server cannot see the width,
+ * so it sends the transport in both places and CSS shows the one that fits (no
+ * reflow on hydration); once the browser answers, only that one is kept. From
+ * 768px up nothing here applies and the replay is as it was.
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -62,6 +72,7 @@ export function Replay({
   const [resetKey, setResetKey] = useState(0);
 
   const atEnd = current >= total - 1;
+  const layout = useReplayLayout();
 
   useEffect(() => {
     if (!playing || atEnd) return;
@@ -93,6 +104,23 @@ export function Replay({
     setCurrent(0);
     setResetKey((k) => k + 1);
   };
+
+  const transport = (placement: 'phone' | 'wide', className: string) => (
+    <Transport
+      placement={placement}
+      className={className}
+      current={current}
+      total={total}
+      playing={playing && !atEnd}
+      speed={speed}
+      speeds={SPEEDS}
+      onPlayToggle={playToggle}
+      onStep={stepBy}
+      onScrub={scrubTo}
+      onRestart={restart}
+      onSpeedSet={setSpeed}
+    />
+  );
 
   const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
 
@@ -134,13 +162,19 @@ export function Replay({
           step-detail box directly beneath both (no dead gap). */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-6 lg:px-8">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
-          <ReplayTerminal
-            steps={steps}
-            current={current}
-            compromiseIndex={compromiseIndex}
-            model={run.model}
-            onSelect={scrubTo}
-          />
+          {/* On a phone: terminal and transport in one box no taller than the
+              viewport under the header. From 768px up this box is not drawn
+              (display: contents) and the terminal is the grid cell it was. */}
+          <div className="contents phone:flex phone:max-h-[calc(100dvh-var(--header-h)-1rem)] phone:min-h-0 phone:flex-col phone:gap-4">
+            <ReplayTerminal
+              steps={steps}
+              current={current}
+              compromiseIndex={compromiseIndex}
+              model={run.model}
+              onSelect={scrubTo}
+            />
+            {layout !== 'wide' && transport('phone', 'hidden phone:flex phone:shrink-0')}
+          </div>
           <VerdictRail
             key={resetKey}
             verdict={run.verdict}
@@ -150,18 +184,7 @@ export function Replay({
           />
         </div>
 
-        <Transport
-          current={current}
-          total={total}
-          playing={playing && !atEnd}
-          speed={speed}
-          speeds={SPEEDS}
-          onPlayToggle={playToggle}
-          onStep={stepBy}
-          onScrub={scrubTo}
-          onRestart={restart}
-          onSpeedSet={setSpeed}
-        />
+        {layout !== 'phone' && transport('wide', 'phone:hidden')}
 
         <StepDetail step={step} index={current} compromised={compromised} />
       </div>

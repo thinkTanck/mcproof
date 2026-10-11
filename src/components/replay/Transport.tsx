@@ -29,6 +29,8 @@ export function Transport({
   onScrub,
   onRestart,
   onSpeedSet,
+  placement,
+  className,
 }: {
   current: number;
   total: number;
@@ -40,11 +42,25 @@ export function Transport({
   onScrub: (index: number) => void;
   onRestart: () => void;
   onSpeedSet: (value: number) => void;
+  /**
+   * Which of the replay's two placements this is (Part D): under the terminal on
+   * a phone, under both terminals from 768px up. The server sends both and CSS
+   * shows one; see Replay.
+   */
+  placement?: 'phone' | 'wide';
+  /** Classes that show this placement only where it belongs. */
+  className?: string;
 }) {
   const atStart = current <= 0;
   const atEnd = current >= total - 1;
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2.5">
+    <div
+      data-transport-placement={placement}
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2.5',
+        className,
+      )}
+    >
       {/* Always enabled: RESET returns to step 0 AND re-arms the export prompt,
           so it stays actionable even when the playhead is already at the start. */}
       <button type="button" onClick={onRestart} className={ctrlClass()} aria-label="Restart">
@@ -93,7 +109,11 @@ export function Transport({
             <polygon points="3,2 10,6 3,10" fill="currentColor" />
           </svg>
         )}
-        {playing ? 'PAUSE' : 'PLAY'}
+        {/* On a phone the label keeps one width, PLAY or PAUSE, so the row
+            never rewraps when playback ends by itself and nothing shifts. */}
+        <span className="phone:inline-block phone:min-w-[6ch] phone:text-left">
+          {playing ? 'PAUSE' : 'PLAY'}
+        </span>
       </button>
 
       <button
