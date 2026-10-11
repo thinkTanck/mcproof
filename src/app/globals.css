@@ -1,5 +1,16 @@
 @import 'tailwindcss';
 
+/* The replay's phone layout (Part D): narrower than 768px, or a phone on its
+   side (under 1024px wide and under 500px tall). The same query is
+   PHONE_LAYOUT_QUERY in src/components/replay/phone-layout.ts; a unit test
+   holds the two equal. The block form, because the one-line form splits a
+   media query list at its comma and drops the second query's @media. */
+@custom-variant phone {
+  @media (max-width: 767.98px), (max-width: 1023.98px) and (max-height: 499.98px) {
+    @slot;
+  }
+}
+
 /* =========================================================================
  * MCProof — "Sentinel Fields" DTCG two-tier design tokens
  * -------------------------------------------------------------------------
