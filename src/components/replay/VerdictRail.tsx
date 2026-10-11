@@ -85,7 +85,9 @@ export function VerdictRail({
   return (
     <aside
       aria-label="Detector verdict"
-      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6]"
+      // `overflow-wrap: anywhere`: the prompt is one long word, and with the
+      // text enlarged on a phone it ran past the rail and was cut (WCAG 1.4.4).
+      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6] [overflow-wrap:anywhere]"
       style={{ height: 'clamp(280px, 40vh, 460px)', background: 'var(--terminal-bg)', color: CYAN }}
     >
       {/* The ROUTE id here too, for the same reason as the link. `verdict.runId`

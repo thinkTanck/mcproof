@@ -96,8 +96,6 @@ interface Screen {
   name: string;
   /** Needs the fixture build (E2E_FIXTURES=1). */
   fixture?: boolean;
-  /** A run-scoped screen: the shared header draws the SAMPLE or LIVE chip here. */
-  modeChip?: boolean;
   /** Bring the screen to the state under test. */
   arrive: (page: Page) => Promise<void>;
   /** Further states to measure on the same page, each reached in turn. */
@@ -116,14 +114,12 @@ const SCREENS: Screen[] = [
   { name: 'Home', arrive: (page) => open(page, '/') },
   {
     name: 'Replay',
-    modeChip: true,
     arrive: (page) => open(page, '/runs/sample'),
     then: [{ name: 'at the last step', go: replayToTheEnd }],
   },
-  { name: 'Findings', modeChip: true, arrive: (page) => open(page, '/findings/sample') },
+  { name: 'Findings', arrive: (page) => open(page, '/findings/sample') },
   {
     name: 'Findings, remediation withheld',
-    modeChip: true,
     arrive: (page) => open(page, '/findings/asi10-goal-drift'),
   },
   { name: 'Connect', arrive: (page) => open(page, '/connect') },
@@ -215,26 +211,13 @@ for (const viewport of VIEWPORTS) {
           const problems: string[] = [];
           const check = async (state: string) => {
             const sideways = await sidewaysOverflow(page);
+            // The header included. At 320 in the fallback font the reader's
+            // letter-spacing used to push the mode chip 12 to 18px past the
+            // edge on the two screens that draw it; the header now lets the
+            // chip drop to a second row instead (S5, WCAG 1.4.4).
             if (sideways > 1) {
-              const culprits = await widerThanThePage(page);
-              const headerOnly = culprits.length > 0 && culprits.every((c) => c.inHeader);
-              if (screen.modeChip && viewport.width < 360 && headerOnly) {
-                // KNOWN AND NOT FIXED HERE, so it is recorded instead of hidden.
-                // On the two screens that draw the mode chip, at 320 wide in the
-                // fallback font, the shared header has 5px to spare (issue #176).
-                // The reader's letter-spacing widens the wordmark by more than
-                // that and the chip is pushed past the edge. Making room means
-                // changing the header, which this change was told to leave
-                // exactly as it is. Everything below the header is still held
-                // to the full check, and so is the header at 390.
-                test.info().annotations.push({
-                  type: 'known issue',
-                  description: `[${state}] the header pushes the mode chip ${sideways}px past a 320px screen under WCAG 1.4.12 spacing`,
-                });
-              } else {
-                const what = culprits.map((c) => c.selector).join(', ');
-                problems.push(`[${state}] page scrolls sideways by ${sideways}px: ${what}`);
-              }
+              const what = (await widerThanThePage(page)).map((c) => c.selector).join(', ');
+              problems.push(`[${state}] page scrolls sideways by ${sideways}px: ${what}`);
             }
             for (const line of lost(await probeSpacingDefects(page))) {
               const entry = `[${state}] ${line}`;

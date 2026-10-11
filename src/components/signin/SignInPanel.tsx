@@ -450,8 +450,11 @@ export function SignInPanel({
 
       {/* GitHub is wired behind config: enabled only when isGithubOAuthEnabled, so
           it never blocks on the GitHub app creds. Google stays disabled (unwired)
-          rather than a silent no-op. */}
-      <div className="flex gap-2.5">
+          rather than a silent no-op. The row may wrap: at normal text size the two
+          share it at one width, as before; with the text enlarged a button is never
+          narrower than its label, so Google drops to a row of its own instead of
+          being cut off (WCAG 1.4.4). */}
+      <div className="flex flex-wrap gap-2.5">
         {githubEnabled ? (
           <form action={startGitHubOAuth} className="flex-1">
             <Button

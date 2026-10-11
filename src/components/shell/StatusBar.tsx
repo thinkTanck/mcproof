@@ -50,7 +50,19 @@ export function StatusBar({
     // 320px (WCAG 1.4.10 Reflow: a 1280px window at 400% zoom). The 360 spacing
     // still needs 351px there, so below 360px there is one tighter tier, again
     // spacing only: 4px padding and 4px gaps. That needs 315px, 5px to spare.
-    <header className="sticky top-0 z-[45] flex h-(--header-h) shrink-0 items-center gap-1 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-1 backdrop-blur-[6px] min-[360px]:gap-2 min-[360px]:px-3 min-[420px]:gap-4 min-[420px]:px-[18px]">
+    //
+    // ENLARGED TEXT (WCAG 1.4.4). The header is at least `--header-h`, not
+    // exactly it, and its row may wrap, so with the text enlarged the mode chip
+    // drops to a second row instead of pushing the page sideways. At normal text
+    // size it must not: in the fallback font the chip has always reached into the
+    // right padding below 420px, and in WebKit a little past the screen edge (a
+    // fraction of a pixel at 320, about 6px at 360). So below 420px the chip
+    // counts for less than its width when the row decides whether to wrap, and
+    // `header-end` after it gives that room back whenever the row has it. The
+    // row wraps only where the chip would have run more than 8px past the screen
+    // edge, which enlarged text does by 60px and more; everywhere else it is
+    // drawn exactly as it was. A screen with no chip is untouched.
+    <header className="sticky top-0 z-[45] flex min-h-(--header-h) shrink-0 flex-wrap items-center gap-1 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-1 backdrop-blur-[6px] min-[360px]:gap-2 min-[360px]:px-3 min-[420px]:gap-4 min-[420px]:px-[18px]">
       <MobileDrawer pathname={pathname} account={account} />
       <Link
         href="/"
@@ -145,6 +157,18 @@ export function StatusBar({
       </div>
 
       {mode && <ModeBadge mode={mode} />}
+      {/* The room the chip gives back below 420px (see the note on the header and
+          ModeBadge). Basis 0, and its negative margin gives back the gap before
+          it, so it never wraps on its own. It takes free space ahead of the bar,
+          up to the padding plus the 8px tolerance, so with room to spare the chip
+          ends one padding from the edge, as it always did. */}
+      {mode && (
+        <span
+          aria-hidden="true"
+          data-testid="header-end"
+          className="-ml-1 shrink-0 grow-[1000] basis-0 max-w-3 min-[360px]:-ml-2 min-[360px]:max-w-5 min-[420px]:hidden"
+        />
+      )}
     </header>
   );
 }

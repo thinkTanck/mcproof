@@ -944,6 +944,12 @@ function SelectionNotice({
 /**
  * The one way back to the issue control from a run that is on screen. It lets
  * the run go and ends nothing; the next click issues for whatever is selected.
+ *
+ * Its label is free to wrap: at normal text size it fits on one line at every
+ * width, and with the text enlarged a second line beats being cut off by the
+ * column (WCAG 1.4.4). The confirm's DISCARD and KEEP RUNNING follow the same rule;
+ * below 360 KEEP RUNNING has always reached a few pixels into the confirm's right
+ * padding, and its negative margin keeps it on one line there at normal size.
  */
 function FreshRunButton({
   onRelease,
@@ -968,7 +974,7 @@ function FreshRunButton({
       onClick={onRelease}
       aria-label={compact ? 'New run: issue a fresh run' : undefined}
       className={cn(
-        'inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-line-em py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout',
+        'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout',
         compact ? 'px-3 sm:px-5' : 'px-5',
       )}
     >
@@ -1438,9 +1444,14 @@ function Connection({
               px-3 and the labels shorten to REPLAY and NEW RUN: the full pair needs
               353px and the row has 270px at 360 and 300px at 390 (measured), while
               the short pair needs 242px. Each accessible name contains its visible
-              label at every width (WCAG 2.5.3). The row never wraps. */}
+              label at every width (WCAG 2.5.3). At normal text size the row never
+              wraps. With the text enlarged it may, and NEW RUN drops under REPLAY
+              rather than being cut off by the column (WCAG 1.4.4). Below 360 the
+              row has 230px for those 242, and the pair has always reached into the
+              bar's right padding; the negative margin lets it go on doing so, so
+              it wraps only when enlarged text would take it past the bar. */}
           {(replayRunId !== undefined || canRestart) && (
-            <div className="flex flex-nowrap items-center gap-3 sm:gap-5">
+            <div className="flex flex-wrap items-center gap-3 max-[359px]:-mr-4 sm:gap-5">
               {replayRunId !== undefined && (
                 <Link
                   href={`/runs/${replayRunId}`}
@@ -1498,7 +1509,7 @@ function Connection({
               <button
                 type="button"
                 onClick={confirmDiscard}
-                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-caution/60 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-caution transition-colors hover:bg-caution/10"
+                className="inline-flex min-h-11 items-center rounded-md border border-caution/60 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-caution transition-colors hover:bg-caution/10"
               >
                 {DISCARD_CONFIRM_YES}
               </button>
@@ -1506,7 +1517,7 @@ function Connection({
                 ref={keepButton}
                 type="button"
                 onClick={keepRunning}
-                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-line-em px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+                className="inline-flex min-h-11 items-center rounded-md border border-line-em px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout max-[359px]:-mr-3"
               >
                 {DISCARD_CONFIRM_NO}
               </button>
