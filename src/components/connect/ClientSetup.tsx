@@ -83,11 +83,6 @@ import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
  *    component reads nothing from the server. It replaces the old CHECK IT TOOK
  *    paragraph, which described the connection panel instead of showing it.
  *
- * 7. UNTESTED IS SAID, AND IT IS NOT A WARNING. Four of the six tabs were
- *    written from documentation and have not been run by us. They carry an
- *    UNTESTED tag in the inert fourth state, icon plus label: never caution and
- *    never red, because an untested config is not a failing one.
- *
  * ── THE CODE PANEL ROUTE ──
  *
  * The Claude desktop app's Code panel is Claude Code, and it keeps a route of
@@ -174,17 +169,14 @@ const PANEL_ID = 'connect-client-panel';
 
 type ClientId = 'claude-code' | 'vscode' | 'cursor' | 'codex' | 'gemini' | 'other';
 
-/**
- * The tabs, in the order they are offered. `untested` marks a client whose steps
- * were written from its documentation and have not been run by us.
- */
-const CLIENTS: readonly { id: ClientId; label: string; untested: boolean }[] = [
-  { id: 'claude-code', label: 'CLAUDE CODE', untested: false },
-  { id: 'vscode', label: 'GITHUB COPILOT / VS CODE', untested: true },
-  { id: 'cursor', label: 'CURSOR', untested: true },
-  { id: 'codex', label: 'CODEX', untested: true },
-  { id: 'gemini', label: 'GEMINI CLI', untested: true },
-  { id: 'other', label: 'OTHER AGENT', untested: false },
+/** The tabs, in the order they are offered. */
+const CLIENTS: readonly { id: ClientId; label: string }[] = [
+  { id: 'claude-code', label: 'CLAUDE CODE' },
+  { id: 'vscode', label: 'GITHUB COPILOT / VS CODE' },
+  { id: 'cursor', label: 'CURSOR' },
+  { id: 'codex', label: 'CODEX' },
+  { id: 'gemini', label: 'GEMINI CLI' },
+  { id: 'other', label: 'OTHER AGENT' },
 ];
 
 const WarningIcon = () => (
@@ -200,34 +192,6 @@ const WarningIcon = () => (
     <circle cx="7" cy="10.6" r="0.75" fill="currentColor" />
   </svg>
 );
-
-/**
- * UNTESTED, in the inert fourth state: a dashed ring and the word. Never caution
- * and never red. Nothing is wrong with an untested config; nobody here has run
- * it yet, and that is all the tag says.
- */
-function UntestedTag() {
-  return (
-    <span
-      data-testid="untested-tag"
-      className="inline-flex items-center gap-1.5 font-mono text-[12px] tracking-[0.08em]"
-      style={{ color: 'var(--status-inert)' }}
-    >
-      <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true" className="shrink-0">
-        <circle
-          cx="7"
-          cy="7"
-          r="5.4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.2"
-          strokeDasharray="2.4 2"
-        />
-      </svg>
-      UNTESTED
-    </span>
-  );
-}
 
 /** The same words the pinned run bar uses for the same phases. */
 const STATUS_LABELS: Record<Exclude<LiveRunPhase, 'finished'>, string> = {
@@ -397,7 +361,6 @@ const FILE_HOLDS_TOKEN = 'It holds the token in plain text, so delete it after t
  */
 function ThreeSteps({
   intro,
-  untested = false,
   actions,
   otherServers,
   ticket,
@@ -405,7 +368,6 @@ function ThreeSteps({
   children,
 }: {
   intro: string;
-  untested?: boolean;
   /** Step 1's lettered actions. Exactly one of them holds the config block. */
   actions: ReactNode;
   /** The one line on turning off this client's other MCP servers. */
@@ -417,18 +379,6 @@ function ThreeSteps({
 }) {
   return (
     <div className="flex flex-col gap-5">
-      {untested && (
-        <div
-          data-testid="untested-note"
-          className="flex flex-col gap-1.5 rounded-lg border border-line bg-panel/60 px-4 py-3.5"
-        >
-          <UntestedTag />
-          <p className="reading measure">
-            We have not tested this client ourselves yet. These steps follow its own documentation.
-            The status under step 1 shows whether it connected.
-          </p>
-        </div>
-      )}
       <p data-testid="client-intro" className="reading measure">
         {intro}
       </p>
@@ -511,10 +461,10 @@ export function ClientSetup({
 
           SIX BUTTONS HAVE TO FIT A 320px PHONE. The group wraps, each button is
           capped at the width of the group, and a label may wrap inside its own
-          button, so the longest one (with its tag) never pushes the page
+          button, so the longest one never pushes the page
           sideways. */}
       <div className="flex flex-wrap gap-2.5" role="group" aria-label="MCP client">
-        {CLIENTS.map(({ id, label, untested }) => {
+        {CLIENTS.map(({ id, label }) => {
           const active = client === id;
           return (
             <button
@@ -531,15 +481,6 @@ export function ClientSetup({
               )}
             >
               <span data-testid="client-tab-label">{label}</span>
-              {/* The space is for the accessible name, which would otherwise run
-                  the label and the tag together as one word. The button is a
-                  flex row, so it draws nothing. */}
-              {untested && (
-                <>
-                  {' '}
-                  <UntestedTag />
-                </>
-              )}
             </button>
           );
         })}
@@ -675,7 +616,6 @@ function ClaudeCode({ ticket, phase }: TabProps) {
 function VsCode({ ticket, phase }: TabProps) {
   return (
     <ThreeSteps
-      untested
       intro="For GitHub Copilot Chat in VS Code."
       ticket={ticket}
       phase={phase}
@@ -718,7 +658,6 @@ function VsCode({ ticket, phase }: TabProps) {
 function Cursor({ ticket, phase }: TabProps) {
   return (
     <ThreeSteps
-      untested
       intro="For the agent in Cursor."
       ticket={ticket}
       phase={phase}
@@ -758,7 +697,6 @@ function Cursor({ ticket, phase }: TabProps) {
 function Codex({ ticket, phase }: TabProps) {
   return (
     <ThreeSteps
-      untested
       intro="For the Codex CLI in a terminal."
       ticket={ticket}
       phase={phase}
@@ -804,7 +742,6 @@ function Codex({ ticket, phase }: TabProps) {
 function GeminiCli({ ticket, phase }: TabProps) {
   return (
     <ThreeSteps
-      untested
       intro="For Gemini CLI in a terminal."
       ticket={ticket}
       phase={phase}

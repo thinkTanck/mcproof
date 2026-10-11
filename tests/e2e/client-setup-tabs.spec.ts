@@ -126,26 +126,17 @@ for (const viewport of [
   });
 }
 
-test('the UNTESTED tag is drawn in the inert colour, on tabs 2 to 5 only', async ({ page }) => {
+test('no tab carries an UNTESTED tag, on the button or in the open tab', async ({ page }) => {
   await issued(page);
 
-  const tags = picker(page).getByTestId('untested-tag');
-  await expect(tags).toHaveCount(4);
-  const inert = await page.evaluate(() => {
-    const probe = document.createElement('span');
-    probe.style.color = 'var(--status-inert)';
-    document.body.append(probe);
-    const colour = getComputedStyle(probe).color;
-    probe.remove();
-    return colour;
-  });
-  for (const tag of await tags.all()) {
-    await expect(tag).toHaveText('UNTESTED');
-    expect(await tag.evaluate((el) => getComputedStyle(el).color)).toBe(inert);
-    await expect(tag.locator('svg')).toHaveCount(1);
+  await expect(picker(page).getByTestId('untested-tag')).toHaveCount(0);
+  await expect(picker(page)).not.toContainText(/untested/i);
+  for (const name of TABS) {
+    await picker(page).getByRole('button', { name }).click();
+    await expect(panel(page).getByTestId('untested-tag')).toHaveCount(0);
+    await expect(panel(page).getByTestId('untested-note')).toHaveCount(0);
+    await expect(panel(page)).not.toContainText(/untested/i);
   }
-  await expect(picker(page).getByRole('button').first().getByTestId('untested-tag')).toHaveCount(0);
-  await expect(picker(page).getByRole('button').last().getByTestId('untested-tag')).toHaveCount(0);
 });
 
 test('the status under step 1 follows the run: AGENT CONNECTED once the agent is there', async ({
