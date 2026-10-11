@@ -29,7 +29,8 @@ const bar = (page: Page) => page.getByRole('region', { name: /what we have actua
 /** Whichever copy of the control this width draws. Exactly one is ever visible. */
 const trigger = (page: Page) =>
   page.getByRole('button', { name: 'DISCARD RUN', exact: true }).filter({ visible: true });
-const confirm = (page: Page) => bar(page).getByRole('group', { name: /discard this run/i });
+// The question opens under the bar, never inside it (S1; run-bar-short-screens.spec.ts).
+const confirm = (page: Page) => page.getByRole('group', { name: /discard this run/i });
 const keep = (page: Page) => confirm(page).getByRole('button', { name: 'KEEP RUNNING' });
 const yes = (page: Page) => confirm(page).getByRole('button', { name: 'DISCARD', exact: true });
 const endRun = (page: Page) => bar(page).getByRole('button', { name: /end run/i });

@@ -35,7 +35,8 @@ import type {
  *   - the status under step 1 is the console's own reading, icon plus label;
  *   - no tab carries a tag about whether we tested it;
  *   - the chat-apps line, word for word;
- *   - the token is copied and NEVER rendered, on any tab;
+ *   - the token is copied and NEVER rendered, on any tab (the one exception, a
+ *     failed copy followed by SHOW CONFIG, is held in `copy-failed.test.tsx`);
  *   - the server name is neutral everywhere, and no em dash is used.
  */
 
