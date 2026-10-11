@@ -112,13 +112,13 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
               run <span className="text-readout">{report.runId}</span>
             </p>
           </div>
-          <p className="instrument mt-2 text-ink-faint">
+          <p className="instrument mt-(--instrument-stack) text-ink-faint">
             target <span className="text-readout">{report.target}</span>
             <span aria-hidden="true"> · </span>
             model <span className="text-readout">{report.model}</span>
           </p>
           {report.provenance ? (
-            <p className="instrument mt-1 text-ink-faint">{report.provenance}</p>
+            <p className="instrument mt-(--instrument-stack) text-ink-faint">{report.provenance}</p>
           ) : null}
         </div>
         <CopyReportButton report={report} />
@@ -133,10 +133,10 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
           <div className="mt-8 grid grid-cols-1 gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <section aria-label="Offending step">
               <SectionHeading>Offending step</SectionHeading>
-              <p className="readout mt-2 text-breach-text">
+              <p className="readout mt-(--instrument-stack-rows) text-breach-text">
                 {`#${finding.stepIndex} · ${stepMeta(step.type).label}`}
               </p>
-              <dl className="mt-2 space-y-1">
+              <dl className="mt-(--instrument-stack-rows) space-y-(--instrument-stack-rows)">
                 {stepPayload(step).map((row) => (
                   <div key={row.k} className="instrument flex gap-2">
                     <dt className="text-ink-faint">{row.k}</dt>
@@ -172,7 +172,9 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
 
               <div data-testid="classification-caveat" className="mt-3">
                 <p className="reading measure">{classification.caveat}</p>
-                <p className="instrument mt-2 text-ink-faint">{classification.provenance}</p>
+                <p className="instrument mt-(--instrument-stack) text-ink-faint">
+                  {classification.provenance}
+                </p>
               </div>
 
               <ol aria-label="Remediation" className="mt-3">
@@ -205,13 +207,15 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
               <SectionHeading>Remediation withheld</SectionHeading>
               <div data-testid="classification-unreliable" className="mt-3">
                 <p className="reading measure">{classification.note}</p>
-                <p className="instrument mt-3">
+                <p className="instrument mt-(--instrument-stack)">
                   <span style={{ color: 'var(--status-inert)' }}>
                     {classification.staged} {classification.stagedTitle} filed correctly{' '}
                     {classification.classScore.correct} of {classification.classScore.scored}
                   </span>
                 </p>
-                <p className="instrument mt-1 text-ink-faint">{classification.provenance}</p>
+                <p className="instrument mt-(--instrument-stack) text-ink-faint">
+                  {classification.provenance}
+                </p>
               </div>
             </section>
           ) : null}

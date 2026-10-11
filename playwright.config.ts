@@ -13,6 +13,9 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = Number(process.env.PORT ?? 3000);
 const BASE_URL = `http://localhost:${PORT}`;
 
+/** The only specs the WebKit project runs. Everything else is Chromium-only. */
+const WEBKIT_SPECS = /small-text-line-spacing\.spec\.ts$/;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -28,7 +31,20 @@ export default defineConfig({
     // copied. Chromium honours these; the app never needs them at runtime.
     permissions: ['clipboard-read', 'clipboard-write'],
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // WebKit is the engine on every iPhone, and small wrapped text is a phone
+    // problem, so the text-spacing spec is measured there too. ONLY that spec:
+    // the rest of the suite stays Chromium-only, so CI time barely moves. The
+    // spec sets its own viewports; this supplies the touch, mobile and user-agent
+    // half of a phone. WebKit rejects the clipboard permissions above, and the
+    // spec copies nothing, so they are dropped here.
+    {
+      name: 'webkit',
+      testMatch: WEBKIT_SPECS,
+      use: { ...devices['iPhone 13'], permissions: [] },
+    },
+  ],
   webServer: {
     // In CI the pipeline's Build step already produced `.next`, so just start the
     // server; locally, build first so `next start` has something to serve.

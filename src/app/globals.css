@@ -153,7 +153,8 @@
    *   READING (prose)   — every sentence a human reads. Sans, 17px body (16px is
    *     the AA floor, not the target), line-height 1.6, --text / --text-hi.
    *   INSTRUMENT (chrome) — telemetry ONLY: labels, chips, metadata, cues, column
-   *     and row headers. Mono, 12–13px, tracked, --text-muted / --text-faint.
+   *     and row headers. Mono, 13–14px, tracked, line-height 1.5 so it can wrap,
+   *     --text-muted / --text-faint.
    *   DISPLAY (focal data) — values that ARE the visual focus: leaderboard cell
    *     values + OVERALL, hero stats, the replay step numeral. Display scale
    *     15/20/28/40; FAMILY PER THE FROZEN DESIGN (the role does not pin one).
@@ -189,9 +190,31 @@
    * container on the content column (see `.type-flow` / the shell <main>). */
   --reading-h1: clamp(32px, 5cqi, 44px);
 
-  /* Instrument — HUD telemetry (12–13px, never prose) */
+  /* Instrument — HUD telemetry (13–14px, never prose) */
   --instrument-font: var(--font-mono);
-  --instrument-line: 1.3;
+  /* LINE SPACING (2026-10-10, owner-approved; WCAG 1.4.12). Small mono text
+   * that holds one line on a desk WRAPS on a phone: the offending step, a
+   * provenance line, a file name. At 1.2 to 1.3 two wrapped lines of 13px mono
+   * sat on top of each other. So the role's own line-height is the one that is
+   * safe to wrap, 1.5, and every INSTRUMENT class takes it by default: a new
+   * label is spaced correctly without anyone having to remember to ask.
+   *
+   * The two values the roles had before are kept, by name, for a control that
+   * holds exactly ONE line and whose box is sized by that line (a chip, a tag, a
+   * button, a bar readout): add `one-line` beside the role class and its box is
+   * the size it always was. Never put `one-line` on anything that can wrap.
+   * Measured in tests/e2e/small-text-line-spacing.spec.ts (Chromium and WebKit,
+   * 320 and 390); locked in tests/unit/app/tokens.test.tsx. */
+  --instrument-line: 1.5; /* any INSTRUMENT text that can wrap: the default */
+  --instrument-line-single: 1.3; /* .instrument / .readout holding one line */
+  --instrument-line-single-label: 1.2; /* .micro-label holding one line */
+  /* Room between small-text blocks that stack once they wrap. Blocks: one
+   * paragraph of telemetry under another (was 4 to 10px, now 12). Rows: the
+   * lines of one list, or a label over the readout it names (was 4px, now 8).
+   * In rem, not px: a bare px length on an `--instrument-*` token is read as a
+   * type SIZE by the role-distinctness guard in tokens.test.tsx. */
+  --instrument-stack: 0.75rem;
+  --instrument-stack-rows: 0.5rem;
   --instrument-tracking: 0.02em;
   --instrument-tracking-label: 0.12em; /* UPPERCASE micro-labels */
   --instrument-color: var(--text-muted); /* ink-500 · 5.7:1 base / 5.1:1 panel */
@@ -356,10 +379,22 @@ body {
   .micro-label {
     font-family: var(--instrument-font);
     font-size: var(--instrument-label);
-    line-height: 1.2;
+    line-height: var(--instrument-line);
     letter-spacing: var(--instrument-tracking-label);
     text-transform: uppercase;
     color: var(--instrument-color-faint);
+  }
+  /* ONE LINE, BY CONTRACT. A control whose box is sized by its single line of
+   * text keeps the line-height the role had before 2026-10-10, so the chip,
+   * button or bar it sits in measures what it always did. Still in the base
+   * layer, so a `leading-*` utility beside it wins as it does over any role. */
+  .instrument.one-line,
+  .instrument-faint.one-line,
+  .readout.one-line {
+    line-height: var(--instrument-line-single);
+  }
+  .micro-label.one-line {
+    line-height: var(--instrument-line-single-label);
   }
 
   /* DISPLAY role — data values that are the visual focus. No font-family here on

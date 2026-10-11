@@ -70,13 +70,13 @@ typography:
     fontFamily: 'Geist Mono, ui-monospace, SF Mono, monospace'
     fontSize: '13px'
     fontWeight: 400
-    lineHeight: 1.3
+    lineHeight: 1.5
     letterSpacing: '0.02em'
   label:
     fontFamily: 'Geist Mono, ui-monospace, SF Mono, monospace'
     fontSize: '12px'
     fontWeight: 400
-    lineHeight: 1.3
+    lineHeight: 1.5
     letterSpacing: '0.02em'
 rounded:
   sm: '2px'
@@ -185,12 +185,14 @@ The system runs on THREE deliberately non-interchangeable roles. Prose never ren
 - **Title / Reading h2, h3** (600, 28px / 20px): section and panel titles.
 - **Body / Reading** (400, 17px, line-height 1.6): every sentence a human reads. 16px is the AA floor, not the target. The design owns the column width; the type role pins no measure cap.
 - **Caption** (400, 14px sans): secondary labels, list-item names, and field captions (the Core-7 category titles, a field's server-side-only assurance line). A sans tier below body, for short labels and captions only, never running body prose.
-- **Label / Instrument** (400, 12 to 13px, letter-spacing 0.02em, uppercase micro-labels at 0.12em): telemetry ONLY. Labels, chips, metadata, cues, column and row headers, in Geist Mono.
+- **Label / Instrument** (400, 12 to 13px, line-height 1.5, letter-spacing 0.02em, uppercase micro-labels at 0.12em): telemetry ONLY. Labels, chips, metadata, cues, column and row headers, in Geist Mono. The line-height is the one that is safe to wrap (see the Wrapping Rule below).
 - **Masthead lockup** (600, 21px, letter-spacing 0.09em from 360px up and 0 below it, Geist Mono): the dominant MCProof wordmark in the top bar only. A single deliberate lockup at its own size (design system section 7), not a general step; it is the one place the brand mark asserts scale.
 
 ### Named Rules
 
 **The Three-Role Rule.** Reading is sans prose, Instrument is mono telemetry, Display is the focal number. The roles stay measurably distinct: the Display floor (15px) and the Reading body (17px) both sit above the Instrument ceiling (13px). Prose wearing an Instrument role is a blocking review failure.
+
+**The Wrapping Rule (2026-10-10, owner-approved).** Small mono text that holds one line on a desk wraps on a phone: the offending step, a provenance line, a file name. At the old line-height (1.3 for `.instrument` and `.readout`, 1.2 for `.micro-label`) two wrapped lines sat on top of each other, and WCAG 1.4.12 asks for 1.5. So every Instrument class now takes `--instrument-line: 1.5` by default, and a new label is spaced correctly without anyone having to ask. A control that holds exactly one line and is sized by that line (a chip, a tag, a button, a bar readout) adds `one-line` beside its role class and keeps the old value (`--instrument-line-single: 1.3`, `--instrument-line-single-label: 1.2`), so its box measures what it always did. `one-line` never goes on anything that can wrap. Where wrapped small-text blocks stack, the gap is a token too: `--instrument-stack` (12px, was 4 to 10px) between blocks and `--instrument-stack-rows` (8px, was 4px) between the rows of one list. This is a token-level design move that changes the frozen reference, approved as such; it is measured in `tests/e2e/small-text-line-spacing.spec.ts` (Chromium and WebKit, 320 and 390 wide) and locked in `tests/unit/app/tokens.test.tsx`.
 
 **The Reference Rule.** The frozen design is the default visual reference; these roles describe it, they do not redesign it. Where a role and the design disagree, the design is the default and the role is re-examined (see [ADR-0004](docs/adr/0004-design-frozen-and-impeccable-as-craft-gate.md)).
 

@@ -68,7 +68,7 @@ function CellShapeAndValue({ cell }: { cell: ScoredCell }) {
           size and deliberately shows none. That difference is visible in every
           cell, not only in the board's readout. */}
       {cell.state === 'measured' ? (
-        <span aria-hidden="true" className="instrument-faint">
+        <span aria-hidden="true" className="instrument-faint one-line">
           n={cell.runs}
         </span>
       ) : null}

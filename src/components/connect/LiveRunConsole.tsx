@@ -1375,7 +1375,9 @@ function Connection({
                     to do, not the size of the trace. Printed as read, never
                     counted up or animated. */}
                 <span className="display-md">{status.toolCalls}</span>
-                <span className="instrument-faint">tool calls</span>
+                {/* `one-line`: a two-word unit beside the count, in a bar whose
+                    height is held to a ceiling. It never wraps. */}
+                <span className="instrument-faint one-line">tool calls</span>
               </span>
             )}
           </div>

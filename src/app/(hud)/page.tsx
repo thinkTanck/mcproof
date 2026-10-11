@@ -158,13 +158,13 @@ export default async function Home() {
               aria-labelledby="metric-compromise-label"
               className="border-t border-line pt-3"
             >
-              <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
                 <span id="metric-compromise-label" className="micro-label text-nominal">
                   Compromise detection
                 </span>
                 <span className="instrument-faint">{MEASURED_COMPROMISE_PROVENANCE}</span>
               </div>
-              <div className="flex items-baseline gap-x-6">
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
                 <span className="whitespace-nowrap">
                   <span className="display-lg font-sans">
                     {MEASURED_COMPROMISE.precision.toFixed(2)}
@@ -188,7 +188,7 @@ export default async function Home() {
             <div
               role="group"
               aria-labelledby="metric-classification-label"
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-line/60 pt-3"
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-(--instrument-stack-rows) border-t border-line/60 pt-3"
             >
               <span id="metric-classification-label" className="micro-label">
                 Category classification

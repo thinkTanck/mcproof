@@ -107,7 +107,7 @@ export function SampleTrailer({
         </span>
       </div>
 
-      {provenance ? <p className="instrument-faint mt-2.5">{provenance}</p> : null}
+      {provenance ? <p className="instrument-faint mt-(--instrument-stack)">{provenance}</p> : null}
     </section>
   );
 }
