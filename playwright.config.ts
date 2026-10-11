@@ -14,7 +14,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 const BASE_URL = `http://localhost:${PORT}`;
 
 /** The only specs the WebKit project runs. Everything else is Chromium-only. */
-const WEBKIT_SPECS = /small-text-line-spacing\.spec\.ts$/;
+const WEBKIT_SPECS = /(small-text-line-spacing|rail-visible-labels)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -38,7 +38,8 @@ export default defineConfig({
     // the rest of the suite stays Chromium-only, so CI time barely moves. The
     // spec sets its own viewports; this supplies the touch, mobile and user-agent
     // half of a phone. WebKit rejects the clipboard permissions above, and the
-    // spec copies nothing, so they are dropped here.
+    // spec copies nothing, so they are dropped here. The rail-labels spec runs
+    // here too: touch is where a tooltip-only name fails (S4).
     {
       name: 'webkit',
       testMatch: WEBKIT_SPECS,

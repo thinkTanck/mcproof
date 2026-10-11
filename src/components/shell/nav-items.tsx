@@ -2,6 +2,12 @@ import type { ReactNode } from 'react';
 
 export type NavItem = {
   label: string;
+  /**
+   * The word the narrow rail (760 to 1099px) shows under the icon, where the full
+   * label does not fit. At most eight characters, and always a piece of the
+   * accessible name, so what a reader sees is what a voice user says (WCAG 2.5.3).
+   */
+  short: string;
   href: string;
   matchPrefix: string;
   icon: ReactNode;
@@ -26,6 +32,7 @@ const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.3 } as con
 export const NAV_ITEMS: NavItem[] = [
   {
     label: 'Home',
+    short: 'Home',
     href: '/',
     matchPrefix: '/',
     available: true,
@@ -40,6 +47,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Connect / Run',
+    short: 'Connect',
     href: '/connect',
     matchPrefix: '/connect',
     descriptor: 'point your own agent at an endpoint and run it',
@@ -55,6 +63,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Live Replay',
+    short: 'Replay',
     href: '/runs/sample',
     matchPrefix: '/runs',
     descriptor: 'watch a recorded attack step by step',
@@ -67,6 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Leaderboard',
+    short: 'Board',
     href: '/leaderboard',
     matchPrefix: '/leaderboard',
     available: true,
@@ -82,6 +92,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Findings',
+    short: 'Findings',
     // The featured sample alias, so the nav tracks SAMPLE_CATEGORY (ASI02 now)
     // instead of a hardcoded run id that goes stale when the featured run changes.
     href: '/findings/sample',
@@ -99,6 +110,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Threat Model',
+    short: 'Threat',
     href: '/threats',
     matchPrefix: '/threats',
     available: true,
