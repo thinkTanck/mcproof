@@ -59,6 +59,8 @@ for (const viewport of [
       await expect(note(page)).toHaveCount(1);
       await expect(note(page)).toBeVisible();
       await expect(note(page).getByText(TEXT)).toBeVisible();
+      // No label above the sentence.
+      await expect(note(page)).not.toContainText(/on a phone/i);
 
       const n = await box(note(page));
       expect(n.x).toBeGreaterThanOrEqual(0);

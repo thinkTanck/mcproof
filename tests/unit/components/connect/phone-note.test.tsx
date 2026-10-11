@@ -1,11 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
-import {
-  PHONE_NOTE_LABEL,
-  PHONE_NOTE_LINKS,
-  PHONE_NOTE_TEXT,
-} from '@/components/connect/phone-note-copy';
+import * as copy from '@/components/connect/phone-note-copy';
+import { PHONE_NOTE_LINKS, PHONE_NOTE_TEXT } from '@/components/connect/phone-note-copy';
 
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
@@ -29,7 +26,7 @@ afterEach(() => {
  * class contract and proven in a real browser by tests/e2e/connect-phone-note.spec.ts.
  */
 
-const note = () => screen.getByRole('note', { name: PHONE_NOTE_LABEL });
+const note = () => screen.getByRole('note');
 const modeSwitch = () => screen.getByRole('group', { name: 'Run mode' });
 const goLive = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /LIVE · your agent connects to us/i }));
@@ -50,8 +47,8 @@ describe('Connect phone note · the approved words', () => {
   });
 
   it('has no em dash anywhere in its copy', () => {
-    const copy = [PHONE_NOTE_LABEL, PHONE_NOTE_TEXT, ...PHONE_NOTE_LINKS.map((l) => l.label)];
-    for (const text of copy) expect(text).not.toMatch(/[–—]/);
+    const words = [PHONE_NOTE_TEXT, ...PHONE_NOTE_LINKS.map((l) => l.label)];
+    for (const text of words) expect(text).not.toMatch(/[–—]/);
   });
 });
 
@@ -105,16 +102,29 @@ describe('Connect phone note · on the screen', () => {
     expect(note()).not.toHaveAttribute('aria-hidden');
   });
 
-  it('is information: an inert mark beside its label, never red and never caution', () => {
+  it('carries no label above the sentence: the note opens on its text', () => {
+    render(<ConnectScreen />);
+
+    expect(Object.keys(copy)).not.toContain('PHONE_NOTE_LABEL');
+    expect(note().textContent).not.toMatch(/on a phone/i);
+    expect(note().querySelector('.micro-label')).toBeNull();
+    // The first words in the note are the sentence's own.
+    expect(note().textContent?.trim().startsWith('Running a test needs')).toBe(true);
+  });
+
+  it('is information: an inert mark beside the sentence, never red and never caution', () => {
     render(<ConnectScreen />);
 
     const icons = note().querySelectorAll('svg');
     expect(icons.length).toBeGreaterThan(0);
     for (const icon of icons) expect(icon).toHaveAttribute('aria-hidden', 'true');
 
-    const label = within(note()).getByText(PHONE_NOTE_LABEL);
-    expect(label).toHaveClass('micro-label');
-    expect(label.getAttribute('style')).toContain('--status-inert');
+    // The mark keeps the inert colour it had, now beside the sentence.
+    const mark = note().querySelector<SVGElement>('[data-testid="phone-note-mark"]');
+    expect(mark).not.toBeNull();
+    expect(mark!.closest('[style*="--status-inert"]')).not.toBeNull();
+    const sentence = within(note()).getByText(PHONE_NOTE_TEXT);
+    expect(mark!.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     for (const el of [note(), ...note().querySelectorAll<HTMLElement>('*')]) {
       const paint = `${el.getAttribute('class') ?? ''} ${el.getAttribute('style') ?? ''}`;

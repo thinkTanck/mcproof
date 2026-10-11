@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PHONE_NOTE_LABEL, PHONE_NOTE_LINKS, PHONE_NOTE_TEXT } from './phone-note-copy';
+import { PHONE_NOTE_LINKS, PHONE_NOTE_TEXT } from './phone-note-copy';
 
 /**
  * THE PHONE NOTE: what a visitor on a phone can do from Connect.
@@ -20,15 +20,15 @@ import { PHONE_NOTE_LABEL, PHONE_NOTE_LINKS, PHONE_NOTE_TEXT } from './phone-not
  *
  * Nothing has gone wrong and nothing is at risk, so this is neither the breach
  * red nor the caution amber. It wears the neutral fourth state
- * (`--status-inert`, ADR-0003) as a mark beside a label, never colour alone.
+ * (`--status-inert`, ADR-0003) as a mark beside the sentence, never colour
+ * alone. There is no label above the sentence: the note opens on its own words.
  * It is a `note`, not an alert and not a live region: it is there on arrival
  * and announces nothing by itself.
  *
  * It cannot be dismissed, because the fact does not stop being true, and it
  * hides, disables and moves nothing else on the screen. The sentence is READING
- * prose on the measure; only the small label is INSTRUMENT.
+ * prose on the measure.
  */
-const LABEL_ID = 'connect-phone-note-label';
 
 const InfoMark = () => (
   <svg
@@ -37,7 +37,8 @@ const InfoMark = () => (
     viewBox="0 0 12 12"
     aria-hidden="true"
     focusable="false"
-    className="shrink-0"
+    data-testid="phone-note-mark"
+    className="mt-[0.4em] shrink-0"
   >
     <circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
     <path d="M6 5.4v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -69,18 +70,14 @@ export function PhoneNote() {
   return (
     <div
       role="note"
-      aria-labelledby={LABEL_ID}
       className="mb-7 rounded-lg border border-line bg-panel/60 px-4 py-3.5 md:hidden"
     >
-      <p
-        id={LABEL_ID}
-        className="micro-label mb-2 flex items-center gap-2"
-        style={{ color: 'var(--status-inert)' }}
-      >
-        <InfoMark />
-        {PHONE_NOTE_LABEL}
-      </p>
-      <p className="reading measure">{PHONE_NOTE_TEXT}</p>
+      <div className="flex items-start gap-2.5">
+        <span className="flex shrink-0" style={{ color: 'var(--status-inert)' }}>
+          <InfoMark />
+        </span>
+        <p className="reading measure">{PHONE_NOTE_TEXT}</p>
+      </div>
       {/* One link to a row, so no two targets sit side by side on a 320px screen. */}
       <ul className="mt-3 flex flex-col gap-2">
         {PHONE_NOTE_LINKS.map(({ label, href }) => (

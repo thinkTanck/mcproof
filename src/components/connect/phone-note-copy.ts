@@ -6,9 +6,6 @@
  * Plain strings and nothing else, so anything may import this file.
  */
 
-/** The small label beside the mark. It is also the note's accessible name. */
-export const PHONE_NOTE_LABEL = 'ON A PHONE';
-
 export const PHONE_NOTE_TEXT =
   'Running a test needs a computer with a terminal or code editor. From your phone you can watch a sample run, read a fix report, and check the leaderboard.';
 
