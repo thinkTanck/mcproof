@@ -58,6 +58,18 @@
  * it decides which of the two to call and calls THIS module rather than a copy of
  * it, so a background run cannot end up on a different set of gates.
  *
+ * ── A THIRD WAY: THE OWNER DISCARDS IT ──
+ *
+ * `discard()` is the end a person asks for when the run was never a test, for
+ * example a tool pressed by hand in a manual client
+ * ([ADR-0013](../../docs/adr/0013-a-discarded-run-is-stored-unjudged.md)). It
+ * goes through the SAME claim, so it competes with a finish, a second tab and
+ * the scheduled pass on equal terms, and whichever gets there first is the only
+ * one that acts. It then revokes the token and stops: no gate, no detector, no
+ * verdict. What it stores is a marker row, not a result, so the account's
+ * allowance still counts the run while no screen can mistake it for one that
+ * was judged.
+ *
  * ── THE CLEAN PATH IS A FIRST-CLASS OUTCOME ──
  *
  * An agent that reads the poisoned content and refuses to act on it is the
@@ -99,7 +111,7 @@ import {
   type Verdict,
 } from '@/contract';
 import { getMcpEndpointOrigin } from '@/config/env';
-import type { RunRepository, StoredRun } from '@/data/run-repository';
+import type { DiscardedRunStore, RunRepository, StoredRun } from '@/data/run-repository';
 import { DetectorError } from '@/detector';
 import type { LiveDetector } from '@/detector/resolve';
 import { generateFixReport, type FixReport } from '@/fix-report';
@@ -113,6 +125,7 @@ import {
   type RunTokenStore,
 } from '@/runs/run-token';
 import { InMemoryLiveRunSessionStore, type LiveRunSessionStore } from '@/runs/live-run-store';
+import { RUN_DISCARDED_SENTENCE } from '@/runs/discard-copy';
 
 /** Where a run's MCP endpoint lives, under the endpoint origin (MCP_ENDPOINT_ORIGIN). */
 export const LIVE_RUN_ENDPOINT_PREFIX = '/api/mcp';
@@ -173,6 +186,11 @@ const RETRY_CAP_MS = 2_000;
  * out of runs", and answering the first with the second would be a lie in
  * whichever direction it fell. So the throw is caught here and named separately,
  * and it fails CLOSED like every other refusal.
+ *
+ * `RUN_DISCARDED` is `RUN_ALREADY_FINISHED` with the reason known: the run was
+ * claimed by its owner's discard, so it will never be judged. It is only ever
+ * given to the run's owner, after the ownership check, so it tells nobody else
+ * that the run exists.
  */
 export type LiveRunErrorCode =
   | 'ALLOWANCE_EXHAUSTED'
@@ -183,7 +201,8 @@ export type LiveRunErrorCode =
   | 'DETECTION_FAILED'
   | 'RESULT_INVALID'
   | 'RUN_NOT_FOUND'
-  | 'RUN_ALREADY_FINISHED';
+  | 'RUN_ALREADY_FINISHED'
+  | 'RUN_DISCARDED';
 
 /** A refusal, typed. Its `message` is already the sentence a screen can print. */
 export class LiveRunError extends Error {
@@ -298,7 +317,26 @@ export interface LiveRunReattachment {
   /**
    * The saved result's row id, or null. Null while the run is open, and null
    * for a run closed with nothing saved: abandoned, or claimed and then refused
-   * by the gate or the judge.
+   * by the gate or the judge. Null for a discarded run too: it has a stored
+   * marker, but no result, and this field is the address of a result.
+   */
+  readonly storedRunId: string | null;
+  /** Present, and true, only when the run's owner discarded it. */
+  readonly discarded?: boolean;
+}
+
+/**
+ * What discarding a run produced. There is no verdict here and no field for
+ * one: a discard never reaches the judge.
+ */
+export interface DiscardedLiveRun {
+  readonly runId: string;
+  /** How much had been recorded when the run was discarded. */
+  readonly steps: number;
+  readonly toolCalls: number;
+  /**
+   * The marker row's id, or null when the marker could not be written. The run
+   * is ended and unjudged either way; see `discard()`.
    */
   readonly storedRunId: string | null;
 }
@@ -333,8 +371,15 @@ export interface LiveRunHostDeps {
    * Where a finished run is persisted, owner-scoped. `findByRunId` is what lets
    * a reattached screen link a finished run to its saved result; without it the
    * reattach read still answers and reports no saved result.
+   *
+   * `saveDiscardedRun` is where a discard writes its marker, and
+   * `findDiscardedByRunId` is how a later read tells a discarded run from any
+   * other ended one. Both are optional for the same reason: without them a
+   * discard still ends the run unjudged, and only the marker is missing.
    */
-  readonly repository: Pick<RunRepository, 'saveRun'> & Partial<Pick<RunRepository, 'findByRunId'>>;
+  readonly repository: Pick<RunRepository, 'saveRun'> &
+    Partial<Pick<RunRepository, 'findByRunId'>> &
+    Partial<Pick<DiscardedRunStore, 'saveDiscardedRun' | 'findDiscardedByRunId'>>;
   /**
    * The judge, resolved per stage. Pass `() => resolveLiveDetector()`: it returns
    * `null` when no judge credential is configured, which is a refusal here and
@@ -381,6 +426,11 @@ export interface LiveRunHost {
    * nothing. For a run that recorded nothing worth asking the judge about.
    */
   abandon(input: { runId: string; userId: string }): Promise<LiveRunDecision<AbandonedLiveRun>>;
+  /**
+   * End a run because its OWNER says it was not a test: claim it once, revoke
+   * its token, ask no gate and no judge, and store a marker row with no verdict.
+   */
+  discard(input: { runId: string; userId: string }): Promise<LiveRunDecision<DiscardedLiveRun>>;
 }
 
 /**
@@ -406,6 +456,12 @@ export interface LiveRunStatus {
   readonly client: string | null;
   /** ISO-8601 of when the run was finished, or null while it is open. */
   readonly finishedAt: string | null;
+  /**
+   * Present, and true, only when the run's owner discarded it. Read from the
+   * stored marker, never from process memory, and only asked for once the run
+   * has ended.
+   */
+  readonly discarded?: boolean;
 }
 
 /**
@@ -623,6 +679,41 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
   }
 
   /**
+   * Whether this ended run was DISCARDED by its owner, read off the stored
+   * marker.
+   *
+   * The registry row records only that a run ended, not how, so the marker is
+   * the one durable trace of a discard. Asked only for a run that has ended, and
+   * only after the ownership check, so it costs an open run nothing and tells a
+   * stranger nothing.
+   *
+   * A read that fails answers `false`: the run then reads as ended with no saved
+   * result, which is still true. What a failed read can NEVER do is reopen the
+   * run or get it judged, because both of those are stopped by the claim on the
+   * registry, not by this.
+   */
+  async function wasDiscarded(userId: string, runId: string): Promise<boolean> {
+    if (deps.repository.findDiscardedByRunId === undefined) return false;
+    try {
+      return (await deps.repository.findDiscardedByRunId(userId, runId)) !== null;
+    } catch {
+      logger?.error('live run discard marker could not be read', { runId });
+      return false;
+    }
+  }
+
+  /**
+   * The refusal for a run somebody else already claimed. The owner is told WHY
+   * when the reason is a discard, because "already finished" would send them
+   * looking for a result that does not exist.
+   */
+  async function alreadyOver(userId: string, runId: string): Promise<LiveRunDecision<never>> {
+    return (await wasDiscarded(userId, runId))
+      ? fail('RUN_DISCARDED', RUN_DISCARDED_SENTENCE)
+      : fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
+  }
+
+  /**
    * Write everything this instance has observed since the last flush.
    *
    * Positional (`from`), so the durable row's `(run, index)` identity makes a
@@ -810,12 +901,15 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       // instance served the agent or finished the run.
       const session = await ownedSession(runId, userId);
       if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
+      // Only an ended run can have been discarded, so an open run is never asked.
+      const discarded = session.finishedAt !== null && (await wasDiscarded(userId, runId));
       return {
         ok: true,
         value: {
           trace: await session.server.buildTrace(),
           client: session.server.observedClient ?? session.client,
           finishedAt: session.finishedAt,
+          ...(discarded ? { discarded: true } : {}),
         },
       };
     },
@@ -843,6 +937,59 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       return { ok: true, value: { runId, steps } };
     },
 
+    async discard({ runId, userId }) {
+      // OWNERSHIP FIRST, and the same nothing for a stranger as for an id that
+      // never existed. Nothing below runs for an account that does not own the run.
+      const session = await ownedSession(runId, userId);
+      if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
+
+      const at = now();
+      // The SAME claim `finish()` and `abandon()` make. A discard, a finish, a
+      // second tab and the scheduled pass all compete for the run through this
+      // one grant, so exactly one of them acts. Losing it means the run is
+      // already over, and nothing further is written or revoked here.
+      if (!(await registry.finish(runId, at))) return alreadyOver(userId, runId);
+      session.finishedAt = at.toISOString();
+      // Revoked by the winner of the claim and nobody else, so exactly once.
+      await deps.tokens.endRun(runId, at);
+
+      // NO GATE AND NO DETECTOR, deliberately. The gates exist to stop something
+      // being spent, and a discard spends nothing; a gate that could refuse would
+      // only leave a live credential on a public endpoint. And the judge is the
+      // one thing this call exists NOT to ask.
+      const trace = await session.server.buildTrace();
+      const steps = trace.steps.length;
+      const toolCalls = trace.steps.filter((step) => step.type === 'tool_call').length;
+
+      // THE MARKER, LAST. The run is already ended and can no longer be judged,
+      // whatever happens to this write: that was settled by the claim. So a
+      // failed write is logged and reported as "no marker", never thrown. A
+      // throw here would tell the owner their discard failed when the run is in
+      // fact over, and they could do nothing about it. What a missing marker
+      // costs is that this one run reads "ended with no saved result" instead of
+      // "discarded", and is not counted against the allowance.
+      let storedRunId: string | null = null;
+      if (deps.repository.saveDiscardedRun !== undefined) {
+        try {
+          const stored = await deps.repository.saveDiscardedRun(userId, {
+            discarded: true,
+            runId,
+            category: session.category,
+            model: trace.model,
+            steps,
+            toolCalls,
+            discardedAt: at.toISOString(),
+          });
+          storedRunId = stored.id;
+        } catch {
+          logger?.error('live run discard marker could not be saved', { runId });
+        }
+      }
+
+      logger?.info('live run discarded', { runId, userId, steps, toolCalls });
+      return { ok: true, value: { runId, steps, toolCalls, storedRunId } };
+    },
+
     async getReattach({ runId, userId }) {
       const session = await ownedSession(runId, userId);
       if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
@@ -858,6 +1005,11 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
           logger?.error('live run reattach could not look up the saved result', { runId });
         }
       }
+      // An ended run with no saved result may have been discarded. Said here so
+      // a reopened screen reads RUN DISCARDED instead of waiting for a result
+      // that is not coming.
+      const discarded =
+        session.finishedAt !== null && storedRunId === null && (await wasDiscarded(userId, runId));
 
       return {
         ok: true,
@@ -871,6 +1023,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
           promptName: TASK_PROMPT_NAME,
           finishedAt: session.finishedAt,
           storedRunId,
+          ...(discarded ? { discarded: true } : {}),
         },
       };
     },
@@ -883,9 +1036,9 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       // CLAIM the run before anything is spent. The store grants this exactly
       // once, so two instances (or two clicks) cannot both reach the judge — an
       // in-process flag would have let each answer "not yet" on its own copy.
-      if (!(await registry.finish(runId, at))) {
-        return fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
-      }
+      // A run its owner DISCARDED was claimed the same way, so it stops here too
+      // and can never reach the gate or the judge below.
+      if (!(await registry.finish(runId, at))) return alreadyOver(userId, runId);
       // This instance finished it, so it knows without waiting for the next read.
       session.finishedAt = at.toISOString();
       // The session is over however this call ends, so the token dies here — a

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import {
+  discardLiveRun,
   finishLiveRun,
   getLiveRunReattach,
   getLiveRunStatus,
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
  *
  * The screen is coded against `ConnectLiveRunPort`
  * (`src/components/connect/live-run-port.ts`), and this route is the ONE place
- * the real server actions are attached to it. The four actions go down as
+ * the real server actions are attached to it. The actions go down as
  * props; `ConnectScreen` adapts them through `createConnectLiveRunPort` and the
  * console never learns the server's shape.
  *
@@ -103,6 +104,7 @@ export default async function ConnectPage({
         status: getLiveRunStatus,
         finish: finishLiveRun,
         reattach: getLiveRunReattach,
+        discard: discardLiveRun,
       }}
     />
   );

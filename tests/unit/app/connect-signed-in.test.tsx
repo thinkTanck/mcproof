@@ -18,6 +18,7 @@ vi.mock('@/app/actions/live-run', () => ({
   getLiveRunStatus: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
   finishLiveRun: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
   getLiveRunReattach: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
+  discardLiveRun: vi.fn(async () => ({ ok: false, code: 'RUN_NOT_FOUND', message: 'no' })),
 }));
 
 /**
