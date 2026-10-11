@@ -16,6 +16,7 @@ import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
 import { LiveRunConsole, RUN_EXPIRED_LABEL, RUN_FINISHED_LABEL } from './LiveRunConsole';
+import { RUN_DISCARDED_LABEL } from '@/runs/discard-copy';
 import { readActiveRunId, subscribeActiveRunId, writeActiveRunId } from './active-run-store';
 import {
   createConnectLiveRunPort,
@@ -332,6 +333,9 @@ export function ConnectScreen({
   const [runExpired, setRunExpired] = useState(false);
   // The same for a finished run, which drops its setup and shows its result.
   const [runFinished, setRunFinished] = useState(false);
+  // And for a discarded one, which is finished too but must not be headed as
+  // if it had a result.
+  const [runDiscarded, setRunDiscarded] = useState(false);
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
   const previewGoal = categoryGoals?.[category];
   const hasRun = activeRunId !== null && activeRunId !== settledRunId;
@@ -537,9 +541,11 @@ export function ConnectScreen({
               ? 'RECORDED PLAYBACK'
               : runExpired
                 ? RUN_EXPIRED_LABEL
-                : runFinished
-                  ? RUN_FINISHED_LABEL
-                  : 'YOUR RUN ENDPOINT'
+                : runDiscarded
+                  ? RUN_DISCARDED_LABEL
+                  : runFinished
+                    ? RUN_FINISHED_LABEL
+                    : 'YOUR RUN ENDPOINT'
           }
         />
         {live ? (
@@ -553,6 +559,7 @@ export function ConnectScreen({
             onRunOver={forgetRun}
             onExpiredChange={setRunExpired}
             onFinishedChange={setRunFinished}
+            onDiscardedChange={setRunDiscarded}
           />
         ) : (
           <div className="flex flex-col gap-4">

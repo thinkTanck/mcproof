@@ -332,7 +332,16 @@ describe('checkLiveRunPreflight — resolving its own dependencies', () => {
       counter(0) as unknown as Awaited<ReturnType<typeof getRunRepository>>,
     );
     vi.mocked(createAdminSupabase).mockReturnValue({
-      from: () => ({ select: () => ({ gte: () => Promise.resolve({ count: 0, error: null }) }) }),
+      // Two reads: every run in the period, then the discarded ones the meter
+      // subtracts (the second adds one `eq`). Both answer none here.
+      from: () => ({
+        select: () => ({
+          gte: () =>
+            Object.assign(Promise.resolve({ count: 0, error: null }), {
+              eq: () => Promise.resolve({ count: 0, error: null }),
+            }),
+        }),
+      }),
     } as unknown as ReturnType<typeof createAdminSupabase>);
 
     await expect(

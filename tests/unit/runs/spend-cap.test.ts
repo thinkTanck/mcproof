@@ -259,7 +259,14 @@ describe('createRunTableSpendMeter — the global count over public.runs', () =>
               gte(column: string, value: string) {
                 seen.column = column;
                 seen.value = value;
-                return Promise.resolve(result);
+                // The meter reads twice: every row in the period, then the
+                // rows marked discarded, which it subtracts. The second read
+                // adds one `eq` and answers "none" here, so these tests keep
+                // pinning the total. The subtraction has its own tests in
+                // tests/unit/data/discarded-run.test.ts.
+                return Object.assign(Promise.resolve(result), {
+                  eq: () => Promise.resolve({ count: 0, error: null }),
+                });
               },
             };
           },
@@ -269,7 +276,7 @@ describe('createRunTableSpendMeter — the global count over public.runs', () =>
     return { client: client as unknown as SupabaseClient, seen };
   }
 
-  it('counts every run in the period, filtered by nothing but time', async () => {
+  it('counts every run in the period that was not discarded, across all accounts', async () => {
     const { client, seen } = fakeClient({ count: 17, error: null });
     const since = new Date('2026-08-01T00:00:00.000Z');
 

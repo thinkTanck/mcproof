@@ -1,8 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from 'react';
+import { InertMark } from '@/components/leaderboard';
 import { cn } from '@/lib/utils';
+import {
+  DISCARD_CONFIRM_NO,
+  DISCARD_CONFIRM_QUESTION,
+  DISCARD_CONFIRM_YES,
+  DISCARD_RUN_LABEL,
+  DISCARD_STILL_COUNTS_SENTENCE,
+  DISCARDING_LABEL,
+  RUN_DISCARDED_LABEL,
+  RUN_DISCARDED_SENTENCE,
+} from '@/runs/discard-copy';
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
 import { RUN_TYPE_LABEL } from './run-kinds';
@@ -82,6 +102,7 @@ const REFUSAL_HEADINGS: Record<LiveRunRefusalCode, string> = {
   INVALID_REQUEST: 'RUN REQUEST REFUSED',
   RUN_NOT_FOUND: 'RUN NOT FOUND',
   RUN_ALREADY_FINISHED: 'RUN ALREADY FINISHED',
+  RUN_DISCARDED: RUN_DISCARDED_LABEL,
   NOT_WIRED: 'LIVE RUN NOT CONNECTED',
   REFUSED: 'RUN NOT STARTED',
 };
@@ -140,6 +161,15 @@ type RunResultState = 'saved' | 'judging' | 'pending' | 'none' | 'unknown';
  * "not yet". Only after it does the screen say the run has no replay.
  */
 export const RESULT_PENDING_WINDOW_MS = 3 * 60_000;
+
+/**
+ * DISCARD RUN's look, shared by its two copies (in the bar, and under it on a
+ * narrow screen): the quiet outline of a secondary control. No fill and no
+ * glow, which belong to END RUN AND JUDGE, and no red, which belongs to a
+ * breach. A full-size target at every width.
+ */
+const DISCARD_TRIGGER =
+  'min-h-11 items-center whitespace-nowrap rounded-md border border-line px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink-muted transition-colors hover:border-line-em hover:text-ink';
 
 /** The production clock for the expiry check. See the `now` prop. */
 const systemNow = (): Date => new Date();
@@ -213,7 +243,14 @@ export function LiveRunConsole({
   onRunOver,
   onExpiredChange,
   onFinishedChange,
+  onDiscardedChange,
 }: {
+  /**
+   * Told whether the run on show was discarded. A discarded run is also a
+   * finished one, and the screen heads the section with this instead, because
+   * RUN FINISHED would read as a run that has a result.
+   */
+  onDiscardedChange?: (discarded: boolean) => void;
   /**
    * Told whether the run on show is finished. The screen uses it for the
    * section heading, for the same reason as `onExpiredChange`: a finished run
@@ -290,6 +327,12 @@ export function LiveRunConsole({
   const [finishRefusal, setFinishRefusal] = useState<LiveRunRefusal | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  // DISCARD. A discard call in flight, what refused it, and whether this page
+  // has learned the run was discarded: from its own call, from a refusal that
+  // says another tab got there first, or from a read of a reopened run.
+  const [discarding, setDiscarding] = useState(false);
+  const [discardRefusal, setDiscardRefusal] = useState<LiveRunRefusal | null>(null);
+  const [discardedSeen, setDiscardedSeen] = useState(false);
 
   const issue = useCallback(async () => {
     setIssuing(true);
@@ -306,7 +349,8 @@ export function LiveRunConsole({
 
   const runId = run?.runId ?? null;
   const expiresAt = run?.expiresAt ?? null;
-  const done = summary !== null || status?.phase === 'finished';
+  const discarded = discardedSeen || status?.discarded === true;
+  const done = summary !== null || status?.phase === 'finished' || discarded;
 
   // REATTACH. A console with no run of its own, handed an id, asks for that run
   // back. Signed-out visitors ask for nothing: the gate is all they are shown.
@@ -325,6 +369,7 @@ export function LiveRunConsole({
       if (!live) return;
       if (answer.ok) {
         setRun(fromReattach(answer.value));
+        if (answer.value.discarded === true) setDiscardedSeen(true);
         if (answer.value.storedRunId !== null) setStoredRunId(answer.value.storedRunId);
         setReattachOutcome({ runId: reattachRunId, refusal: null });
         return;
@@ -361,6 +406,8 @@ export function LiveRunConsole({
       runId === null ||
       !finishedElsewhere ||
       finishing ||
+      // A discarded run has no result, so there is nothing to look for.
+      discarded ||
       storedRunId !== undefined ||
       lookup === 'none' ||
       lookup === 'unreadable'
@@ -385,6 +432,10 @@ export function LiveRunConsole({
         setStoredRunId(answer.value.storedRunId);
         return;
       }
+      if (answer.value.discarded === true) {
+        setDiscardedSeen(true);
+        return;
+      }
       const endedAt = Date.parse(answer.value.finishedAt ?? '');
       const since = Number.isNaN(endedAt)
         ? firstSeenEnded.current
@@ -397,7 +448,17 @@ export function LiveRunConsole({
       live = false;
       clearInterval(timer);
     };
-  }, [port, runId, finishedElsewhere, finishing, storedRunId, lookup, now, pollIntervalMs]);
+  }, [
+    port,
+    runId,
+    finishedElsewhere,
+    finishing,
+    discarded,
+    storedRunId,
+    lookup,
+    now,
+    pollIntervalMs,
+  ]);
 
   /** Let this run go and return to the issue control. Nothing is ended. */
   const release = useCallback(() => {
@@ -407,6 +468,9 @@ export function LiveRunConsole({
     setStatusRefusal(null);
     setSummary(null);
     setFinishRefusal(null);
+    setDiscarding(false);
+    setDiscardRefusal(null);
+    setDiscardedSeen(false);
     setStoredRunId(undefined);
     setLookup('unknown');
     firstSeenEnded.current = null;
@@ -418,17 +482,42 @@ export function LiveRunConsole({
     // Guarded rather than disabled: a control that goes grey reads like a control
     // that might never come back, and this screen deliberately has no disabled
     // elements at all. A second click while one is in flight is simply ignored.
-    if (runId === null || finishing) return;
+    if (runId === null || finishing || discarding) return;
     setFinishing(true);
     setFinishRefusal(null);
+    setDiscardRefusal(null);
     const answer = await port.finish({ runId });
     setFinishing(false);
     if (answer.ok) {
       setSummary(answer.value);
       return;
     }
+    // Another tab discarded this run first. That is not an error to state, it
+    // is what the run now is, so the bar reads RUN DISCARDED.
+    if (answer.refusal.code === 'RUN_DISCARDED') {
+      setDiscardedSeen(true);
+      return;
+    }
     setFinishRefusal(answer.refusal);
-  }, [port, runId, finishing]);
+  }, [port, runId, finishing, discarding]);
+
+  // Whether anything answers a discard. A port without one draws no control.
+  const canDiscard = port.discard !== undefined;
+  const discard = useCallback(async () => {
+    // Guarded like `finish`: a second press while one is in flight is ignored,
+    // and a discard is never sent while a judge call is in flight.
+    if (runId === null || discarding || finishing || port.discard === undefined) return;
+    setDiscarding(true);
+    setDiscardRefusal(null);
+    setFinishRefusal(null);
+    const answer = await port.discard({ runId });
+    setDiscarding(false);
+    if (answer.ok || answer.refusal.code === 'RUN_DISCARDED') {
+      setDiscardedSeen(true);
+      return;
+    }
+    setDiscardRefusal(answer.refusal);
+  }, [port, runId, discarding, finishing]);
 
   // REAL STATE, ON A REAL READ. The first read happens the moment a run exists,
   // and the polling stops the moment the run is over — there is nothing further
@@ -459,7 +548,8 @@ export function LiveRunConsole({
 
   // The same reading the render below calls `lapsed`, reported upward. Reset on
   // the way out, so a console that is unmounted leaves no stale claim behind.
-  const runLapsed = run !== null && expired && summary === null && status?.phase !== 'finished';
+  const runLapsed =
+    run !== null && expired && summary === null && status?.phase !== 'finished' && !discarded;
   useEffect(() => {
     onExpiredChange?.(runLapsed);
     return () => onExpiredChange?.(false);
@@ -471,6 +561,13 @@ export function LiveRunConsole({
     onFinishedChange?.(runFinished);
     return () => onFinishedChange?.(false);
   }, [runFinished, onFinishedChange]);
+
+  // And for a discarded one, which is headed by what it is.
+  const runDiscarded = run !== null && discarded;
+  useEffect(() => {
+    onDiscardedChange?.(runDiscarded);
+    return () => onDiscardedChange?.(false);
+  }, [runDiscarded, onDiscardedChange]);
 
   if (!signedIn) return <SignInGate />;
 
@@ -528,8 +625,15 @@ export function LiveRunConsole({
   // Whether everything this page will learn about the result is in. Until it
   // is, letting the run go would throw away the only route to its replay link.
   const settled =
-    summary !== null || storedRunId !== undefined || lookup === 'none' || lookup === 'unreadable';
-  const phase: LiveRunPhase | null = summary !== null ? 'finished' : (status?.phase ?? null);
+    summary !== null ||
+    discarded ||
+    storedRunId !== undefined ||
+    lookup === 'none' ||
+    lookup === 'unreadable';
+  // A discarded run has ended, whatever the last status read said: polling
+  // stops the moment this page learns of the discard.
+  const phase: LiveRunPhase | null =
+    summary !== null || discarded ? 'finished' : (status?.phase ?? null);
   const lapsed = expired && phase !== 'finished';
   // Over, one way or the other: the run no longer accepts connections.
   const over = lapsed || phase === 'finished';
@@ -568,6 +672,10 @@ export function LiveRunConsole({
         finishRefusal={finishRefusal}
         finishing={finishing}
         onFinish={finish}
+        discarded={discarded}
+        discarding={discarding}
+        discardRefusal={discardRefusal}
+        onDiscard={canDiscard ? discard : undefined}
         category={run.category}
         kind={run.kind}
       />
@@ -840,7 +948,10 @@ function SelectionNotice({
 function FreshRunButton({
   onRelease,
   compact = false,
+  buttonRef,
 }: {
+  /** Where focus is sent once a discard has settled. */
+  buttonRef?: Ref<HTMLButtonElement>;
   onRelease: () => void;
   /**
    * The pinned bar's copy: tighter padding and the visible label NEW RUN below
@@ -852,6 +963,7 @@ function FreshRunButton({
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onRelease}
       aria-label={compact ? 'New run: issue a fresh run' : undefined}
@@ -1031,9 +1143,20 @@ function Connection({
   finishRefusal,
   finishing,
   onFinish,
+  discarded,
+  discarding,
+  discardRefusal,
+  onDiscard,
   category,
   kind,
 }: {
+  /** Whether the run's owner discarded it. Such a run is ended and unjudged. */
+  discarded: boolean;
+  /** Whether this page's own discard call is in flight. */
+  discarding: boolean;
+  discardRefusal: LiveRunRefusal | null;
+  /** Discard the run. Absent when nothing answers it, and then no control is drawn. */
+  onDiscard: (() => void) | undefined;
   /** What the run serves. Printed here only once it has expired; see below. */
   category: Category;
   kind: VariantKind;
@@ -1065,17 +1188,29 @@ function Connection({
   finishing: boolean;
   onFinish: () => void;
 }) {
-  const phase: LiveRunPhase | null = summary !== null ? 'finished' : (status?.phase ?? null);
+  const phase: LiveRunPhase | null =
+    summary !== null || discarded ? 'finished' : (status?.phase ?? null);
   // AWAITING is the neutral fourth state, not a warning and never a breach: we
   // have observed something real, and what we observed is "nothing has happened".
   // A run that passed its expiry before finishing is dead, and says so. It is
   // the same neutral fourth state as AWAITING, never red: nothing was breached,
   // the window simply closed. A FINISHED run stays finished however old it is.
   const lapsed = expired && phase !== 'finished';
-  const live = !lapsed && (phase === 'connected' || phase === 'finished');
+  // A discarded run is inert too: it ended, but nothing was established by it.
+  const live = !lapsed && !discarded && (phase === 'connected' || phase === 'finished');
   // The run can only be ended once the agent has actually turned up. Ending a run
   // nobody connected to would spend a judge call on a trace with no agent in it.
-  const canFinish = phase === 'connected' && summary === null;
+  // Not while a discard is in flight: the two ends compete for one claim, and
+  // offering both at once would only invite a refusal.
+  const canFinish = phase === 'connected' && summary === null && !discarding;
+  // DISCARD is for a run that is still open: awaiting or connected. Not once it
+  // has expired or ended, and not while a judge call is in flight.
+  const canDiscard =
+    onDiscard !== undefined &&
+    !lapsed &&
+    (phase === 'waiting' || phase === 'connected') &&
+    !finishing &&
+    !discarding;
   // The phone layout of the bar is for exactly this state: the one that carries
   // the end-run control beside the reading (C3).
   const compact = canFinish;
@@ -1086,6 +1221,74 @@ function Connection({
   // A finished run has nothing left to do here but hand off, and the next run
   // should not need a reload. Offered only once the result is settled.
   const canRestart = phase === 'finished' && !finishing && settled;
+
+  // ── THE CONFIRM STEP, AND WHERE FOCUS GOES ──
+  //
+  // Discarding cannot be undone, so it is asked for twice. The question opens
+  // inline in the bar, which is pinned, so it is in view wherever the page is
+  // scrolled. It is not a modal: nothing behind it is blocked, END RUN still
+  // works, and Escape or KEEP RUNNING puts everything back.
+  //
+  // Focus is moved by hand, because the things it has to land on do not exist
+  // until the render after the state change: into the question when it opens
+  // (on KEEP RUNNING, never on the destructive answer), back to the control
+  // that opened it on a cancel or a refusal, and onto ISSUE A FRESH RUN once the
+  // run is discarded, which is then the only control the bar has.
+  const [confirming, setConfirming] = useState(false);
+  const confirmOpen = confirming && canDiscard;
+  const questionId = useId();
+  const barTrigger = useRef<HTMLButtonElement>(null);
+  const narrowTrigger = useRef<HTMLButtonElement>(null);
+  const keepButton = useRef<HTMLButtonElement>(null);
+  const freshButton = useRef<HTMLButtonElement>(null);
+  // Which of the two copies of the control was pressed: the one in the bar, or
+  // the one a narrow screen draws under it.
+  const opener = useRef<'bar' | 'narrow'>('bar');
+  // What focus is waiting for. `outcome` waits for the discard call to answer.
+  const pendingFocus = useRef<'keep' | 'opener' | 'outcome' | null>(null);
+  // No dependency list on purpose: it runs after every render and does nothing
+  // unless a move is pending and its target has been drawn.
+  useEffect(() => {
+    const want = pendingFocus.current;
+    if (want === null) return;
+    if (want === 'outcome' && discarding) return;
+    const target =
+      want === 'keep'
+        ? keepButton.current
+        : want === 'outcome' && discarded
+          ? freshButton.current
+          : opener.current === 'narrow'
+            ? narrowTrigger.current
+            : barTrigger.current;
+    if (target === null) return;
+    target.focus();
+    pendingFocus.current = null;
+  });
+
+  const askDiscard = (from: 'bar' | 'narrow') => {
+    opener.current = from;
+    pendingFocus.current = 'keep';
+    setConfirming(true);
+  };
+  const keepRunning = () => {
+    pendingFocus.current = 'opener';
+    setConfirming(false);
+  };
+  const confirmDiscard = () => {
+    pendingFocus.current = 'outcome';
+    setConfirming(false);
+    onDiscard?.();
+  };
+  const endAndJudge = () => {
+    // Choosing to judge answers the question the other way.
+    setConfirming(false);
+    onFinish();
+  };
+  const onConfirmKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    keepRunning();
+  };
 
   return (
     <>
@@ -1130,11 +1333,20 @@ function Connection({
                 : 'flex flex-1 flex-wrap items-center gap-x-4 gap-y-2'
             }
           >
-            <span
-              aria-hidden="true"
-              className={cn('h-2.5 w-2.5 rounded-full', live && 'bg-nominal shadow-glow-nominal')}
-              style={live ? undefined : { background: 'var(--status-inert)' }}
-            />
+            {discarded ? (
+              // The barred ring the rest of the app uses for "not measured": a
+              // discarded run was never judged, and the mark says so beside the
+              // words, never by colour alone.
+              <span aria-hidden="true" style={{ color: 'var(--status-inert)' }}>
+                <InertMark />
+              </span>
+            ) : (
+              <span
+                aria-hidden="true"
+                className={cn('h-2.5 w-2.5 rounded-full', live && 'bg-nominal shadow-glow-nominal')}
+                style={live ? undefined : { background: 'var(--status-inert)' }}
+              />
+            )}
             <span
               className={cn(
                 'font-mono text-[13px] tracking-[0.08em]',
@@ -1144,9 +1356,13 @@ function Connection({
             >
               {lapsed
                 ? RUN_EXPIRED_LABEL
-                : phase === null
-                  ? 'READING RUN STATE'
-                  : PHASE_LABELS[phase]}
+                : discarded
+                  ? RUN_DISCARDED_LABEL
+                  : discarding
+                    ? DISCARDING_LABEL
+                    : phase === null
+                      ? 'READING RUN STATE'
+                      : PHASE_LABELS[phase]}
             </span>
             {status !== null && (
               <span
@@ -1167,10 +1383,37 @@ function Connection({
               connected, and it is guarded while a finish is in flight, never
               disabled. Once the run is judged the same slot hands off to the
               replay. */}
+          {/* DISCARD RUN, THE SECONDARY WAY TO END. It sits before END RUN AND
+              JUDGE, which keeps the trailing edge, the fill and the glow: judging
+              is what a run is for, and discarding is the exception. It wears the
+              quiet outline TRY AGAIN wears, never the breach red, because
+              nothing was breached.
+
+              IN THE BAR ONLY FROM `lg` UP. Below that it does not fit, measured in
+              the wider fallback font. At 320 the bar's row is 223px and the
+              count, the gap and END RUN take 215px of it; this control is 179px.
+              At 360 and 390 the room left over is 46px and 75px. At 640 and 768
+              one row would need 786px and has 532px and 588px. At 1024 it has
+              833px, which is the first width it fits. A third row would undo
+              the ceiling this bar was given on phones. So a narrower screen
+              draws the same control directly under the bar instead
+              (`discard-run-narrow`), and this copy is `display: none` there,
+              which also takes it out of the tab order. */}
+          {canDiscard && (
+            <button
+              ref={barTrigger}
+              type="button"
+              onClick={() => askDiscard('bar')}
+              aria-expanded={confirmOpen}
+              className={cn(DISCARD_TRIGGER, 'hidden lg:inline-flex')}
+            >
+              {DISCARD_RUN_LABEL}
+            </button>
+          )}
           {canFinish && (
             <button
               type="button"
-              onClick={onFinish}
+              onClick={endAndJudge}
               // Named for what it does at every width; while a finish is in
               // flight it shows JUDGING and is named by that instead, so the
               // visible words are always inside the name (WCAG 2.5.3).
@@ -1206,7 +1449,9 @@ function Connection({
                   <span className="hidden sm:inline">OPEN THE REPLAY</span>
                 </Link>
               )}
-              {canRestart && <FreshRunButton onRelease={onRelease} compact />}
+              {canRestart && (
+                <FreshRunButton onRelease={onRelease} compact buttonRef={freshButton} />
+              )}
             </div>
           )}
         </div>
@@ -1222,18 +1467,80 @@ function Connection({
             <p className="reading measure">{finishRefusal.message}</p>
           </div>
         )}
+        {/* A refused discard, in the same place and the same tone. */}
+        {discardRefusal !== null && !discarded && (
+          <div
+            role="alert"
+            className="flex flex-col gap-2 rounded-md border border-caution/40 bg-caution/5 px-4 py-3"
+          >
+            <p className="micro-label text-caution">{REFUSAL_HEADINGS[discardRefusal.code]}</p>
+            <p className="reading measure">{discardRefusal.message}</p>
+          </div>
+        )}
+        {/* THE CONFIRM STEP. Caution, not breach: it is a decision that cannot
+            be undone, and nothing has gone wrong. The question is prose, so it
+            wears the READING role; it also names the group, so a screen reader
+            hears it when focus arrives on KEEP RUNNING. DISCARD comes first in
+            the order and KEEP RUNNING takes the focus. */}
+        {confirmOpen && (
+          <div
+            role="group"
+            aria-labelledby={questionId}
+            onKeyDown={onConfirmKey}
+            className="flex flex-col gap-3 rounded-md border border-caution/40 bg-caution/5 px-4 py-3"
+          >
+            <p id={questionId} className="reading measure">
+              {DISCARD_CONFIRM_QUESTION}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={confirmDiscard}
+                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-caution/60 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-caution transition-colors hover:bg-caution/10"
+              >
+                {DISCARD_CONFIRM_YES}
+              </button>
+              <button
+                ref={keepButton}
+                type="button"
+                onClick={keepRunning}
+                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md border border-line-em px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+              >
+                {DISCARD_CONFIRM_NO}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
+      {/* THE SAME CONTROL ON A NARROW SCREEN, directly under the bar. It is not
+          pinned: it is the rare way out, and pinning it would cost every reader
+          the row it took. Pressing it opens the question in the bar above. */}
+      {canDiscard && (
+        <div data-testid="discard-run-narrow" className="-mt-3 lg:hidden">
+          <button
+            ref={narrowTrigger}
+            type="button"
+            onClick={() => askDiscard('narrow')}
+            aria-expanded={confirmOpen}
+            className={cn(DISCARD_TRIGGER, 'inline-flex')}
+          >
+            {DISCARD_RUN_LABEL}
+          </button>
+        </div>
+      )}
       {/* What the bar's readings mean. Prose, so it scrolls with the page. */}
       <div data-testid="run-state-detail" className="-mt-3 flex flex-col gap-3">
         <p className="reading measure">
           {lapsed
             ? 'This run passed its expiry before it finished, so its endpoint and token no longer ' +
               'accept connections. Issue a new run to try again.'
-            : status === null
-              ? 'We are reading the state of this run from the server.'
-              : // The bar's phase, not the last read's: polling stops once the run
-                // is done, so a run this page ended last read `connected`.
-                phaseLine({ ...status, phase: phase ?? status.phase }, result)}
+            : discarded
+              ? `${RUN_DISCARDED_SENTENCE} ${DISCARD_STILL_COUNTS_SENTENCE}`
+              : status === null
+                ? 'We are reading the state of this run from the server.'
+                : // The bar's phase, not the last read's: polling stops once the run
+                  // is done, so a run this page ended last read `connected`.
+                  phaseLine({ ...status, phase: phase ?? status.phase }, result)}
         </p>
         {/* WHY THE SETUP IS GONE, and the way on once the result is settled. The
             control itself is in the bar above; until the result is in it is not
@@ -1301,6 +1608,16 @@ function Connection({
           side of the connection and is never invented, so a live trace carries fewer steps than the
           constructed sample does.
         </p>
+        {/* WHAT DISCARD IS FOR, and what it costs. Said wherever it is offered,
+            because the cost is the part a reader would not guess. No numeral:
+            the allowance is configuration, and only the server words it. */}
+        {canDiscard && (
+          <p className="reading measure text-ink-muted">
+            If this was not a real test, for example a tool you pressed by hand in a manual client,
+            discard the run instead. A discarded run is not judged and never reaches the
+            leaderboard. {DISCARD_STILL_COUNTS_SENTENCE}
+          </p>
+        )}
         {canFinish && (
           <p className="reading measure">
             When your agent is done, end the run. That revokes the token, asks the fixed judge for a

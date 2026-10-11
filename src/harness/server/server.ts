@@ -24,7 +24,11 @@
  * NEUTRAL IDENTITY: nothing an agent can read here names this project, the
  * experiment, the framing or the category. The safety labelling the operator is
  * owed lives in the run log and in comments like this one, NEVER in a string the
- * agent can read. `neutrality.test.ts` fails on any tell.
+ * agent can read. The sweeps that fail on any tell live in
+ * `tests/unit/harness/server/`: `server.test.ts` (handshake, listing, prompt,
+ * results and this file's error messages), `surfaces.test.ts` (every surface,
+ * both framings) and `http.test.ts` (the transport's own answers). Each checks
+ * `findTells` and `findPayloadTells` from `surface.ts`.
  */
 import type { Category, JsonValue, Trace, VariantKind } from '@/contract';
 import type { TargetStepEvent } from '@/harness';

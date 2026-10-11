@@ -3,6 +3,8 @@ import type { RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
 import { getUser } from '@/lib/auth/user';
 import { isRowId } from '@/lib/run-id';
+import { getDiscardedRunStore } from './discarded-run-store.factory';
+import type { StoredDiscardedRun } from './run-repository';
 import { getRunRepository } from './run-repository.factory';
 import { getDataSource } from './source';
 
@@ -121,6 +123,30 @@ async function liveView(id: string): Promise<RunView | null> {
 export const resolveRun = cache(
   async (id: string): Promise<RunView | null> => (await sampleView(id)) ?? (await liveView(id)),
 );
+
+/**
+ * One of the signed-in user's own DISCARDED runs, or nothing
+ * ([ADR-0013](../../docs/adr/0013-a-discarded-run-is-stored-unjudged.md)).
+ *
+ * A discarded run is deliberately NOT a `RunView`: it has no verdict, so it has
+ * no provenance for one, and `resolveRun` answers `null` for it like any id that
+ * is not a judged run. That keeps it away from everything built on a `RunView`
+ * (the replay, the shell's provenance chip, and `resolveFixReport` below, which
+ * therefore never hands one to `generateFixReport`). The two run pages ask this
+ * SEPARATELY, only after `resolveRun` found nothing, so they can tell the owner
+ * what became of the run instead of saying it does not exist.
+ *
+ * Owner-scoped exactly like `liveView`: an id that is not a row id, a signed-out
+ * visitor and another account's run all answer `null`, the same nothing an id
+ * that never existed gets. So for anyone but the owner the page still calls
+ * `notFound()`, and the response never says the run is real.
+ */
+export const resolveDiscardedRun = cache(async (id: string): Promise<StoredDiscardedRun | null> => {
+  if (!isRowId(id)) return null;
+  const user = await getUser();
+  if (!user) return null;
+  return (await getDiscardedRunStore()).getDiscardedRun(user.id, id);
+});
 
 /** Module 6's report over that run, carrying the same provenance. */
 export async function resolveFixReport(id: string): Promise<FixReportView | null> {
