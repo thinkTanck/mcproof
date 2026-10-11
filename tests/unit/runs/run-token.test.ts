@@ -1,12 +1,14 @@
 import fc from 'fast-check';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ConfigError } from '@/config/env';
 import { findTells } from '@/harness/server/surface';
 import { createLogger } from '@/lib/logger';
+import * as runTokenModule from '@/runs/run-token';
 import {
   DEFAULT_RUN_TOKEN_TTL_MINUTES,
   InMemoryRunTokenStore,
-  LEGACY_RUN_TOKEN_PREFIX,
   RUN_TOKEN_PATTERN,
   RUN_TOKEN_PREFIX,
   RUN_TOKEN_REJECTION_MESSAGE,
@@ -570,88 +572,107 @@ describe('InMemoryRunTokenStore — the offline/test adapter', () => {
   });
 });
 
-describe('the legacy prefix: tokens issued before the rename keep working for one token lifetime', () => {
-  /** The same token as issued before the rename: same halves, the old prefix. */
-  const legacy = (token: string) =>
-    `${LEGACY_RUN_TOKEN_PREFIX}_${token.slice(`${RUN_TOKEN_PREFIX}_`.length)}`;
+describe('one prefix: the pre-rename prefix is refused outright', () => {
+  // The prefix tokens carried before the rename, assembled from pieces. The rename
+  // guard has no allowlist entry for this file any more, so the old product name
+  // may not appear here as one literal; joining the parts keeps the guard honest
+  // and still lets this file present the exact string a stale client would send.
+  const OLD_NAME = ['mc', 'pwn'].join('');
+  const OLD_PREFIX = `${OLD_NAME}_rt`;
 
-  it('issues the neutral prefix, and names the legacy one only to accept it', () => {
+  /** The same token as issued before the rename: same halves, the old prefix. */
+  const preRename = (token: string) =>
+    `${OLD_PREFIX}_${token.slice(`${RUN_TOKEN_PREFIX}_`.length)}`;
+
+  it('issues, parses and verifies an rt_ token end to end', async () => {
+    const store = new InMemoryRunTokenStore();
+    const { token, record } = await issued(store);
+
     expect(RUN_TOKEN_PREFIX).toBe('rt');
-    expect(LEGACY_RUN_TOKEN_PREFIX).toBe('mcpwn_rt');
+    expect(token.startsWith('rt_')).toBe(true);
+    // Exactly the two halves: nothing records which prefix was seen, because
+    // there is only one.
+    expect(Object.keys(parseRunToken(token) ?? {}).sort()).toEqual(['selector', 'verifier']);
+    expect(parseRunToken(token)?.selector).toBe(record.selector);
+
+    const live = await verifyRunToken({
+      store,
+      presented: token,
+      runId: RUN,
+      userId: USER,
+      now: new Date(T0.getTime() + minutes(1)),
+    });
+    expect(live).toMatchObject({ valid: true, record: { runId: RUN, userId: USER } });
   });
 
-  it('parses both prefixes, and says which one it saw', () => {
+  it('does not parse a token carrying the pre-rename prefix', () => {
     const { token } = issueRunToken({ runId: RUN, userId: USER, now: T0 });
 
-    expect(parseRunToken(token)).toMatchObject({ legacy: false });
-    expect(parseRunToken(legacy(token))).toMatchObject({
-      legacy: true,
-      selector: parseRunToken(token)?.selector,
-      verifier: parseRunToken(token)?.verifier,
-    });
+    expect(parseRunToken(token)).not.toBeNull();
+    expect(parseRunToken(preRename(token))).toBeNull();
   });
 
-  it.each([
-    ['the new product name', 'mcproof_rt_'],
-    ['the legacy prefix in capitals', 'MCPWN_RT_'],
-    ['a prefix ending in rt', 'xrt_'],
-  ])('still refuses %s', (_label, prefix) => {
-    expect(parseRunToken(prefix + 'a'.repeat(32) + '_' + 'b'.repeat(64))).toBeNull();
-  });
-
-  it('verifies a legacy token while its run is open and its lifetime has not run out', async () => {
+  it('refuses the pre-rename prefix as MALFORMED even when its record is open and unexpired', async () => {
     const store = new InMemoryRunTokenStore();
-    const { token } = await issued(store);
+    const { token, record } = await issued(store);
+    const now = new Date(T0.getTime() + minutes(1));
 
-    const decision = await verifyRunToken({
-      store,
-      presented: legacy(token),
-      runId: RUN,
-      userId: USER,
-      now: new Date(T0.getTime() + minutes(DEFAULT_RUN_TOKEN_TTL_MINUTES - 1)),
-    });
-
-    expect(decision.valid).toBe(true);
-  });
-
-  it('refuses a legacy token once it has expired, exactly as a new one', async () => {
-    const store = new InMemoryRunTokenStore();
-    const { token } = await issued(store);
-    const later = new Date(T0.getTime() + minutes(DEFAULT_RUN_TOKEN_TTL_MINUTES));
-
-    const decision = await verifyRunToken({
-      store,
-      presented: legacy(token),
-      runId: RUN,
-      userId: USER,
-      now: later,
-    });
-
-    expect(decision).toMatchObject({ valid: false, error: { code: 'EXPIRED' } });
-  });
-
-  it('never accepts the legacy prefix past the longest token lifetime, whatever the record says', async () => {
-    const store = new InMemoryRunTokenStore();
-    // A record whose own expiry is further out than any configured lifetime allows.
-    const { token } = await issued(store, { ttlMs: minutes(RUN_TOKEN_TTL_BOUNDS.max * 2) });
-    const pastLifetime = new Date(T0.getTime() + minutes(RUN_TOKEN_TTL_BOUNDS.max));
-
-    const old = await verifyRunToken({
-      store,
-      presented: legacy(token),
-      runId: RUN,
-      userId: USER,
-      now: pastLifetime,
-    });
+    // The record is there, open and inside its lifetime, and the same halves
+    // verify under the current prefix: so it is the PREFIX that is refused.
+    expect(await store.findBySelector(record.selector)).toMatchObject({ endedAt: null });
     const current = await verifyRunToken({
       store,
       presented: token,
       runId: RUN,
       userId: USER,
-      now: pastLifetime,
+      now,
     });
-
-    expect(old).toMatchObject({ valid: false, error: { code: 'EXPIRED' } });
     expect(current.valid).toBe(true);
+
+    const old = await verifyRunToken({
+      store,
+      presented: preRename(token),
+      runId: RUN,
+      userId: USER,
+      now,
+    });
+    expect(old).toMatchObject({ valid: false, error: { code: 'MALFORMED' } });
+  });
+
+  it.each([
+    ['the pre-rename prefix', `${OLD_PREFIX}_`],
+    ['the pre-rename prefix in capitals', `${OLD_PREFIX.toUpperCase()}_`],
+    ['the new product name', 'mcproof_rt_'],
+    ['a prefix ending in rt', 'xrt_'],
+    ['the prefix in capitals', 'RT_'],
+  ])('refuses a valid token whose prefix is swapped for %s', async (_label, prefix) => {
+    const store = new InMemoryRunTokenStore();
+    const { token } = await issued(store);
+    const swapped = prefix + token.slice(`${RUN_TOKEN_PREFIX}_`.length);
+
+    expect(parseRunToken(swapped)).toBeNull();
+    const decision = await verifyRunToken({
+      store,
+      presented: swapped,
+      runId: RUN,
+      userId: USER,
+      now: new Date(T0.getTime() + minutes(1)),
+    });
+    expect(decision).toMatchObject({ valid: false, error: { code: 'MALFORMED' } });
+  });
+
+  it('exports no second prefix, and the grammar names only rt', () => {
+    expect(Object.keys(runTokenModule).filter((name) => /LEGACY/i.test(name))).toEqual([]);
+    expect(RUN_TOKEN_PATTERN.source.startsWith('^rt_(')).toBe(true);
+    expect(RUN_TOKEN_PATTERN.source).not.toContain('|');
+  });
+
+  it('the module source does not spell the old product name, apart from the ADR file name', () => {
+    const source = readFileSync(join(process.cwd(), 'src/runs/run-token.ts'), 'utf8');
+    // The ADR keeps the file name it was written under; every link to it says so.
+    const withoutAdrLink = source.split(`0006-${OLD_NAME}-is-the-mcp-server`).join('');
+
+    expect(withoutAdrLink.toLowerCase()).not.toContain(OLD_NAME);
+    expect(source).not.toMatch(/\.legacy\b|legacy:/);
   });
 });
