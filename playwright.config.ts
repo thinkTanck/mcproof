@@ -15,7 +15,7 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 /** The only specs the WebKit project runs. Everything else is Chromium-only. */
 const WEBKIT_SPECS =
-  /(small-text-line-spacing|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate)\.spec\.ts$/;
+  /(small-text-line-spacing|run-bar-short-screens|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',

@@ -111,8 +111,13 @@ const narrow = () => screen.getByTestId('discard-run-narrow');
 const trigger = () => within(dock()).getByRole('button', { name: DISCARD_RUN_LABEL });
 /** The same control as a phone draws it, directly under the bar. */
 const narrowTrigger = () => within(narrow()).getByRole('button', { name: DISCARD_RUN_LABEL });
-const confirm = () => within(dock()).getByRole('group', { name: /discard this run/i });
-const queryConfirm = () => within(dock()).queryByRole('group', { name: /discard this run/i });
+/**
+ * The question opens UNDER the bar as a block of its own, never inside it (S1), so
+ * it is found on the page, not within the bar. Where it sits is held in
+ * run-bar-short-screens.test.tsx and measured in the browser.
+ */
+const confirm = () => screen.getByRole('group', { name: /discard this run/i });
+const queryConfirm = () => screen.queryByRole('group', { name: /discard this run/i });
 
 async function issue(port: ConnectLiveRunPort, settle: string, props: object = {}) {
   const user = userEvent.setup();
