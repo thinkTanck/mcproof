@@ -182,16 +182,41 @@ export async function checkGlobalSpendCap(
 }
 
 /**
- * The real meter: a count of every row in `public.runs` created in the period.
+ * The real meter: the rows in `public.runs` created in the period that stand
+ * for a JUDGE CALL, which is every row except a discarded run's.
  *
  * It must be built from a client that BYPASSES RLS (the service-role admin
  * client), because the whole point is a total across accounts and an RLS-scoped
  * session can only ever see its own. `head: true` asks Postgres for the count
  * and no rows.
  *
- * A query error THROWS rather than answering zero. Answering zero would report
- * "nothing spent this period" for a failed read, which is the open tap
- * `checkGlobalSpendCap` fails closed against; throwing lets it refuse.
+ * ── A DISCARDED RUN IS NOT SPEND ──
+ *
+ * The count is a proxy for model spend, and it is a fair one only while a row
+ * means "the judge was asked once". A discarded run
+ * ([ADR-0013](../../docs/adr/0013-a-discarded-run-is-stored-unjudged.md)) is
+ * stored in the same table so the per-account allowance still counts it, but it
+ * made no judge call, so counting it here would charge the operator's budget
+ * for money nobody spent. It is taken out: every row in the period, minus the
+ * rows marked discarded.
+ *
+ * Two counts and a subtraction, rather than one count with a "not discarded"
+ * filter, on purpose. `run->>discarded` is NULL on every judged row, and in SQL
+ * `NOT (NULL = 'true')` is NULL, not true, so the obvious negated filter would
+ * match no judged row at all and report a spotless month. The positive filter
+ * has no such trap, and it is the same `eq` on a `run->>key` path the run
+ * repository already uses against the real project.
+ *
+ * The two reads are not one transaction, so a discard landing between them can
+ * put the second count one ahead of the first. The result is floored at zero
+ * rather than reported negative, which `checkGlobalSpendCap` would (rightly)
+ * refuse as unreadable.
+ *
+ * A query error THROWS rather than answering zero, on EITHER read. Answering
+ * zero would report "nothing spent this period" for a failed read, which is the
+ * open tap `checkGlobalSpendCap` fails closed against; throwing lets it refuse.
+ * A failed read of the discarded count is not treated as "none were discarded"
+ * either: the meter's own state is then unknown, and unknown refuses.
  *
  * An UNKNOWN count throws for the same reason. An empty table answers 0, so a
  * `null` count is not "no rows", it is "no number" — and a HEAD request against
@@ -200,17 +225,36 @@ export async function checkGlobalSpendCap(
  * spotless month.
  */
 export function createRunTableSpendMeter(client: SupabaseClient): SpendMeter {
+  const known = (
+    label: string,
+    answer: { count: number | null; error: { message: string } | null },
+  ): number => {
+    if (answer.error) throw new Error(`spend meter read failed: ${answer.error.message}`);
+    if (answer.count === null || answer.count === undefined) {
+      throw new Error(`spend meter read failed: the ${label} count came back unknown.`);
+    }
+    return answer.count;
+  };
+
   return {
     async countRunsSince(since: Date): Promise<number> {
-      const { count, error } = await client
-        .from('runs')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', since.toISOString());
-      if (error) throw new Error(`spend meter read failed: ${error.message}`);
-      if (count === null || count === undefined) {
-        throw new Error('spend meter read failed: the count came back unknown.');
-      }
-      return count;
+      const from = since.toISOString();
+      const total = known(
+        'run',
+        await client
+          .from('runs')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', from),
+      );
+      const discarded = known(
+        'discarded',
+        await client
+          .from('runs')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', from)
+          .eq('run->>discarded', 'true'),
+      );
+      return Math.max(0, total - discarded);
     },
   };
 }

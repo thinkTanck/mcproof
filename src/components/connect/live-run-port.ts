@@ -2,6 +2,7 @@ import type { Category, VariantKind } from '@/contract';
 import type {
   LiveRunActionCode,
   LiveRunActionResult,
+  LiveRunDiscardView,
   LiveRunPhase,
   LiveRunReattachView,
   LiveRunStatusView,
@@ -15,14 +16,15 @@ import type {
  *
  * Under [ADR-0006](../../../docs/adr/0006-mcpwn-is-the-mcp-server.md) a live run
  * is: we issue an endpoint and a token, the user's agent connects to US, and the
- * server records what it does. The screen therefore needs exactly four answers:
+ * server records what it does. The screen therefore needs exactly five answers:
  *
  *   1. START — issue this run, or refuse it.
  *   2. READ STATE — what has the server actually observed since?
  *   3. FINISH — end it, judge it, and say where the result lives.
  *   4. REATTACH: hand a run back by its id, after a reload lost the page.
+ *   5. DISCARD: end it WITHOUT judging it, for a run that was not a test.
  *
- * That is the whole port. Anything the screen draws, it draws from those four
+ * That is the whole port. Anything the screen draws, it draws from those five
  * answers, which is what makes "show real connection state" enforceable rather
  * than aspirational: there is no further channel a fake state could come in on.
  *
@@ -62,6 +64,7 @@ import type {
  */
 
 export type {
+  LiveRunDiscardView,
   LiveRunPhase,
   LiveRunReattachView,
   LiveRunStatusView,
@@ -96,6 +99,7 @@ const KNOWN_CODES: readonly LiveRunRefusalCode[] = [
   'INVALID_REQUEST',
   'RUN_NOT_FOUND',
   'RUN_ALREADY_FINISHED',
+  'RUN_DISCARDED',
   'NOT_WIRED',
   'REFUSED',
 ];
@@ -147,6 +151,16 @@ export interface ConnectLiveRunPort {
    * plus whether the run has finished and where its saved result lives.
    */
   reattach(input: { runId: string }): Promise<LiveRunAnswer<LiveRunReattachView>>;
+  /**
+   * DISCARD: end the run without asking the judge, for a run that was not a
+   * test. The answer carries no verdict, because there is none.
+   *
+   * OPTIONAL, and the screen reads that literally: a port with no `discard`
+   * draws no DISCARD RUN control. A control with nothing behind it is the same
+   * kind of fiction as a state nobody observed, and it lets a port written
+   * before discard existed stay a valid port.
+   */
+  discard?(input: { runId: string }): Promise<LiveRunAnswer<LiveRunDiscardView>>;
 }
 
 // ── The boundary: the three server actions, declared structurally ──
@@ -177,12 +191,17 @@ export type ReattachLiveRunAction = (
   input: unknown,
 ) => Promise<LiveRunActionResult<LiveRunReattachView>>;
 
-/** The four actions, as one injectable bundle. */
+export type DiscardLiveRunAction = (
+  input: unknown,
+) => Promise<LiveRunActionResult<LiveRunDiscardView>>;
+
+/** The actions, as one injectable bundle. `discard` is optional; see the port. */
 export interface ConnectLiveRunActions {
   readonly start: StartLiveRunAction;
   readonly status: ReadLiveRunStatusAction;
   readonly finish: FinishLiveRunAction;
   readonly reattach: ReattachLiveRunAction;
+  readonly discard?: DiscardLiveRunAction;
 }
 
 /** Nothing was issued because this build has no server action behind the screen. */
@@ -202,6 +221,11 @@ export const LIVE_RUN_CALL_FAILED_MESSAGE =
 /** A finish call failed outright. The run is not lost; it can be ended again. */
 export const LIVE_RUN_FINISH_FAILED_MESSAGE =
   'We could not reach the run service just now, so this run was not ended. Please try again.';
+
+/** A discard call failed outright. Nothing is claimed about the run either way. */
+export const LIVE_RUN_DISCARD_FAILED_MESSAGE =
+  'We could not reach the run service just now, so we cannot say this run was discarded. ' +
+  'Please try again.';
 
 const refuse = (code: LiveRunRefusalCode, message: string): LiveRunAnswer<never> => ({
   ok: false,
@@ -227,7 +251,18 @@ function readStatus(value: LiveRunStatusView): LiveRunStatusView | null {
   if (!PHASES.includes(value.phase)) return null;
   if (!isCount(value.steps) || !isCount(value.toolCalls)) return null;
   if (!isId(value.runId)) return null;
-  return value;
+  // Only a literal `true` makes a run read as discarded. Anything else in that
+  // field is dropped rather than drawn.
+  if (value.discarded === true || value.discarded === undefined) return value;
+  const rest: { discarded?: unknown } & LiveRunStatusView = { ...value };
+  delete rest.discarded;
+  return rest;
+}
+
+/** A discard answer is drawable only if it names the run and its count is a count. */
+function readDiscard(value: LiveRunDiscardView): LiveRunDiscardView | null {
+  if (!isId(value.runId) || !isCount(value.steps)) return null;
+  return { runId: value.runId, steps: value.steps };
 }
 
 /**
@@ -261,12 +296,13 @@ function readReattach(value: LiveRunReattachView): LiveRunReattachView | null {
     promptName: value.promptName,
     finishedAt: typeof value.finishedAt === 'string' ? value.finishedAt : null,
     storedRunId: isId(value.storedRunId) ? value.storedRunId : null,
+    ...(value.discarded === true ? { discarded: true } : {}),
   };
 }
 
 /**
  * THE ONE ADAPTER. Everything the screen knows about the server passes through
- * these three calls, so reconciling with the real actions is a change to this
+ * these calls, so reconciling with the real actions is a change to this
  * file and nowhere else.
  *
  * It does two jobs and no others: it turns the server's FLAT failure
@@ -274,7 +310,30 @@ function readReattach(value: LiveRunReattachView): LiveRunReattachView | null {
  * (`{ ok: false, refusal }`), and it refuses anything it cannot render honestly.
  */
 export function createConnectLiveRunPort(actions: ConnectLiveRunActions): ConnectLiveRunPort {
+  const discardAction = actions.discard;
   return {
+    // Present only when an action is bound, so the screen draws the control
+    // only when something answers it.
+    ...(discardAction === undefined
+      ? {}
+      : {
+          async discard(input: { runId: string }) {
+            let answer: Awaited<ReturnType<DiscardLiveRunAction>>;
+            try {
+              answer = await discardAction({ runId: input.runId });
+            } catch {
+              // Whether the run was discarded is unknown here: the call may
+              // have landed before it failed. So nothing is claimed either way,
+              // and the next status read says what is true.
+              return refuse('REFUSED', LIVE_RUN_DISCARD_FAILED_MESSAGE);
+            }
+            if (!answer.ok) return refuse(readCode(answer.code), answer.message);
+            const view = readDiscard(answer.value);
+            if (view === null) return refuse('REFUSED', LIVE_RUN_UNREADABLE_STATE_MESSAGE);
+            return { ok: true as const, value: view };
+          },
+        }),
+
     async start(input) {
       let answer: Awaited<ReturnType<StartLiveRunAction>>;
       try {
@@ -354,6 +413,9 @@ export const notWiredLiveRunPort: ConnectLiveRunPort = {
     return refuse('NOT_WIRED', LIVE_RUN_NOT_WIRED_MESSAGE);
   },
   async reattach() {
+    return refuse('NOT_WIRED', LIVE_RUN_NOT_WIRED_MESSAGE);
+  },
+  async discard() {
     return refuse('NOT_WIRED', LIVE_RUN_NOT_WIRED_MESSAGE);
   },
 };

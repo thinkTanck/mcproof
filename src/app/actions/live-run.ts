@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * THE RUN-LIFECYCLE ACTIONS — start a live run, watch it, end it.
+ * THE RUN-LIFECYCLE ACTIONS: start a live run, watch it, end it or discard it.
  *
- * These three calls are what `/connect` uses. They are the production caller of
+ * These calls are what `/connect` uses. They are the production caller of
  * `createLiveRunHost` on the control side, exactly as `/api/mcp/[runId]` is on
  * the agent side, and they add no policy of their own: the gate, the token, the
  * judge and persistence all belong to the pipeline.
@@ -42,6 +42,7 @@ import {
   NOT_SIGNED_IN_MESSAGE,
   StartLiveRunRequestSchema,
   type LiveRunActionResult,
+  type LiveRunDiscardView,
   type LiveRunPhase,
   type LiveRunReattachView,
   type LiveRunStatusView,
@@ -136,7 +137,7 @@ export async function getLiveRunStatus(
   const decision = await getLiveRunHost().getStatus({ runId, userId });
   if (!decision.ok) return relay(decision.error);
 
-  const { trace, client, finishedAt } = decision.value;
+  const { trace, client, finishedAt, discarded } = decision.value;
   const calls = toolCalls(trace);
   const connected = client !== null || calls > 0;
   const phase: LiveRunPhase =
@@ -152,6 +153,9 @@ export async function getLiveRunStatus(
       steps: trace.steps.length,
       toolCalls: calls,
       finishedAt,
+      // A discarded run is `finished` (it has ended) and says so separately,
+      // so the screen does not wait for a result that is not coming.
+      ...(discarded === true ? { discarded: true } : {}),
     },
   };
 }
@@ -218,4 +222,32 @@ export async function finishLiveRun(
       steps: trace.steps.length,
     },
   };
+}
+
+/**
+ * Discard the run: end it, revoke its token, and ask NOBODY for a verdict.
+ *
+ * For a run that was never a test, for example a tool pressed by hand in a
+ * manual client ([ADR-0013](../../../docs/adr/0013-a-discarded-run-is-stored-unjudged.md)).
+ * The pipeline stores a marker row with no verdict in it, so the run still
+ * counts toward the account's free live runs and never reaches the leaderboard,
+ * the replay or a report.
+ *
+ * Owner-scoped exactly like the others: the account is read from the session,
+ * and another account's run gets the answer an id that never existed gets. The
+ * answer carries no verdict field, because there is no verdict.
+ */
+export async function discardLiveRun(
+  input: unknown,
+): Promise<LiveRunActionResult<LiveRunDiscardView>> {
+  const userId = await currentUserId();
+  if (userId === null) return notSignedIn();
+
+  const parsed = LiveRunRefSchema.safeParse(input);
+  if (!parsed.success) return invalidRequest();
+  const { runId } = parsed.data;
+
+  const decision = await getLiveRunHost().discard({ runId, userId });
+  if (!decision.ok) return relay(decision.error);
+  return { ok: true, value: { runId, steps: decision.value.steps } };
 }

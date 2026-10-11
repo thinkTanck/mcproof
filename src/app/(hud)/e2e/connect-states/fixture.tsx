@@ -18,6 +18,10 @@ import type { ConnectLiveRunPort, LiveRunPhase } from '@/components/connect/live
  *   connected  an agent is connected and calling tools; END RUN AND JUDGE then
  *              returns a saved result, which is how a test reaches FINISHED
  *   expired    a run whose expiry has already passed
+ *
+ * DISCARD RUN is answered too, in the waiting and connected states: the fake
+ * server says the run was discarded, which is how a test reaches the confirm
+ * step and RUN DISCARDED. Nothing is ended anywhere, because nothing exists.
  */
 export function ConnectStatesFixture({
   state,
@@ -67,6 +71,10 @@ export function ConnectStatesFixture({
           stepId: null,
           steps: 9,
         },
+      }),
+      discard: async () => ({
+        ok: true as const,
+        value: { runId: 'fixture-run', steps: phase === 'connected' ? 9 : 2 },
       }),
       reattach: async () => ({
         ok: false as const,

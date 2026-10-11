@@ -4,6 +4,7 @@ import type { CategoryGoals } from '@/components/connect/ConnectScreen';
 import { isE2eFixturesEnabled } from '@/config/e2e-fixtures';
 import { CategorySchema } from '@/contract';
 import { buildHostedSurface } from '@/harness/server/surfaces';
+import { RunDiscarded } from '@/components/replay';
 import { ConnectStatesFixture } from './fixture';
 
 /**
@@ -28,6 +29,19 @@ export default async function ConnectStatesFixturePage({
 }) {
   if (!isE2eFixturesEnabled(process.env)) notFound();
   const { state = 'waiting' } = await searchParams;
+  // THE DISCARDED STATE OF THE TWO RUN PAGES. A real one needs a signed-in owner
+  // and a stored row, which a browser test in CI has neither of, so these two
+  // states draw the same component `/runs/[id]` and `/findings/[id]` draw for
+  // it, over invented values, so it can be measured and scanned.
+  if (state === 'run-discarded' || state === 'report-discarded') {
+    return (
+      <RunDiscarded
+        surface={state === 'run-discarded' ? 'replay' : 'report'}
+        category="ASI01"
+        discardedAt="2026-10-09T10:00:00.000Z"
+      />
+    );
+  }
   // The real goals, built the way the Connect route builds them, so the task
   // preview can be measured in a browser with a run issued.
   const categoryGoals: CategoryGoals = Object.fromEntries(

@@ -50,6 +50,7 @@
  * count — never a token, never a payload.
  */
 import type { RunResult } from '@/contract';
+import type { DiscardedRun } from '@/data/run-repository';
 import { resolveLiveDetector } from '@/detector/resolve';
 import { logger } from '@/lib/logger';
 import { createLiveRunHost, type LiveRunHost, type LiveRunHostDeps } from '@/runs/live-run';
@@ -161,6 +162,18 @@ export function liveRunDeps(): LiveRunHostDeps {
         const { getRunRepository } = await import('@/data/run-repository.factory');
         const repository = await getRunRepository();
         return repository.findByRunId(userId, runId);
+      },
+      // The two calls a discard needs. Both go through the caller's own
+      // RLS-scoped session, like a saved result does: a discard is only ever
+      // asked for by the signed-in owner, so the insert policy
+      // (`user_id = auth.uid()`) passes for them and for nobody else.
+      async saveDiscardedRun(userId: string, discarded: DiscardedRun) {
+        const { getDiscardedRunStore } = await import('@/data/discarded-run-store.factory');
+        return (await getDiscardedRunStore()).saveDiscardedRun(userId, discarded);
+      },
+      async findDiscardedByRunId(userId: string, runId: string) {
+        const { getDiscardedRunStore } = await import('@/data/discarded-run-store.factory');
+        return (await getDiscardedRunStore()).findDiscardedByRunId(userId, runId);
       },
     },
     resolveDetector: () => resolveLiveDetector(),

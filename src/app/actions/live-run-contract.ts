@@ -122,6 +122,11 @@ export interface LiveRunReattachView {
    * the run is open, and null for a run that was closed with nothing saved.
    */
   readonly storedRunId: string | null;
+  /**
+   * Present, and true, only when the run's owner discarded it. Such a run is
+   * ended, was never judged and has no result, so `storedRunId` is null with it.
+   */
+  readonly discarded?: boolean;
 }
 
 /**
@@ -160,6 +165,24 @@ export interface LiveRunStatusView {
   readonly toolCalls: number;
   /** ISO-8601 once the run has been finished, else null. */
   readonly finishedAt: string | null;
+  /**
+   * Present, and true, only when the run's owner discarded it. The phase is
+   * still `finished`, because the run has ended; this says it ended unjudged, on
+   * purpose, so the screen must not wait for a result.
+   */
+  readonly discarded?: boolean;
+}
+
+/**
+ * What discarding a run produced. There is no verdict, no severity and no
+ * stored-result id here, and no field for one: a discard never reaches the
+ * judge, and a discarded run has no replay to link to.
+ */
+export interface LiveRunDiscardView {
+  /** The run id the MCP endpoint was hosted under. */
+  readonly runId: string;
+  /** Observable steps that had been recorded when the run was discarded. */
+  readonly steps: number;
 }
 
 /**

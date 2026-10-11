@@ -58,6 +58,16 @@
  * therefore meets `RUN_ALREADY_FINISHED`, which is counted as `contended` and is
  * not an error: it is a run somebody else got to first.
  *
+ * ── A DISCARDED RUN IS NEVER REAPED ──
+ *
+ * A run its owner discarded
+ * ([ADR-0013](../../docs/adr/0013-a-discarded-run-is-stored-unjudged.md)) was
+ * claimed through that same grant, so it is not open: `findStale` does not list
+ * it, the re-read below sees it finished, and a pass that raced the discard is
+ * refused `RUN_DISCARDED` by `finish()` and counts the run `contended`. There is
+ * no path from here to the judge for it, which matters because it usually DID
+ * record a tool call, the very thing this pass would otherwise judge.
+ *
  * ── THE SWEEP RUNS LAST, AND ONLY OVER SETTLED RUNS ──
  *
  * Deleting the row deletes the recorded steps with it, so the sweep happens after
@@ -115,8 +125,13 @@ export interface ReapReport {
   readonly swept: number | null;
 }
 
-/** The two refusals that mean "somebody else already has this run". */
-const CONTENDED = new Set(['RUN_ALREADY_FINISHED', 'RUN_NOT_FOUND']);
+/**
+ * The refusals that mean "somebody else already has this run". `RUN_DISCARDED`
+ * is one of them: the owner claimed the run with a discard between this pass
+ * reading the row and asking for it, which is a run somebody else got to first
+ * and not a gate failing closed.
+ */
+const CONTENDED = new Set(['RUN_ALREADY_FINISHED', 'RUN_NOT_FOUND', 'RUN_DISCARDED']);
 
 /**
  * Settle every run whose window has passed, then drain the rows.

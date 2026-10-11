@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { resolveRun } from '@/data/run-view';
-import { Replay, RUN_NOT_FOUND_TITLE } from '@/components/replay';
+import { resolveDiscardedRun, resolveRun } from '@/data/run-view';
+import { Replay, RunDiscarded, RUN_NOT_FOUND_TITLE } from '@/components/replay';
+import { RUN_DISCARDED_TITLE } from '@/runs/discard-copy';
 
 const PAGE_METADATA: Metadata = {
   title: 'Live Attack Replay · MCProof',
@@ -20,7 +21,10 @@ type Props = { params: Promise<{ id: string }> };
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  return (await resolveRun(id)) ? PAGE_METADATA : { title: RUN_NOT_FOUND_TITLE };
+  if (await resolveRun(id)) return PAGE_METADATA;
+  // A run its owner discarded has a title of its own. For anyone else this is
+  // null, so they get the not-found title, exactly as for an unknown id.
+  return { title: (await resolveDiscardedRun(id)) ? RUN_DISCARDED_TITLE : RUN_NOT_FOUND_TITLE };
 }
 
 /**
@@ -40,6 +44,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * no reason, so a run on another account answers exactly as an id that never
  * existed: same status, same body, same title.
  *
+ * A DISCARDED RUN IS NEITHER. Its owner ended it without asking the judge
+ * ([ADR-0013](docs/adr/0013-a-discarded-run-is-stored-unjudged.md)), so there is
+ * no `RunResult` to replay. `resolveRun` answers nothing for it, and the page
+ * then asks whether the id is one of the viewer's OWN discarded runs. If it is,
+ * the owner is told so in one sentence, with a 200. For anybody else that lookup
+ * is also nothing, and the page falls through to the same `notFound()` below.
+ *
  * The route `id` travels into the Replay as well. It is the only id the report
  * route can resolve: a saved live run is stored under a row id, and the run id on
  * its verdict is the live session's, a different string.
@@ -47,6 +58,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RunReplay({ params }: Props) {
   const { id } = await params;
   const view = await resolveRun(id);
-  if (!view) notFound();
+  if (!view) {
+    const discarded = await resolveDiscardedRun(id);
+    if (!discarded) notFound();
+    return (
+      <RunDiscarded
+        surface="replay"
+        category={discarded.discarded.category}
+        discardedAt={discarded.discarded.discardedAt}
+      />
+    );
+  }
   return <Replay run={view.run} routeId={id} provenance={view.provenance} />;
 }

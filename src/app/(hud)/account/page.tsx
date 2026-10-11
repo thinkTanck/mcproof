@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/user';
+import { getDiscardedRunStore } from '@/data/discarded-run-store.factory';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { signOut } from '@/lib/auth/actions';
 import { SectionLabel } from '@/components/hud';
+import { InertMark } from '@/components/leaderboard';
 
 export const metadata: Metadata = {
   title: 'Your account · MCProof',
@@ -16,10 +18,27 @@ export const metadata: Metadata = {
  * Runs are read owner-scoped through the RunRepository (RLS at the DB), so this
  * exercises the whole auth → session → RLS path end-to-end. It stays empty until
  * live runs land (Slice 5); the empty state points at Connect.
+ *
+ * TWO KINDS OF ROW, ONE LIST. A judged run reads as its result and links to its
+ * replay. A run its owner discarded
+ * ([ADR-0013](docs/adr/0013-a-discarded-run-is-stored-unjudged.md)) reads as
+ * DISCARDED, in the inert tone with its icon, and links nowhere: it was never
+ * judged, so it has no result to state and no replay to open. It is listed at
+ * all because it still counts toward the account's free live runs, and a count
+ * the list cannot account for would look like a mistake.
  */
 export default async function AccountPage() {
   const user = await requireUser('/account');
-  const runs = await (await getRunRepository()).listRuns(user.id);
+  const repository = await getRunRepository();
+  const [judged, discarded] = await Promise.all([
+    repository.listRuns(user.id),
+    (await getDiscardedRunStore()).listDiscardedRuns(user.id),
+  ]);
+  // One list, newest first, whichever kind each row is.
+  const runs = [
+    ...judged.map((row) => ({ kind: 'judged' as const, row })),
+    ...discarded.map((row) => ({ kind: 'discarded' as const, row })),
+  ].sort((a, b) => b.row.createdAt.localeCompare(a.row.createdAt));
 
   return (
     <section
@@ -63,33 +82,67 @@ export default async function AccountPage() {
         </div>
       ) : (
         <ul className="mt-8 flex flex-col gap-2">
-          {runs.map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3"
-            >
-              <span className="flex items-center gap-3 font-mono text-[14px]">
-                <span className="text-readout">{r.run.category}</span>
-                <span className={r.run.verdict.compromised ? 'text-breach-text' : 'text-nominal'}>
-                  {r.run.verdict.compromised ? 'COMPROMISED' : 'CLEAR'}
+          {runs.map((entry) => {
+            const { row } = entry;
+            const item =
+              'flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3';
+            const day = (
+              <time className="font-mono text-[13px] text-ink-faint" dateTime={row.createdAt}>
+                {new Date(row.createdAt).toISOString().slice(0, 10)}
+              </time>
+            );
+            if (entry.kind === 'discarded') {
+              const run = entry.row.discarded;
+              return (
+                <li key={row.id} className={item}>
+                  <span className="flex items-center gap-3 font-mono text-[14px]">
+                    <span className="text-readout">{run.category}</span>
+                    {/* Inert, with its icon: not a result, and never the red a
+                        compromise wears or the cyan an all-clear does. */}
+                    <span
+                      className="inline-flex items-center gap-1.5"
+                      style={{ color: 'var(--status-inert)' }}
+                    >
+                      <InertMark />
+                      <span>DISCARDED</span>
+                    </span>
+                    <span className="text-ink-muted">{run.model}</span>
+                  </span>
+                  {/* The row keeps the height a linked row has, so the list
+                      does not jump between the two kinds. */}
+                  <span className="flex min-h-11 items-center gap-4">
+                    {day}
+                    <span className="font-mono text-[13px] uppercase tracking-[0.1em] text-ink-faint">
+                      Not judged
+                    </span>
+                  </span>
+                </li>
+              );
+            }
+            const { run } = entry.row;
+            return (
+              <li key={row.id} className={item}>
+                <span className="flex items-center gap-3 font-mono text-[14px]">
+                  <span className="text-readout">{run.category}</span>
+                  <span className={run.verdict.compromised ? 'text-breach-text' : 'text-nominal'}>
+                    {run.verdict.compromised ? 'COMPROMISED' : 'CLEAR'}
+                  </span>
+                  <span className="text-ink-muted">{run.model}</span>
                 </span>
-                <span className="text-ink-muted">{r.run.model}</span>
-              </span>
-              <span className="flex items-center gap-4">
-                <time className="font-mono text-[13px] text-ink-faint" dateTime={r.createdAt}>
-                  {new Date(r.createdAt).toISOString().slice(0, 10)}
-                </time>
-                {/* The run is addressed by its ROW id: `RunResult.runId` is
-                    `model::category` and is not unique per user over time. */}
-                <Link
-                  href={`/runs/${r.id}`}
-                  className="inline-flex min-h-11 items-center font-mono text-[13px] uppercase tracking-[0.1em] text-nominal underline-offset-4 hover:underline"
-                >
-                  Replay
-                </Link>
-              </span>
-            </li>
-          ))}
+                <span className="flex items-center gap-4">
+                  {day}
+                  {/* The run is addressed by its ROW id: `RunResult.runId` is
+                      `model::category` and is not unique per user over time. */}
+                  <Link
+                    href={`/runs/${row.id}`}
+                    className="inline-flex min-h-11 items-center font-mono text-[13px] uppercase tracking-[0.1em] text-nominal underline-offset-4 hover:underline"
+                  >
+                    Replay
+                  </Link>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
