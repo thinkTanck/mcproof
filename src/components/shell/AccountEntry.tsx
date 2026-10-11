@@ -26,8 +26,10 @@ import type { ShellAccount } from '@/lib/shell-account';
  * Sign out is a plain form post of the server action, so it works before any
  * script has loaded.
  *
- * In the icon-only rail (760 to 1100px) `labelClassName` hides the words. The
- * accessible names and the tooltips do not depend on them.
+ * In the narrow rail (760 to 1099px) the words give way to a short word stacked
+ * under each icon ("Sign in", "Runs", "Sign out"), each a piece of the control's
+ * accessible name and aria-hidden. The names and the tooltips do not depend on
+ * either.
  */
 
 /** Where the sign-in link points: the sign-in page, and back to `from` after. */
@@ -70,21 +72,40 @@ const InertIcon = () => (
 const ROW =
   'flex min-h-11 w-full items-center gap-3 rounded-md px-3.5 py-2.5 font-mono text-xs tracking-[0.06em] text-ink-hi transition-colors hover:bg-raised/70';
 
+/** The narrow rail's version of the row: the word stacks under the icon, 44px or more. */
+const RAIL_ROW =
+  'max-[1099px]:flex-col max-[1099px]:justify-center max-[1099px]:gap-1 max-[1099px]:px-0.5 max-[1099px]:py-2';
+
+/** The short word the narrow rail shows; aria-hidden, the name says it already. */
+function RailWord({ children }: { children: string }) {
+  return (
+    <span
+      data-rail-label
+      aria-hidden="true"
+      className="instrument one-line whitespace-nowrap text-current min-[1100px]:hidden"
+    >
+      {children}
+    </span>
+  );
+}
+
 const PREVIEW_NAME = 'Sign in. Preview: sign-in is not set up on this build.';
 
 export function AccountEntry({
   account,
   pathname,
-  labelClassName,
+  rail = false,
 }: {
   account: ShellAccount;
   /** The path the server rendered the shell for; the router's wins once it has one. */
   pathname: string;
-  /** Applied to the words, so the icon-only rail can hide them. */
-  labelClassName?: string;
+  /** Drawn in the persistent rail: below 1100px a short word replaces the words. */
+  rail?: boolean;
 }) {
   const livePathname = usePathname();
   const here = livePathname ?? pathname;
+  const labelClassName = rail ? 'hidden min-[1100px]:inline' : undefined;
+  const row = cn(ROW, rail && RAIL_ROW);
 
   if (account.state === 'signed-in') {
     const runsName = `Your runs, signed in as ${account.email}`;
@@ -101,14 +122,16 @@ export function AccountEntry({
             {account.email}
           </span>
         </div>
-        <Link href="/account" aria-label={runsName} title={runsName} className={ROW}>
+        <Link href="/account" aria-label={runsName} title={runsName} className={row}>
           <PersonIcon />
           <span className={cn('whitespace-nowrap', labelClassName)}>Your runs</span>
+          {rail && <RailWord>Runs</RailWord>}
         </Link>
         <form action={signOut}>
-          <button type="submit" aria-label="Sign out" title="Sign out" className={ROW}>
+          <button type="submit" aria-label="Sign out" title="Sign out" className={row}>
             <SignOutIcon />
             <span className={cn('whitespace-nowrap', labelClassName)}>Sign out</span>
+            {rail && <RailWord>Sign out</RailWord>}
           </button>
         </form>
       </div>
@@ -119,9 +142,10 @@ export function AccountEntry({
   const name = preview ? PREVIEW_NAME : 'Sign in';
   return (
     <div data-testid="account-entry" className="flex flex-col gap-1 border-t border-line pt-2">
-      <Link href={signInHref(here)} aria-label={name} title={name} className={ROW}>
+      <Link href={signInHref(here)} aria-label={name} title={name} className={row}>
         <PersonIcon />
         <span className={cn('whitespace-nowrap', labelClassName)}>Sign in</span>
+        {rail && <RailWord>Sign in</RailWord>}
         {preview && (
           // The neutral fourth state, with an icon and a label: nothing is wrong
           // and nothing was breached, sign-in is simply not set up here.
