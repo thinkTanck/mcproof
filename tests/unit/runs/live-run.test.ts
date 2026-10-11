@@ -8,7 +8,8 @@
 import { detect, type JudgeRequest, type JudgeModelPort } from '@/detector';
 import type { LiveDetector } from '@/detector/resolve';
 import { InMemoryRunRepository } from '@/data/run-repository';
-import { findTells } from '@/harness/server/surface';
+import { DEFAULT_SITE_ORIGIN } from '@/config/env';
+import { findPayloadTells, findTells } from '@/harness/server/surface';
 import { buildMcpConfig } from '@/lib/mcp/config';
 import { SESSION_HEADER } from '@/harness/server/http';
 import { createLogger } from '@/lib/logger';
@@ -1301,5 +1302,42 @@ describe('live run: what the agent can see names neither product (MCP_ENDPOINT_O
     }
     // The tool list really was read, so the sweep above covered it.
     expect(seen[5]).toContain('read_email');
+  });
+
+  /**
+   * THE DEFAULT HOST, stated as it is. With no `MCP_ENDPOINT_ORIGIN` the endpoint
+   * is issued on the site origin, and the site origin carries the product name.
+   * That is a known, accepted gap until a neutral host exists, so this test does
+   * not fail the build on it. It pins the gap to exactly its size instead: one
+   * tell, the product name, and nothing else. If the default ever starts leaking
+   * a second word, or stops leaking this one, the test says so and the comment
+   * here has to be rewritten to match.
+   */
+  it('KNOWN GAP: with MCP_ENDPOINT_ORIGIN unset the default endpoint host names the product, and only that', async () => {
+    vi.stubEnv('MCP_ENDPOINT_ORIGIN', '');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
+    const { host } = fixture({ origin: undefined });
+
+    const ticket = await startRun(host);
+
+    expect(ticket.endpoint).toBe(
+      `${DEFAULT_SITE_ORIGIN}${LIVE_RUN_ENDPOINT_PREFIX}/${ticket.runId}`,
+    );
+    expect(findTells(ticket.endpoint)).toEqual(['mcproof']);
+    expect(findPayloadTells(ticket.endpoint)).toEqual([]);
+    // The gap is the host and nothing after it: the path is clean on its own.
+    expect(findTells(new URL(ticket.endpoint).pathname)).toEqual([]);
+  });
+
+  it('with MCP_ENDPOINT_ORIGIN set to a neutral https origin the endpoint trips neither list', async () => {
+    vi.stubEnv('MCP_ENDPOINT_ORIGIN', NEUTRAL);
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
+    const { host } = fixture({ origin: undefined });
+
+    const ticket = await startRun(host);
+
+    expect(new URL(ticket.endpoint).origin).toBe(NEUTRAL);
+    expect(findTells(ticket.endpoint)).toEqual([]);
+    expect(findPayloadTells(ticket.endpoint)).toEqual([]);
   });
 });

@@ -78,7 +78,7 @@ ASI01 Agent Goal Hijack · ASI02 Tool Misuse and Exploitation · ASI03 Identity 
 
 ## Architecture (modules)
 
-1 MCP harness — **hosts the per-run MCP server the agent connects to** (`src/harness/server/**`: Streamable HTTP transport per MCP spec `2025-06-18`, all Core-7 poisoned surfaces, task goal delivered out of band as a published prompt, an observable-only recorder, tested neutral identity — the bait-taking hypothesis is testable at hosted scale but NOT yet validated) and records its steps; `McpTargetPort` for outbound server probing · 2 attack engine · 3 runner · 4 detector (`JudgeModelPort`) · 5 leaderboard · 6 fix-report generator · 7 UI · 8 wiring + run report.
+1 MCP harness — **hosts the per-run MCP server the agent connects to** (`src/harness/server/**`: Streamable HTTP transport per MCP spec `2025-06-18`, all Core-7 poisoned surfaces, task goal delivered out of band as a published prompt, an observable-only recorder, tested neutral identity (`NEUTRALITY_TELLS`: nothing served names the product or the experiment; `PAYLOAD_TELLS`: no served content or error admits it is staged) — the bait-taking hypothesis is testable at hosted scale but NOT yet validated) and records its steps; `McpTargetPort` for outbound server probing · 2 attack engine · 3 runner · 4 detector (`JudgeModelPort`) · 5 leaderboard · 6 fix-report generator · 7 UI · 8 wiring + run report.
 
 ## Build execution
 

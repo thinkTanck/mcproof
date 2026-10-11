@@ -14,6 +14,7 @@
 import { InMemoryRunRepository } from '@/data/run-repository';
 import type { LiveDetector } from '@/detector/resolve';
 import { SESSION_HEADER } from '@/harness/server/http';
+import { findPayloadTells, findTells } from '@/harness/server/surface';
 import {
   createLiveRunHost,
   type LiveRunHost,
@@ -314,6 +315,53 @@ describe('POST /api/mcp/[runId] — the refusals are one refusal', () => {
     for (const tell of ['mcproof', 'attack', 'red team', 'asi01', 'poison']) {
       expect(body).not.toContain(tell);
     }
+  });
+});
+
+/**
+ * THE TWO ANSWERS THIS ROUTE WRITES ITSELF: the one refusal (401) and the body
+ * cap (413). Both reach an agent's client before any surface does, so both are
+ * held to the neutrality list and to the payload list. The run origin used in
+ * this file is a reserved name, so the ENDPOINT is deliberately not swept here:
+ * what an issued endpoint says about itself is pinned in the live-run tests.
+ */
+describe('POST /api/mcp/[runId] — the route says nothing that is a tell of either kind', () => {
+  const sweep = async (res: Response): Promise<string> => {
+    const headers = [...res.headers.entries()].map(([name, value]) => `${name}: ${value}`);
+    const seen = [await res.text(), res.statusText, ...headers].join('\n');
+    expect(findTells(seen), seen).toEqual([]);
+    expect(findPayloadTells(seen), seen).toEqual([]);
+    return seen;
+  };
+
+  it('the 401 refusal sentence is neutral, as a constant and on the wire', async () => {
+    expect(findTells(RUN_TOKEN_REJECTION_MESSAGE)).toEqual([]);
+    expect(findPayloadTells(RUN_TOKEN_REJECTION_MESSAGE)).toEqual([]);
+
+    const ticket = await start();
+    const res = await POST(
+      mcpRequest(ticket, null, { jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    );
+    expect(res.status).toBe(401);
+    expect(await sweep(res)).toContain(RUN_TOKEN_REJECTION_MESSAGE);
+  });
+
+  it('the 413 body-cap answer is neutral', async () => {
+    const ticket = await start();
+    const res = await POST(
+      new Request(ticket.endpoint, {
+        method: 'POST',
+        headers: new Headers({
+          'content-type': 'application/json',
+          accept: 'application/json',
+          authorization: `Bearer ${ticket.token}`,
+          'content-length': String(MAX_MCP_BODY_BYTES + 1),
+        }),
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      }),
+    );
+    expect(res.status).toBe(413);
+    expect(await sweep(res)).toContain('Request body is too large.');
   });
 });
 

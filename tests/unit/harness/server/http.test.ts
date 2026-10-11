@@ -1,9 +1,11 @@
 import {
+  ACKNOWLEDGEMENT_BODY,
   createStreamableHttpHandler,
   SESSION_HEADER,
   type StreamableHttpHandler,
 } from '@/harness/server/http';
 import { HostedMcpServer } from '@/harness/server/server';
+import { findPayloadTells, findTells } from '@/harness/server/surface';
 
 const ENDPOINT = 'http://127.0.0.1/mcp';
 
@@ -286,6 +288,94 @@ describe('server/http: GET and DELETE', () => {
     const id = await openSession(h);
     expect(h.endSession(id)).toBe(true);
     expect(h.endSession(id)).toBe(false);
+  });
+});
+
+/**
+ * THE TRANSPORT'S OWN WORDS. Every refusal below is written by this handler, not
+ * by a surface, and an agent's client reads each one. They are held to both
+ * lists: nothing that names the experiment, nothing that admits it is staged.
+ * Bodies and the headers that carry words are swept together.
+ */
+describe('server/http: no transport answer carries a tell of either kind', () => {
+  const ELSEWHERE = '3f0c9a1e-5b7d-4c21-9a55-0d8a6b1e2f73';
+  const list = { jsonrpc: '2.0', id: 2, method: 'tools/list' };
+  const withSession = (method: string, sessionId?: string) =>
+    new Request(ENDPOINT, {
+      method,
+      headers: sessionId === undefined ? {} : { [SESSION_HEADER]: sessionId },
+    });
+  const hosted = () =>
+    createStreamableHttpHandler(
+      () => new HostedMcpServer({ category: 'ASI01', kind: 'malicious' }),
+      { adoptUnknownSessions: true, neverBodiless: true },
+    );
+
+  const answers: [string, number, () => Promise<Response>][] = [
+    [
+      'a non-JSON content type',
+      415,
+      () => post(handler(), initialize, { contentType: 'text/plain' }),
+    ],
+    [
+      'an Accept we cannot satisfy',
+      406,
+      () => post(handler(), initialize, { accept: 'text/html' }),
+    ],
+    ['a body that does not parse', 400, () => post(handler(), null, { body: '{ not json' })],
+    ['a request with no session id', 400, () => post(handler(), list)],
+    ['an unknown session id', 404, () => post(handler(), list, { sessionId: ELSEWHERE })],
+    ['a GET', 405, () => handler().handle(withSession('GET'))],
+    ['an unsupported method', 405, () => handler().handle(withSession('PUT'))],
+    ['a DELETE with no session id', 400, () => handler().handle(withSession('DELETE'))],
+    ['a DELETE for an unknown session', 404, () => handler().handle(withSession('DELETE', 'nope'))],
+    [
+      'a hosted DELETE for a malformed session',
+      404,
+      () => hosted().handle(withSession('DELETE', 'nope')),
+    ],
+    [
+      'the hosted 202 acknowledgement',
+      202,
+      () =>
+        post(
+          hosted(),
+          { jsonrpc: '2.0', method: 'notifications/initialized' },
+          { sessionId: ELSEWHERE },
+        ),
+    ],
+    ['a successful initialize', 200, () => post(handler(), initialize)],
+    [
+      'an initialize answered as one event-stream frame',
+      200,
+      () => post(handler(), initialize, { accept: 'text/event-stream' }),
+    ],
+  ];
+
+  it.each(answers)('%s (%i)', async (_label, status, send) => {
+    const res = await send();
+    expect(res.status).toBe(status);
+    const headers = [...res.headers.entries()].map(([name, value]) => `${name}: ${value}`);
+    const seen = [await res.text(), res.statusText, ...headers].join('\n');
+    expect(findTells(seen), seen).toEqual([]);
+    expect(findPayloadTells(seen), seen).toEqual([]);
+  });
+
+  it('really reads the sentences the transport writes', async () => {
+    const texts = await Promise.all(answers.map(async ([, , send]) => (await send()).text()));
+    const all = texts.join('\n');
+    for (const sentence of [
+      'Content-Type must be application/json.',
+      'Accept must allow application/json or text/event-stream.',
+      'Parse error',
+      'Missing Mcp-Session-Id. Send initialize first.',
+      'Missing Mcp-Session-Id.',
+      'Unknown or expired session.',
+      'Method Not Allowed',
+      ACKNOWLEDGEMENT_BODY,
+    ]) {
+      expect(all).toContain(sentence);
+    }
   });
 });
 
