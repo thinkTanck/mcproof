@@ -40,9 +40,8 @@
  * revealing whose it is, and names no product: the token sits in the agent's own
  * MCP config, where a product name would tell the agent what it is talking to.
  *
- * Tokens issued before the rename (2026-10-08) carry the legacy `mcpwn_rt_`
- * prefix. They are accepted for ONE token lifetime and no longer: see
- * {@link LEGACY_RUN_TOKEN_PREFIX}.
+ * `rt` is the ONLY prefix. Tokens issued before the 2026-10-08 rename carried a
+ * longer one; it was accepted for one token lifetime and removed on 2026-10-10.
  *
  * ── THE HASH: SHA-256, and why NOT a slow KDF ──
  *
@@ -143,13 +142,6 @@ type Env = Record<string, string | undefined>;
 
 /** Identifies a leaked token on sight (and to secret scanners) without naming an owner. */
 export const RUN_TOKEN_PREFIX = 'rt';
-/**
- * The prefix every token carried before the rename. Accepted, never issued, and
- * only while the token is younger than the longest lifetime a token can be given
- * ({@link RUN_TOKEN_TTL_BOUNDS}.max), so once that much time has passed since the
- * deploy no legacy token can verify and this can be removed.
- */
-export const LEGACY_RUN_TOKEN_PREFIX = 'mcpwn_rt';
 /** Lookup key. Unique, not secret. */
 export const RUN_TOKEN_SELECTOR_BYTES = 16;
 /** THE secret: 256 bits of CSPRNG output. */
@@ -159,7 +151,7 @@ export const RUN_TOKEN_HASH_ALGORITHM = 'sha256' as const;
 
 /** The complete wire grammar. Anchored and fixed-length: one token parses one way. */
 export const RUN_TOKEN_PATTERN = new RegExp(
-  `^(?:${RUN_TOKEN_PREFIX}|${LEGACY_RUN_TOKEN_PREFIX})_([0-9a-f]{${RUN_TOKEN_SELECTOR_BYTES * 2}})_([0-9a-f]{${RUN_TOKEN_VERIFIER_BYTES * 2}})$`,
+  `^${RUN_TOKEN_PREFIX}_([0-9a-f]{${RUN_TOKEN_SELECTOR_BYTES * 2}})_([0-9a-f]{${RUN_TOKEN_VERIFIER_BYTES * 2}})$`,
 );
 
 // ── Refusal ──
@@ -413,8 +405,6 @@ const PresentedSchema = z.string().regex(RUN_TOKEN_PATTERN);
 export interface ParsedRunToken {
   readonly selector: string;
   readonly verifier: string;
-  /** Carried the pre-rename prefix: verifiable only within one token lifetime. */
-  readonly legacy: boolean;
 }
 
 /**
@@ -432,7 +422,7 @@ export function parseRunToken(presented: unknown): ParsedRunToken | null {
   // a comment, and a parser for hostile input should not need a non-null
   // assertion to compile.
   if (!selector || !verifier) return null;
-  return { selector, verifier, legacy: result.data.startsWith(`${LEGACY_RUN_TOKEN_PREFIX}_`) };
+  return { selector, verifier };
 }
 
 // ── Verify ──
@@ -515,14 +505,6 @@ export async function verifyRunToken(query: VerifyRunTokenQuery): Promise<RunTok
 
   // Axis 2: the wall clock, for the run that simply stopped being attended.
   if (now.getTime() >= new Date(record.expiresAt).getTime()) return refuse('EXPIRED');
-
-  // The legacy prefix is honoured for one token lifetime at most, measured from
-  // issue, whatever the stored expiry says. Every legacy token was issued before
-  // the rename, so this bounds how long the old prefix can open anything at all.
-  const lifetimeMs = RUN_TOKEN_TTL_BOUNDS.max * 60_000;
-  if (parsed.legacy && now.getTime() >= new Date(record.issuedAt).getTime() + lifetimeMs) {
-    return refuse('EXPIRED');
-  }
 
   query.logger?.info('run token accepted', { runId: record.runId, userId: record.userId });
   return { valid: true, record };

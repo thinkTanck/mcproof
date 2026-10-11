@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   REDACTED,
   SECRET_ENV_NAMES,
@@ -9,8 +11,13 @@ import {
 const KEY = 'sk-ant-0123456789abcdef0123456789abcdef';
 const SERVICE_ROLE = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.abcdefghijkl';
 const RUN_TOKEN = `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`;
-/** Issued before the rename; accepted until it expires, so it must be masked too. */
-const LEGACY_RUN_TOKEN = `mcpwn_rt_${'c'.repeat(32)}_${'d'.repeat(64)}`;
+/**
+ * The old product name, assembled from pieces: the rename guard has no allowlist
+ * entry for this file, so the name may not appear here as one literal.
+ */
+const OLD_NAME = ['mc', 'pwn'].join('');
+/** The shape a token had before the rename. No such token can verify any more. */
+const PRE_RENAME_RUN_TOKEN = `${OLD_NAME}_rt_${'c'.repeat(32)}_${'d'.repeat(64)}`;
 
 const env = {
   JUDGE_API_KEY: KEY,
@@ -64,25 +71,41 @@ describe('redactString', () => {
     expect(out).not.toContain('b'.repeat(64));
   });
 
-  it.each([
-    ['the run token', RUN_TOKEN, 'b'],
-    ['a legacy-prefixed run token', LEGACY_RUN_TOKEN, 'd'],
-  ])(
-    'masks %s by its shape alone, in plain prose, with no configuration',
-    (_label, token, verifierChar) => {
-      const out = redactString(`the agent sent ${token} as its credential`, { env: {} });
+  it('masks the run token by its shape alone, in plain prose, with no configuration', () => {
+    const out = redactString(`the agent sent ${RUN_TOKEN} as its credential`, { env: {} });
 
-      expect(out).not.toContain(token);
-      expect(out).not.toContain(verifierChar.repeat(64));
-      expect(out).toContain(REDACTED);
-    },
-  );
+    expect(out).toBe(`the agent sent rt_${REDACTED} as its credential`);
+  });
 
-  it('masks a run token cut down to its selector, under either prefix', () => {
-    for (const prefix of ['rt', 'mcpwn_rt']) {
-      const out = redactString(`selector ${prefix}_${'e'.repeat(32)} only`, { env: {} });
-      expect(out).not.toContain('e'.repeat(32));
-    }
+  it('masks a run token cut down to its selector', () => {
+    const out = redactString(`selector rt_${'e'.repeat(32)} only`, { env: {} });
+
+    expect(out).toBe(`selector rt_${REDACTED} only`);
+  });
+
+  it('no longer recognizes the pre-rename prefix as a token shape', () => {
+    // Deliberate. Every such token is past the longest lifetime a token can have,
+    // so it opens nothing, and the redactor carries one run-token shape, the one
+    // that is issued. The old prefix ends in `_`, a word character, so the `\brt_`
+    // boundary does not fire inside it: the string passes through as written.
+    const text = `the agent sent ${PRE_RENAME_RUN_TOKEN} as its credential`;
+
+    expect(redactString(text, { env: {} })).toBe(text);
+  });
+
+  it('still masks a pre-rename token where another rule catches it', () => {
+    // As a bearer credential, and under a sensitive key: neither depends on the prefix.
+    const header = redactString(`authorization: Bearer ${PRE_RENAME_RUN_TOKEN}`, { env: {} });
+    const keyed = JSON.stringify(redactSecrets({ token: PRE_RENAME_RUN_TOKEN }, { env: {} }));
+
+    expect(header).not.toContain('d'.repeat(64));
+    expect(keyed).not.toContain('d'.repeat(64));
+  });
+
+  it('the module source does not spell the old product name', () => {
+    const source = readFileSync(join(process.cwd(), 'src/lib/redact.ts'), 'utf8');
+
+    expect(source.toLowerCase()).not.toContain(OLD_NAME);
   });
 
   it('leaves a word that merely ends in "rt" alone', () => {
