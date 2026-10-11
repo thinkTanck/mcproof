@@ -33,7 +33,7 @@ import type {
  *   - the three steps and their exact names on every tab;
  *   - exactly one config block in step 1, built for the issued run;
  *   - the status under step 1 is the console's own reading, icon plus label;
- *   - tabs 2 to 5 carry an inert UNTESTED tag, never caution and never breach;
+ *   - no tab carries a tag about whether we tested it;
  *   - the chat-apps line, word for word;
  *   - the token is copied and NEVER rendered, on any tab;
  *   - the server name is neutral everywhere, and no em dash is used.
@@ -114,7 +114,6 @@ const TABS = {
 } as const;
 type TabId = keyof typeof TABS;
 const TAB_IDS = Object.keys(TABS) as TabId[];
-const UNTESTED: readonly TabId[] = ['vscode', 'cursor', 'codex', 'gemini'];
 
 /** What each tab's one config block is called. */
 const CONFIG_NAME: Record<TabId, RegExp> = {
@@ -388,45 +387,41 @@ describe('ClientSetup · the status under step 1 is the console own reading', ()
   });
 });
 
-describe('ClientSetup · UNTESTED is an inert tag on tabs 2 to 5 only', () => {
-  it('tags exactly the four clients nobody here has run yet', async () => {
+describe('ClientSetup · no tab carries a tag about whether we tested it', () => {
+  it('draws no tag on any tab button, so each button is named by its label alone', async () => {
     await opened();
 
-    const tagged = within(picker())
-      .getAllByRole('button')
-      .filter((b) => within(b).queryByTestId('untested-tag') !== null)
-      .map((b) => within(b).getByTestId('client-tab-label').textContent);
-    expect(tagged).toEqual(['GITHUB COPILOT / VS CODE', 'CURSOR', 'CODEX', 'GEMINI CLI']);
-  });
-
-  it('is an icon plus the word, in the inert state: never caution, never breach', async () => {
-    await opened();
-
-    for (const tag of within(picker()).getAllByTestId('untested-tag')) {
-      expect(tag.textContent).toBe('UNTESTED');
-      expect(tag.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-      expect(tag.style.color).toBe('var(--status-inert)');
-      expect(tag.className).not.toMatch(/caution|breach|amber|red/);
-      expect(tag.innerHTML).not.toMatch(/caution|breach/);
+    expect(within(picker()).queryByTestId('untested-tag')).toBeNull();
+    const buttons = within(picker()).getAllByRole('button');
+    expect(buttons).toHaveLength(TAB_IDS.length);
+    for (const button of buttons) {
+      const label = within(button).getByTestId('client-tab-label').textContent ?? '';
+      expect(button.textContent?.trim()).toBe(label);
+      expect(button).toHaveAccessibleName(label);
     }
   });
 
-  it.each(TAB_IDS)('%s: the open tab says so in a sentence, or says nothing', async (id) => {
+  it.each(TAB_IDS)('%s: the open tab has no tag and no note about testing', async (id) => {
     await opened(id);
 
-    const note = within(panel()).queryByTestId('untested-note');
-    if (!UNTESTED.includes(id)) {
-      expect(note).toBeNull();
-      expect(panel().textContent).not.toMatch(/untested/i);
-      return;
-    }
-    expect(note).not.toBeNull();
-    expect(note!.textContent).toMatch(/we have not tested/i);
-    expect(note!.textContent).toMatch(/documentation/i);
-    expect(note!.outerHTML).not.toMatch(/caution|breach/);
-    // Before the steps, so it is read first.
+    expect(within(panel()).queryByTestId('untested-tag')).toBeNull();
+    expect(within(panel()).queryByTestId('untested-note')).toBeNull();
+    expect(panel().textContent).not.toMatch(/untested|not tested this client/i);
+    // The tab still opens on its intro, then the three steps.
+    const intro = within(panel()).getByTestId('client-intro');
     const list = within(panel()).getByTestId('setup-steps');
-    expect(note!.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(intro.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(panel().firstElementChild?.firstElementChild).toBe(intro);
+  });
+
+  it('says the word nowhere in the setup section, on any tab', async () => {
+    const user = await opened();
+
+    expect(setup().textContent).not.toMatch(/untested/i);
+    for (const id of TAB_IDS) {
+      await pick(user, id);
+      expect(setup().textContent).not.toMatch(/untested/i);
+    }
   });
 });
 
