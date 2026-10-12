@@ -28,7 +28,23 @@ describe('--header-h', () => {
     const rule = /html\s*\{[^}]*scroll-padding-top:\s*([^;]+);/.exec(css)?.[1];
 
     expect(rule).toBeDefined();
-    expect(rule).toMatch(/^calc\(var\(--header-h\) \+ \d+px\)$/);
+    expect(rule).toMatch(/^calc\(var\(--header-clear\) \+ \d+px\)$/);
+  });
+
+  it('is what clearing the header falls back to, until the header has been measured', () => {
+    // `--header-clear` is the header's measured height (HeaderHeightSync writes
+    // `--header-live-h`), and this number wherever that has not run. Nothing is
+    // hardcoded twice: at normal text size the two are the same.
+    const declarations = css.match(/--header-clear:\s*[^;]+;/g) ?? [];
+
+    expect(declarations).toEqual(['--header-clear: var(--header-live-h, var(--header-h));']);
+    expect(css).not.toMatch(/--header-live-h:/);
+  });
+
+  it('pins the run bar under the measured header, with the same small gap', () => {
+    const console_ = read('src/components/connect/LiveRunConsole.tsx');
+
+    expect(console_).toMatch(/sticky top-\[calc\(var\(--header-clear\)\+8px\)\]/);
   });
 
   it('is what the header itself is sized by', () => {

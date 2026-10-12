@@ -68,9 +68,13 @@ async function issue(phase: LiveRunStatusView['phase'], settle: string) {
   return user;
 }
 
-/** The bar's class attribute on main (253010f), before this change. */
+/**
+ * The bar's class attribute on main (253010f), before this change. One token
+ * has moved since: the pin offset reads `--header-clear`, the header's measured
+ * height, which is `--header-h` at normal text size (tests/unit/app/header-height.test.ts).
+ */
 const MAIN_BAR =
-  'sticky top-[calc(var(--header-h)+8px)] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3';
+  'sticky top-[calc(var(--header-clear)+8px)] z-40 -mt-3 flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3';
 /** The one class this change adds: under 500px of height the bar is not pinned. */
 const SHORT_SCREEN_UNPIN = '[@media(max-height:499px)]:static';
 
@@ -102,7 +106,9 @@ describe("the column's scroll margin under 500px of height", () => {
     const classes = sorted(dock().parentElement!.className);
 
     // From 500px up, focus still lands clear of the pinned bar, as before.
-    expect(classes).toContain('[&_:is(a,button,[tabindex])]:scroll-mt-60');
+    // (15rem, capped at half the screen's height so enlarged text cannot make
+    // it taller than the screen; the cap is above 15rem from 500px up.)
+    expect(classes).toContain('[&_:is(a,button,[tabindex])]:scroll-mt-[min(15rem,50dvh)]');
     // Under it only the header is pinned, and the page's scroll padding clears that.
     expect(classes).toContain(
       '[@media(max-height:499px)]:[&_:is(a,button,[tabindex])]:scroll-mt-0',

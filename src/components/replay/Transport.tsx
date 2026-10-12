@@ -131,8 +131,9 @@ export function Transport({
 
       <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line sm:block" />
 
-      {/* Speed buttons */}
-      <div className="flex items-center gap-1" role="group" aria-label="Playback speed">
+      {/* Speed buttons. One row at normal text size; enlarged, they wrap
+          rather than run past the column (WCAG 1.4.4). */}
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Playback speed">
         {speeds.map((s) => (
           <button
             key={s}

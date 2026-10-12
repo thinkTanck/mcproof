@@ -136,7 +136,9 @@ export function CopyOut({
   return (
     <div className="rounded-lg border border-line bg-panel/60 px-4 py-3.5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="micro-label">
+        {/* A path has nowhere to break, so with the text enlarged it is
+            allowed to break anywhere rather than run past the box (WCAG 1.4.4). */}
+        <span className="micro-label min-w-0 [overflow-wrap:anywhere]">
           {label}
           {file !== undefined && (
             <>
