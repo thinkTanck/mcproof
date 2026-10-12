@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
+import { cn } from '@/lib/utils';
 import { stepMeta } from './step-meta';
+import { followStepInside } from './follow-step';
+import { useReplayLayout } from './phone-layout';
 import type { Step } from '@/contract';
 
 /**
@@ -36,6 +39,14 @@ import type { Step } from '@/contract';
  * The typed length derives from the playhead position (a magnitude); the text is
  * the trace verbatim. Under prefers-reduced-motion the active line is complete at
  * once.
+ *
+ * ON A PHONE (Part D) the terminal is as tall as the WHOLE transcript, up to the
+ * cap its box in Replay sets, with no bottom room. The lines still ahead are not
+ * drawn, so a hidden, aria-hidden copy of every line (its text drawn by CSS from
+ * an attribute, so nothing finds it twice) holds that height from the start:
+ * playback never grows the terminal and never moves the controls under it. The
+ * terminal then follows the current step by scrolling only itself, the least it
+ * can (see follow-step.ts), smooth unless motion is reduced.
  */
 
 function compact(v: unknown): string {
@@ -110,6 +121,8 @@ export function ReplayTerminal({
   const lines = useMemo(() => steps.map(lineFor), [steps]);
   const [typed, setTyped] = useState<{ i: number; n: number }>({ i: -1, n: 0 });
   const activeRef = useRef<HTMLLIElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const layout = useReplayLayout();
   const userPrompt = 'user@console:~';
   const agentPrompt = `${model}@sentinel:~`;
 
@@ -137,12 +150,22 @@ export function ReplayTerminal({
   // sit near the top because there is nothing to scroll above them, and once the
   // stream passes the midline the newest line pins to centre. Guarded because
   // jsdom (unit tests) does not implement scrollIntoView.
+  // On a phone, follow the step inside the terminal instead, measured on the
+  // reserve copy of its line, which has its full height before it is typed.
+  // Nothing runs until the browser has said which layout it is.
   useEffect(() => {
+    if (layout === 'unknown') return;
+    if (layout === 'phone') {
+      const box = boxRef.current;
+      const line = box?.querySelectorAll('[data-reserve-line]')[current] ?? activeRef.current;
+      if (box && line) followStepInside(box, line, !reduced);
+      return;
+    }
     const el = activeRef.current;
     if (el && typeof el.scrollIntoView === 'function') {
       el.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
     }
-  }, [current, reduced]);
+  }, [current, reduced, layout]);
 
   const visibleText = (i: number): string => {
     if (i < current) return lines[i]!.text;
@@ -152,14 +175,15 @@ export function ReplayTerminal({
 
   return (
     <div
-      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6]"
+      ref={boxRef}
+      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6] phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]!"
       style={{
         height: 'clamp(280px, 40vh, 460px)',
         background: 'var(--terminal-bg)',
         containerType: 'size',
       }}
     >
-      <ol aria-label="Attack replay step timeline">
+      <ol aria-label="Attack replay step timeline" className="phone:[grid-area:1/1]">
         {steps.map((step, i) => {
           const meta = stepMeta(step.type);
           const line = lines[i]!;
@@ -210,8 +234,41 @@ export function ReplayTerminal({
           );
         })}
       </ol>
-      {/* Bottom room so the final lines can pin to the vertical middle. */}
-      <div aria-hidden="true" style={{ height: '46cqh' }} />
+      {layout !== 'wide' && (
+        <div
+          aria-hidden="true"
+          data-terminal-reserve=""
+          className="invisible hidden phone:block phone:[grid-area:1/1]"
+        >
+          {lines.map((line, i) => (
+            <div
+              key={steps[i]!.id}
+              data-reserve-line=""
+              className="whitespace-pre-wrap break-words"
+            >
+              <span
+                data-text={
+                  line.kind === 'out'
+                    ? `${line.marker} ${line.text}`
+                    : `${line.kind === 'input' ? userPrompt : agentPrompt}$ ${line.text}`
+                }
+                // The text, and on the LAST line room for the cursor it ends the
+                // run with. An earlier line whose cursor wraps it one line longer
+                // still fits: every line after it is reserved and not yet drawn.
+                className={cn(
+                  'before:content-[attr(data-text)]',
+                  line.kind === 'out' && 'pl-4',
+                  i === lines.length - 1 &&
+                    "after:ml-px after:inline-block after:w-[0.55ch] after:content-['']",
+                )}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Bottom room so the final lines can pin to the vertical middle. Not on a
+          phone, where the terminal ends at its last line. */}
+      <div aria-hidden="true" className="phone:hidden" style={{ height: '46cqh' }} />
     </div>
   );
 }
