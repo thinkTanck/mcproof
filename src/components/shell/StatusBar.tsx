@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { LogoLockup } from './LogoRing';
 import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
+import { HeaderHeightSync } from './HeaderHeightSync';
 import type { ShellAccount } from '@/lib/shell-account';
 
 /** Run-context telemetry shown in the status bar on a run screen. */
@@ -63,6 +64,9 @@ export function StatusBar({
     // edge, which enlarged text does by 60px and more; everywhere else it is
     // drawn exactly as it was. A screen with no chip is untouched.
     <header className="sticky top-0 z-[45] flex min-h-(--header-h) shrink-0 flex-wrap items-center gap-1 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-1 backdrop-blur-[6px] min-[360px]:gap-2 min-[360px]:px-3 min-[420px]:gap-4 min-[420px]:px-[18px]">
+      {/* Renders nothing: it reports this header's real height to the page, so
+          what is pinned under it clears it when enlarged text makes it taller. */}
+      <HeaderHeightSync />
       <MobileDrawer pathname={pathname} account={account} />
       <Link
         href="/"

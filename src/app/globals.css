@@ -124,6 +124,11 @@
    * rail and the drawer hang from it, the pinned run bar sits 8px under it, and
    * the document's scroll padding (below) is derived from it. */
   --header-h: 72px;
+  /* What has to be CLEARED to get out from under the header. It is the header's
+   * measured height (`--header-live-h`, written by HeaderHeightSync) and falls
+   * back to the set height until that has run. The two are equal at normal text
+   * size; with the text enlarged the header grows and only this follows it. */
+  --header-clear: var(--header-live-h, var(--header-h));
 
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
@@ -456,7 +461,7 @@ body {
  * clearance.
  * ========================================================================= */
 html {
-  scroll-padding-top: calc(var(--header-h) + 8px);
+  scroll-padding-top: calc(var(--header-clear) + 8px);
 }
 
 /* =========================================================================

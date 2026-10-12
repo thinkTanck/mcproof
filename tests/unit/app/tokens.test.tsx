@@ -125,7 +125,14 @@ describe('DTCG token layer (globals.css)', () => {
   it('defines every custom property referenced in globals.css (no undefined tokens)', () => {
     // Injected at runtime by next/font on <html> (with a font-stack fallback in
     // the --font-* declarations), so not defined in the :root token block.
-    const externallyProvided = new Set(['--font-geist-sans', '--font-geist-mono']);
+    // `--header-live-h` is the same kind: HeaderHeightSync writes the header's
+    // measured height on <html> at runtime, and `--header-clear` falls back to
+    // `--header-h` until it does.
+    const externallyProvided = new Set([
+      '--font-geist-sans',
+      '--font-geist-mono',
+      '--header-live-h',
+    ]);
     const missing = tokenRefs(cssNoComments).filter(
       (name) => !vars.has(name) && !externallyProvided.has(name),
     );

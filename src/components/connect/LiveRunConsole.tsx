@@ -655,7 +655,11 @@ export function LiveRunConsole({
     // clear but the header, which the page's own scroll padding already clears;
     // kept at 15rem there, the margin was taller than the room under the header
     // at 568x320 and parked a focused answer below the fold.
-    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-60 [@media(max-height:499px)]:[&_:is(a,button,[tabindex])]:scroll-mt-0">
+    // The margin is also never more than half the screen's height. That changes
+    // nothing at normal text size (half of 500px and up is more than 15rem), but
+    // with the root font size doubled 15rem is 480px, which on a 568px phone
+    // parked the focused control below the fold (WCAG 1.4.4).
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-[min(15rem,50dvh)] [@media(max-height:499px)]:[&_:is(a,button,[tabindex])]:scroll-mt-0">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
@@ -1320,7 +1324,7 @@ function Connection({
           transformed ancestor re-anchors `position: fixed`. */}
       <section
         aria-labelledby="connect-state"
-        className="sticky top-[calc(var(--header-h)+8px)] z-40 -mt-3 [@media(max-height:499px)]:static flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
+        className="sticky top-[calc(var(--header-clear)+8px)] z-40 -mt-3 [@media(max-height:499px)]:static flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
       >
         {/* A CONNECTED RUN ON A PHONE IS TWO ROWS (C3). At 320 the status wrapped
             to two lines, END RUN AND JUDGE fell to a row of its own and its label
