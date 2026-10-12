@@ -337,6 +337,9 @@ export function ConnectScreen({
   // And for a discarded one, which is finished too but must not be headed as
   // if it had a result.
   const [runDiscarded, setRunDiscarded] = useState(false);
+  // The element the run bar is drawn into on a phone held upright. Kept in
+  // state so the console renders again once it exists.
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null);
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
   const previewGoal = categoryGoals?.[category];
   const hasRun = activeRunId !== null && activeRunId !== settledRunId;
@@ -564,6 +567,7 @@ export function ConnectScreen({
             onExpiredChange={setRunExpired}
             onFinishedChange={setRunFinished}
             onDiscardedChange={setRunDiscarded}
+            barSlot={barSlot}
           />
         ) : (
           <div className="flex flex-col gap-4">
@@ -587,6 +591,19 @@ export function ConnectScreen({
           </div>
         )}
       </section>
+      {/* WHERE THE RUN BAR IS HELD ON A PHONE (see run-bar-pin.ts). The last
+          thing in the page column, sticky at the bottom of the window: while
+          there is page below, the bar it holds sits at the bottom of the
+          screen, and at the end of the page it rests in the flow, so it never
+          covers the last line. As wide as the screen (the negative margins
+          undo this column's own padding). Empty on every other screen and in
+          sample mode, and then it is not drawn at all. Sticky, never fixed:
+          this column is a query container, which can re-anchor a fixed box. */}
+      <div
+        ref={setBarSlot}
+        data-testid="run-bar-slot"
+        className="sticky bottom-0 z-40 -mx-6 -mb-10 mt-6 empty:hidden"
+      />
     </div>
   );
 }

@@ -24,6 +24,14 @@ import { suppressBootSplash } from './support/screen';
  *    it always has (a structural check with a small tolerance).
  *
  * No exact pixel sizes: relations and small tolerances only.
+ *
+ * SINCE 2026-10-12 A PHONE HELD UPRIGHT HOLDS THE BAR AT THE BOTTOM of the
+ * screen (tests/e2e/phone-run-bar.spec.ts), so at 320 and 390 the bar is no
+ * longer pinned under the header at all. What these two sizes still hold: the
+ * bar starts below the header at 200%, the discard answers are not covered, and
+ * at normal size the bar rests on the bottom edge. The bar is still pinned
+ * under the header's measured height from 768px up, so that is where the pin
+ * itself is now measured (the tablet block at the end).
  */
 test.skip(
   process.env.E2E_FIXTURES !== '1',
@@ -115,13 +123,21 @@ for (const viewport of PHONES) {
         expect(barTop, 'bar top vs header bottom').toBeGreaterThanOrEqual(headerBottom - TOLERANCE);
       });
 
-      test(`normal size, ${state}: the pinned bar sits just under the header`, async ({ page }) => {
+      test(`normal size, ${state}: the bar rests on the bottom edge, clear of the header`, async ({
+        page,
+      }) => {
         await issue(page, state);
         await pinTheBar(page);
         const { headerBottom, barTop } = await headerBottomAndBarTop(page);
-        // The 8px gap it has always had, give or take a pixel.
-        expect(barTop - headerBottom).toBeGreaterThanOrEqual(8 - TOLERANCE);
-        expect(barTop - headerBottom).toBeLessThanOrEqual(8 + TOLERANCE);
+        expect(barTop, 'bar top vs header bottom').toBeGreaterThanOrEqual(headerBottom - TOLERANCE);
+        const fromBottom = await page.evaluate(
+          () =>
+            window.innerHeight -
+            document
+              .querySelector('section[aria-labelledby="connect-state"]')!
+              .getBoundingClientRect().bottom,
+        );
+        expect(Math.abs(fromBottom)).toBeLessThanOrEqual(TOLERANCE);
       });
     }
 
@@ -150,3 +166,30 @@ for (const viewport of PHONES) {
     });
   });
 }
+
+// ── From 768px up the bar is still pinned under the header's measured height ──
+
+test.describe('at 768x1024, where the bar is pinned under the header', () => {
+  test.use({ viewport: { width: 768, height: 1024 } });
+
+  for (const state of ['waiting', 'connected'] as const) {
+    test(`root 200%, ${state}: the pinned bar starts below the header`, async ({ page }) => {
+      await issue(page, state);
+      await enlarge(page);
+      await pinTheBar(page);
+      const { headerBottom, barTop } = await headerBottomAndBarTop(page);
+      expect(barTop, 'bar top vs header bottom').toBeGreaterThanOrEqual(headerBottom - TOLERANCE);
+      // Pinned there, not merely somewhere lower on the screen.
+      expect(barTop - headerBottom).toBeLessThanOrEqual(8 * 2 + TOLERANCE);
+    });
+
+    test(`normal size, ${state}: the pinned bar sits just under the header`, async ({ page }) => {
+      await issue(page, state);
+      await pinTheBar(page);
+      const { headerBottom, barTop } = await headerBottomAndBarTop(page);
+      // The 8px gap it has always had, give or take a pixel.
+      expect(barTop - headerBottom).toBeGreaterThanOrEqual(8 - TOLERANCE);
+      expect(barTop - headerBottom).toBeLessThanOrEqual(8 + TOLERANCE);
+    });
+  }
+});

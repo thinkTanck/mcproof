@@ -61,6 +61,14 @@ import { cn } from '@/lib/utils';
  * and scrolled INSIDE its own box so the page body never scrolls sideways. A box
  * that scrolls has to be reachable from the keyboard (WCAG 2.1.1), so it carries
  * `tabIndex` and a name of its own.
+ *
+ * On a phone held upright the box is also at most 45% of the screen tall
+ * (`scroll-cap`, globals.css). The
+ * longest config is about 41% of the smallest phone today, so this changes
+ * nothing yet; it is the ceiling that keeps a longer one from filling the
+ * screen with a box that takes the swipe. Past it the box scrolls inside
+ * itself, and at either end the scroll chains to the page (no
+ * `overscroll-behavior` is set).
  */
 export function CopyOut({
   label,
@@ -184,7 +192,7 @@ export function CopyOut({
           role="group"
           aria-label={name}
           tabIndex={0}
-          className="readout overflow-x-auto whitespace-pre pb-1"
+          className="readout overflow-x-auto whitespace-pre pb-1 phone-tall:scroll-cap"
         >
           {shown ? value : (display ?? value)}
         </pre>

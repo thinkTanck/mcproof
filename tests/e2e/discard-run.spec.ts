@@ -166,16 +166,27 @@ test.describe('1280x900', () => {
 test.describe('320x568', () => {
   test.use({ viewport: { width: 320, height: 568 } });
 
-  test('DISCARD RUN sits directly under the bar, full size, and the bar keeps its ceiling', async ({
+  // On a phone held upright the bar is held at the bottom of the screen
+  // (tests/e2e/phone-run-bar.spec.ts), so the control is no longer UNDER it. It
+  // is where it was in the run column, directly under the run's heading, and
+  // the bar is below it.
+  test('DISCARD RUN sits in the run column, not in the bar, full size, and the bar keeps its ceiling', async ({
     page,
   }) => {
     await issued(page, 'connected');
     await expect(trigger(page)).toHaveCount(1);
 
-    const [d, b] = await Promise.all([box(trigger(page)), box(bar(page))]);
-    // Under the bar, not in it, with nothing but a gap between them.
-    expect(d.y).toBeGreaterThanOrEqual(b.bottom - 0.5);
-    expect(d.y - b.bottom).toBeLessThan(40);
+    await trigger(page).scrollIntoViewIfNeeded();
+    const [d, b, h] = await Promise.all([
+      box(trigger(page)),
+      box(bar(page)),
+      box(page.getByRole('heading', { name: 'What we have actually seen.' })),
+    ]);
+    // Not in the bar: wholly above it, and directly under the heading with
+    // nothing but a gap between them.
+    expect(d.bottom).toBeLessThanOrEqual(b.y + 0.5);
+    expect(d.y).toBeGreaterThanOrEqual(h.bottom - 0.5);
+    expect(d.y - h.bottom).toBeLessThan(40);
     expect(d.height).toBeGreaterThanOrEqual(44);
     expect(d.width).toBeGreaterThanOrEqual(44);
     await expectInsideViewport(page, trigger(page));
@@ -186,7 +197,7 @@ test.describe('320x568', () => {
     await expectNoWcagViolations(page);
   });
 
-  test('is offered under the bar on a run nobody has connected to', async ({ page }) => {
+  test('is offered in the run column on a run nobody has connected to', async ({ page }) => {
     await issued(page, 'waiting');
 
     await expect(trigger(page)).toHaveCount(1);

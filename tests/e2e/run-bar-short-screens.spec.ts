@@ -18,6 +18,13 @@ import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
  * From 500px of height up the bar stays pinned exactly as before (the guard at
  * the end).
  *
+ * SINCE 2026-10-12, ON A PHONE HELD UPRIGHT (under 768px wide, 500px or more
+ * tall) the bar is held at the BOTTOM of the screen and is the last thing in
+ * the document (tests/e2e/phone-run-bar.spec.ts). At 320x568 and 390x844 the
+ * question is therefore still outside the bar and in the run column, but it
+ * comes BEFORE the bar, and its answers sit above it. From 768px up nothing
+ * here moved.
+ *
  * No exact pixel sizes: ratios, ceilings and relations only. Driven through the
  * Connect states fixture (`/e2e/connect-states`, built only with E2E_FIXTURES=1),
  * in the wider fallback font, the worst case for every row on this screen.
@@ -193,9 +200,51 @@ test.describe('568x320, the shortest phone landscape', () => {
 
 // ── The confirm is never inside the bar ──
 
+// A phone held upright: the bar is at the bottom, after the run column.
 for (const [width, height] of [
   [320, 568],
   [390, 844],
+] as const) {
+  test.describe(`${width}x${height}, the confirm`, () => {
+    test.use({ viewport: { width, height } });
+
+    test('is in the run column, not inside the bar, and its answers sit above the bar', async ({
+      page,
+      browserName,
+    }) => {
+      await issued(page, 'connected');
+      await trigger(page).click();
+      await expect(keep(page)).toBeFocused();
+
+      const tree = await page.evaluate(() => {
+        const dock = document.querySelector('section[aria-labelledby="connect-state"]')!;
+        const column = document.querySelector('.panel-in')!;
+        const group = [...document.querySelectorAll('[role="group"]')].find((el) =>
+          /discard this run/i.test(el.textContent ?? ''),
+        )!;
+        return {
+          inside: dock.contains(group),
+          inColumn: group.parentElement === column,
+          barAfter: (group.compareDocumentPosition(dock) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        };
+      });
+      expect(tree).toEqual({ inside: false, inColumn: true, barAfter: true });
+
+      // Both answers are above the bar, uncovered, full size.
+      const g = await barGeometry(page);
+      for (const answer of [keep(page), yes(page)]) {
+        const b = (await answer.boundingBox())!;
+        expect(b.y + b.height).toBeLessThanOrEqual(g.barTop + 0.5);
+        expect(b.height).toBeGreaterThanOrEqual(44);
+        await expectUncovered(answer);
+      }
+      await expectNoSidewaysScroll(page);
+      await scanInChromium(page, browserName);
+    });
+  });
+}
+
+for (const [width, height] of [
   [768, 1024],
   [1024, 768],
   [1280, 900],
@@ -287,10 +336,38 @@ test.describe('1280x900, asked from the bar while scrolled down', () => {
   });
 });
 
-// ── From 500px of height up, the bar is pinned exactly as before ──
+// ── From 500px of height up, the bar is held: under the header from 768px ──
+// ── wide, at the bottom of the screen on a phone held upright ──
+
+test.describe('390x844, a tall phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  for (const state of ['connected', 'waiting'] as const) {
+    test(`${state}: the bar stays held at the bottom of the screen`, async ({ page }) => {
+      await issued(page, state);
+      // The slot that holds it is what is sticky; the bar is a block inside it.
+      const slot = await page.evaluate(() => {
+        const dock = document.querySelector('section[aria-labelledby="connect-state"]')!;
+        return getComputedStyle(dock.parentElement!).position;
+      });
+      expect(slot).toBe('sticky');
+
+      for (const scroll of [scrollToTop, scrollToEnd]) {
+        await scroll(page);
+        const g = await barGeometry(page);
+        await expect(bar(page)).toBeInViewport();
+        // Clear of the header, and resting on the bottom edge.
+        expect(g.barTop).toBeGreaterThanOrEqual(g.headerBottom - 0.5);
+        expect(g.barBottom).toBeLessThanOrEqual(g.viewportHeight + 1);
+        expect(g.viewportHeight - g.barBottom).toBeLessThan(24);
+        if (state === 'connected') await expectUncovered(endRun(page));
+      }
+    });
+  }
+});
 
 for (const [width, height] of [
-  [390, 844],
+  [768, 1024],
   [1280, 900],
 ] as const) {
   test.describe(`${width}x${height}, a tall screen`, () => {

@@ -173,10 +173,22 @@ export function ReplayTerminal({
     return '';
   };
 
+  // ON A PHONE HELD UPRIGHT THE TERMINAL IS AT MOST 45% OF THE SCREEN. It
+  // scrolls inside itself, so a swipe that starts on it moves the transcript
+  // and only hands on to the page at the transcript's end. At 62% to 70% of the
+  // screen (measured at 375x667 and 390x844) it was where most swipes started,
+  // and the page seemed stuck. Under half, there is always page above or below
+  // it to scroll from, as well as the gutter beside it. The cap is the
+  // `scroll-cap` utility (globals.css), a whole number of pixels on purpose.
+  // `phone:` with a 500px floor on the height is the `phone-tall:` variant
+  // spelled so the class still starts with `phone:`, which is how
+  // tests/e2e/replay-wide-unchanged.spec.ts tells phone classes from main's.
+  // No `overscroll-behavior` is set, here or anywhere: at either end the
+  // scroll chains to the page.
   return (
     <div
       ref={boxRef}
-      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6] phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]!"
+      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6] phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]! phone:[@media(min-height:500px)]:scroll-cap"
       style={{
         height: 'clamp(280px, 40vh, 460px)',
         background: 'var(--terminal-bg)',
