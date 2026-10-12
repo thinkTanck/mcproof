@@ -114,6 +114,14 @@ for (const viewport of [
       for (const tab of [TABS[0], TABS[3], TABS[5]]) {
         await picker(page).getByRole('button', { name: tab }).click();
         await expect(panel(page).getByTestId('setup-steps')).toBeVisible();
+        // Scan with the section at the top of the screen. axe's target-size
+        // counts a control that is partly under another as only its uncovered
+        // part, so a scan taken wherever the last click happened to leave the
+        // page can fail on a tab that is half under the sticky header. That was
+        // always possible; it was first seen when the phone's bottom scroll
+        // padding moved where a click centres its target (at 320x568 it left
+        // CLAUDE CODE 23.9px clear of the header's wordmark, 0.1px short).
+        await setup(page).evaluate((el) => el.scrollIntoView({ block: 'start' }));
         const results = await new AxeBuilder({ page })
           .include('section[aria-labelledby="connect-client"]')
           .withTags(WCAG)

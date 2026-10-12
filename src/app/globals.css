@@ -11,6 +11,18 @@
   }
 }
 
+/* A phone held upright: narrower than 768px and at least 500px tall. This is
+   where the Connect run bar is held at the bottom of the screen and where a
+   scrolling box is capped at under half the screen. A phone on its side is left
+   out on purpose: under 500px of height nothing is pinned (#217). The same
+   query is RUN_BAR_PIN_QUERY in src/components/connect/run-bar-pin.ts; a unit
+   test holds the two equal. */
+@custom-variant phone-tall {
+  @media (max-width: 767.98px) and (min-height: 500px) {
+    @slot;
+  }
+}
+
 /* =========================================================================
  * MCProof — "Sentinel Fields" DTCG two-tier design tokens
  * -------------------------------------------------------------------------
@@ -459,9 +471,15 @@ body {
  * It ADDS to an element's own scroll margin. The Connect run column sets one
  * (LiveRunConsole) to clear the pinned run bar as well; with this it only gains
  * clearance.
+ *
+ * The same at the bottom, for the run bar a phone holds there. The bar writes
+ * its measured height (plus the same small gap) to `--run-bar-clear` while it
+ * is pinned (src/components/connect/run-bar-pin.ts). The property is set by
+ * that script alone, so on every other screen and size this is 0.
  * ========================================================================= */
 html {
   scroll-padding-top: calc(var(--header-clear) + 8px);
+  scroll-padding-bottom: var(--run-bar-clear, 0px);
 }
 
 /* =========================================================================
@@ -757,4 +775,22 @@ html {
  * ========================================================================= */
 @utility measure {
   max-width: 34rem;
+}
+
+/* =========================================================================
+ * THE CEILING ON A BOX THAT SCROLLS INSIDE ITSELF, ON A PHONE. Used with the
+ * `phone-tall:` variant on the replay terminal and the Connect code boxes: at
+ * most 45% of the screen, so there is always page above or below the box to
+ * start a scroll from. `dvh`, so it follows the browser's own bars.
+ *
+ * ROUNDED DOWN TO A WHOLE PIXEL, and that is not tidiness. 45dvh is a fraction
+ * of a pixel on most phones (379.8px at 844). A scroll box with a fractional
+ * height has a fractional end, and Chromium then held a touch scroll that
+ * started on the box at its end: the box had nothing left to move and the page
+ * did not move either (measured at 390x844; a whole-pixel height chained).
+ * The first line is for a browser without `round()`.
+ * ========================================================================= */
+@utility scroll-cap {
+  max-height: 45dvh;
+  max-height: round(down, 45dvh, 1px);
 }

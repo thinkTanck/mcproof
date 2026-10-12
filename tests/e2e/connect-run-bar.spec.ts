@@ -145,6 +145,10 @@ test.describe('finished run bar at 1280x900', () => {
  * bar, not under them (WCAG 2.2, 2.4.11). The margin is sized to the tallest bar,
  * so it has to be re-checked whenever the bar's height changes. Shift+Tab walks
  * upward, the path that lands each control at the top edge.
+ *
+ * On a phone held upright the bar is held at the BOTTOM of the screen
+ * (tests/e2e/phone-run-bar.spec.ts), so there "under the bar" is the other
+ * way up: a control is covered when its bottom edge is below the bar's top.
  */
 const STATES: { name: string; reach: (page: Page) => Promise<void> }[] = [
   { name: 'waiting', reach: (page) => issued(page, 'waiting') },
@@ -186,10 +190,19 @@ for (const [width, height] of [
             const dock = document.querySelector('section[aria-labelledby="connect-state"]');
             const column = document.querySelector('.panel-in');
             if (!el || !dock || !column || !column.contains(el) || dock.contains(el)) return null;
-            const top = el.getBoundingClientRect().top;
-            const cover = dock.getBoundingClientRect().bottom;
-            return top < cover
-              ? `${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 30)} (top ${Math.round(top)} < bar ${Math.round(cover)})`
+            const box = el.getBoundingClientRect();
+            const bar = dock.getBoundingClientRect();
+            const name = (el.getAttribute('aria-label') ?? el.textContent ?? '')
+              .trim()
+              .slice(0, 30);
+            // Held at the bottom (a phone held upright): covered from below.
+            if (dock.closest('[data-testid="run-bar-slot"]') !== null) {
+              return box.bottom > bar.top
+                ? `${name} (bottom ${Math.round(box.bottom)} > bar ${Math.round(bar.top)})`
+                : null;
+            }
+            return box.top < bar.bottom
+              ? `${name} (top ${Math.round(box.top)} < bar ${Math.round(bar.bottom)})`
               : null;
           });
           if (covered) hidden.push(covered);

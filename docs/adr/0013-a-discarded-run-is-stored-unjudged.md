@@ -162,8 +162,15 @@ On a screen narrower than 1024px the control sits directly under the pinned bar
 rather than in it. It does not fit beside the tool-call count and END RUN at
 phone widths, and a third row would undo the ceiling the bar was given on
 phones. The bar itself is unchanged below that width. At every width the
-question opens under the bar, never inside it, so the bar does not grow when it
-is asked.
+question opens outside the bar, never inside it, so the bar does not grow when
+it is asked.
+
+Since 2026-10-12 a phone held upright (under 768px wide, at least 500px tall)
+holds the bar at the bottom of the screen instead of under the header. There
+the control and its question stay where they were in the run column, now
+directly under the run's heading, and the bar follows them at the end of the
+page. Focus still moves to KEEP RUNNING when the question opens, and the
+document's bottom scroll padding keeps both answers clear of the bar.
 
 ## How this differs from abandon
 

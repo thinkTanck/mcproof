@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type Ref,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { InertMark } from '@/components/leaderboard';
 import { cn } from '@/lib/utils';
 import {
@@ -25,6 +26,7 @@ import {
 } from '@/runs/discard-copy';
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
+import { useRunBarClearance, useRunBarPinned } from './run-bar-pin';
 import { RUN_TYPE_LABEL } from './run-kinds';
 import {
   notWiredLiveRunPort,
@@ -244,7 +246,15 @@ export function LiveRunConsole({
   onExpiredChange,
   onFinishedChange,
   onDiscardedChange,
+  barSlot = null,
 }: {
+  /**
+   * Where the run bar is drawn on a phone held upright: an element the screen
+   * keeps at the end of its column, held at the bottom of the window. Without
+   * one (or on any other screen) the bar stays in the run column. See
+   * `run-bar-pin.ts`.
+   */
+  barSlot?: HTMLElement | null;
   /**
    * Told whether the run on show was discarded. A discarded run is also a
    * finished one, and the screen heads the section with this instead, because
@@ -659,7 +669,9 @@ export function LiveRunConsole({
     // nothing at normal text size (half of 500px and up is more than 15rem), but
     // with the root font size doubled 15rem is 480px, which on a 568px phone
     // parked the focused control below the fold (WCAG 1.4.4).
-    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-[min(15rem,50dvh)] [@media(max-height:499px)]:[&_:is(a,button,[tabindex])]:scroll-mt-0">
+    // On a phone held upright the bar is at the bottom instead, and the page's
+    // bottom scroll padding clears it there, so the margin is dropped again.
+    <div className="panel-in flex flex-col gap-6 [&_:is(a,button,[tabindex])]:scroll-mt-[min(15rem,50dvh)] [@media(max-height:499px)]:[&_:is(a,button,[tabindex])]:scroll-mt-0 phone-tall:[&_:is(a,button,[tabindex])]:scroll-mt-0">
       {/* THE DOCK LEADS. What we have seen and the control that ends the run are
           what the reader needs for as long as the run is open, and they used to
           sit under three long sections of setup. `Connection` returns the dock
@@ -686,6 +698,7 @@ export function LiveRunConsole({
         onDiscard={canDiscard ? discard : undefined}
         category={run.category}
         kind={run.kind}
+        barSlot={barSlot}
       />
       <LiveNotice
         testId="live-selection"
@@ -1161,7 +1174,10 @@ function Connection({
   onDiscard,
   category,
   kind,
+  barSlot,
 }: {
+  /** Where the bar is drawn on a phone held upright, when the screen has one. */
+  barSlot: HTMLElement | null;
   /** Whether the run's owner discarded it. Such a run is ended and unjudged. */
   discarded: boolean;
   /** Whether this page's own discard call is in flight. */
@@ -1233,6 +1249,10 @@ function Connection({
   // A finished run has nothing left to do here but hand off, and the next run
   // should not need a reload. Offered only once the result is settled.
   const canRestart = phase === 'finished' && !finishing && settled;
+  // On a phone held upright the bar is drawn in the screen's slot, at the
+  // bottom of the window. Everywhere else, and wherever no slot exists, it is
+  // drawn here in the column, exactly as before.
+  const atBottom = useRunBarPinned() && barSlot !== null;
 
   // ── THE CONFIRM STEP, AND WHERE FOCUS GOES ──
   //
@@ -1321,11 +1341,12 @@ function Connection({
           It is fully opaque where the old panel was translucent, because content now
           scrolls underneath it. `z-40` keeps it under the header (`z-[45]`).
           Sticky, never fixed: the column eases in on a transform, and a
-          transformed ancestor re-anchors `position: fixed`. */}
-      <section
-        aria-labelledby="connect-state"
-        className="sticky top-[calc(var(--header-clear)+8px)] z-40 -mt-3 [@media(max-height:499px)]:static flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3"
-      >
+          transformed ancestor re-anchors `position: fixed`.
+
+          ON A PHONE HELD UPRIGHT IT IS HELD AT THE BOTTOM INSTEAD (`RunBar`):
+          pinned under the header it was three to six screens down a page that
+          opens at its top, so it was not on screen when the page opened. */}
+      <RunBar slot={atBottom ? barSlot : null}>
         {/* A CONNECTED RUN ON A PHONE IS TWO ROWS (C3). At 320 the status wrapped
             to two lines, END RUN AND JUDGE fell to a row of its own and its label
             wrapped as well: 155px pinned, with the header 40% of the screen.
@@ -1346,7 +1367,14 @@ function Connection({
             className={
               compact
                 ? 'max-sm:col-span-3 max-sm:col-start-1 max-sm:row-span-2 max-sm:row-start-1 max-sm:grid max-sm:grid-cols-subgrid max-sm:grid-rows-subgrid max-sm:items-center sm:flex sm:flex-1 sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2'
-                : 'flex flex-1 flex-wrap items-center gap-x-4 gap-y-2'
+                : // AT THE BOTTOM OF A PHONE THE GAPS ARE IN PX. The bar's text is
+                  // px-sized and does not grow with the root font size, but rem
+                  // gaps do: at 200% they pushed the count under the phase
+                  // reading and each control onto a row of its own, a bar four
+                  // rows and half a phone tall. Held in px the reading and the
+                  // count share one row and the controls the next (WCAG 1.4.4:
+                  // nothing is lost, the targets still double).
+                  cn('flex flex-1 flex-wrap items-center gap-x-4 gap-y-2', atBottom && PX_GAP)
             }
           >
             {discarded ? (
@@ -1461,7 +1489,12 @@ function Connection({
               bar's right padding; the negative margin lets it go on doing so, so
               it wraps only when enlarged text would take it past the bar. */}
           {(replayRunId !== undefined || canRestart) && (
-            <div className="flex flex-wrap items-center gap-3 max-[359px]:-mr-4 sm:gap-5">
+            <div
+              className={cn(
+                'flex flex-wrap items-center gap-3 max-[359px]:-mr-4 sm:gap-5',
+                atBottom && PX_GAP,
+              )}
+            >
               {replayRunId !== undefined && (
                 <Link
                   href={`/runs/${replayRunId}`}
@@ -1500,8 +1533,9 @@ function Connection({
             <p className="reading measure">{discardRefusal.message}</p>
           </div>
         )}
-      </section>
-      {/* THE SAME CONTROL ON A NARROW SCREEN, directly under the bar. It is not
+      </RunBar>
+      {/* THE SAME CONTROL ON A NARROW SCREEN, directly under the bar (on a phone
+          held upright, directly under the heading: the bar is at the bottom). It is not
           pinned: it is the rare way out, and pinning it would cost every reader
           the row it took. Pressing it opens the question directly under it. */}
       {canDiscard && (
@@ -1674,6 +1708,55 @@ function Connection({
       </div>
     </>
   );
+}
+
+// ── The run bar's box, and where it is drawn ──
+
+/**
+ * The bar in the run column: main's classes, and nothing here may move. Pinned
+ * under the header's measured height, and not pinned under 500px of height.
+ */
+const BAR_IN_COLUMN =
+  'sticky top-[calc(var(--header-clear)+8px)] z-40 -mt-3 [@media(max-height:499px)]:static flex flex-col gap-3 rounded-lg border border-line-em bg-solid px-5 py-3';
+
+/**
+ * The bar in the screen's slot, on a phone held upright. The SLOT is what is
+ * sticky; the bar is an ordinary block inside it, as wide as the screen, with
+ * the page's side gutter (24px, in px so enlarged text does not spend the row
+ * on padding) and a top rule to part it from what scrolls behind. Its bottom padding adds the safe-area inset. That inset is 0 unless
+ * the page opts in to `viewport-fit=cover`, which this app does not (the
+ * viewport then ends above the home indicator already), so today it adds
+ * nothing; it is there so the bar is still right if that ever changes.
+ */
+const BAR_AT_BOTTOM =
+  'flex flex-col gap-3 border-t border-line-em bg-solid px-[24px] pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]';
+
+/** The sideways gap between the pieces of a bar held at the bottom. See the status row. */
+const PX_GAP = 'gap-x-[12px]';
+
+/**
+ * THE BAR'S BOX. One `section`, named by the heading in the run column wherever
+ * it is drawn, so it is one region and one live region at every size.
+ *
+ * With a `slot` it is drawn into that element through a portal: the slot is
+ * the last thing in the page column, so the bar is last in the document as well
+ * as last on the page. Tab and a screen reader meet it where it is seen, after
+ * the setup, and the heading that names it stays at the top of the run column
+ * with the prose that explains its readings. While it is there its height is
+ * measured for the document's bottom scroll padding (`useRunBarClearance`).
+ */
+function RunBar({ slot, children }: { slot: HTMLElement | null; children: ReactNode }) {
+  const measure = useRunBarClearance(slot !== null);
+  const bar = (
+    <section
+      ref={measure}
+      aria-labelledby="connect-state"
+      className={slot !== null ? BAR_AT_BOTTOM : BAR_IN_COLUMN}
+    >
+      {children}
+    </section>
+  );
+  return slot !== null ? createPortal(bar, slot) : bar;
 }
 
 // ── Refusal ──

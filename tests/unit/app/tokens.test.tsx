@@ -127,11 +127,14 @@ describe('DTCG token layer (globals.css)', () => {
     // the --font-* declarations), so not defined in the :root token block.
     // `--header-live-h` is the same kind: HeaderHeightSync writes the header's
     // measured height on <html> at runtime, and `--header-clear` falls back to
-    // `--header-h` until it does.
+    // `--header-h` until it does. `--run-bar-clear` is a third: the run bar a
+    // phone holds at the bottom writes its measured height there while it is
+    // pinned, and the scroll padding that reads it falls back to 0.
     const externallyProvided = new Set([
       '--font-geist-sans',
       '--font-geist-mono',
       '--header-live-h',
+      '--run-bar-clear',
     ]);
     const missing = tokenRefs(cssNoComments).filter(
       (name) => !vars.has(name) && !externallyProvided.has(name),
