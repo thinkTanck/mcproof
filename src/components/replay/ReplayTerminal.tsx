@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
 import { cn } from '@/lib/utils';
+import { BandShape } from '@/components/leaderboard/BandShape';
 import { stepMeta } from './step-meta';
 import { followStepInside } from './follow-step';
 import { useReplayLayout } from './phone-layout';
@@ -195,7 +196,11 @@ export function ReplayTerminal({
         containerType: 'size',
       }}
     >
-      <ol aria-label="Attack replay step timeline" className="phone:[grid-area:1/1]">
+      <ol
+        aria-label="Attack replay step timeline"
+        data-asi-quoted="trace"
+        className="phone:[grid-area:1/1]"
+      >
         {steps.map((step, i) => {
           const meta = stepMeta(step.type);
           const line = lines[i]!;
@@ -223,9 +228,28 @@ export function ReplayTerminal({
                 // itself is the height, and a short line sits in the middle
                 // of it. The terminal's own height does not change: it is a
                 // fixed clamp from 768px up and capped on a phone.
-                className="block min-h-(--target-min) w-full whitespace-pre-wrap break-words text-left focus-inside focus-visible:underline"
+                className="relative block min-h-(--target-min) w-full whitespace-pre-wrap break-words text-left focus-inside focus-visible:underline"
                 style={{ color }}
               >
+                {/* THE COMPROMISE STEP IS NOT RED ALONE (UI audit 2026-10-12,
+                    batch C; WCAG 1.4.1). Its line was the same text as every
+                    other line in a different colour, which says nothing to a
+                    reader who cannot tell the two colours apart. It carries
+                    the breach diamond as well, the same shape the leaderboard
+                    draws for the breach band. The mark sits in the box's left
+                    padding, out of the flow, so no line moves, wraps or grows
+                    and the height held back for the transcript on a phone is
+                    what it was. The button's name already says "compromise
+                    step", so the mark is hidden from assistive technology. */}
+                {breach && (
+                  <span
+                    data-breach-mark=""
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -left-3.5 top-1/2 -translate-y-1/2"
+                  >
+                    <BandShape band="breach" />
+                  </span>
+                )}
                 {line.kind === 'out' ? (
                   <span className="pl-4">
                     <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>

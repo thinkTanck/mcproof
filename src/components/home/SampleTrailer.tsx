@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { asiLabel } from '@/lib/owasp/asi';
 
 /**
  * The SAMPLE RUN strip (the trailer): a dot-per-step timeline with the compromise
@@ -57,7 +58,7 @@ export function SampleTrailer({
             and only needs to read as clickable, not compete. */}
         <Link
           href={watchHref}
-          aria-label={`Watch the ${category} sample replay`}
+          aria-label={`Watch the ${asiLabel(category)} sample replay`}
           className="inline-flex min-h-11 items-center gap-2 font-mono text-[13px] tracking-[0.08em] text-nominal transition-colors hover:underline"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">

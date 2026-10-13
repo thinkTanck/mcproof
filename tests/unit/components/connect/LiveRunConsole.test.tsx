@@ -208,7 +208,7 @@ describe('LiveRunConsole · the issued ticket says which run it is serving', () 
     await issue(user);
     await screen.findByText(TICKET.endpoint);
 
-    expect(screen.getByText('ASI01')).toBeInTheDocument();
+    expect(screen.getByText('ASI01 Agent Goal Hijack')).toBeInTheDocument();
     expect(screen.getByText('ATTACK RUN')).toBeInTheDocument();
   });
 
@@ -731,7 +731,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     // picker and the run disagree. That notice mounts already showing, so it is
     // written one frame after its region (see the live-region suite) and waited for.
     await screen.findByTestId('run-selection-notice');
-    const named = screen.getAllByText('ASI01');
+    const named = screen.getAllByText('ASI01 Agent Goal Hijack');
     expect(named).toHaveLength(2);
     for (const el of named) expect(el).toBeVisible();
     expect(screen.getByTestId('run-selection-notice')).toHaveTextContent('ASI05');
@@ -1700,7 +1700,7 @@ describe('LiveRunConsole · the task label names the issued run', () => {
     await issue(user);
     await screen.findByText(TICKET.endpoint);
 
-    expect(within(pasteStep()).getByText('TASK GOAL · ASI01')).toBeVisible();
+    expect(within(pasteStep()).getByText('TASK GOAL · ASI01 Agent Goal Hijack')).toBeVisible();
     expect(screen.getByText('SERVING').closest('span')).toHaveTextContent('SERVING ASI01');
   });
 
@@ -1718,7 +1718,9 @@ describe('LiveRunConsole · the task label names the issued run', () => {
 
     rerender(<LiveRunConsole port={port} category="ASI02" signedIn />);
 
-    expect(within(pasteStep()).getByText('TASK GOAL · ASI05')).toBeVisible();
+    expect(
+      within(pasteStep()).getByText('TASK GOAL · ASI05 Unexpected Code Execution (RCE)'),
+    ).toBeVisible();
     expect(within(pasteStep()).queryByText(/ASI02/)).not.toBeInTheDocument();
   });
 

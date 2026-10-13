@@ -51,6 +51,7 @@ export function StepDetail({
           (several steps overflow the fixed 188px height): scrollable-region-focusable. */}
       <dl
         aria-label="Step payload"
+        data-asi-quoted="trace"
         tabIndex={0}
         className="grid min-h-0 flex-1 grid-cols-[minmax(5.5rem,max-content)_minmax(0,1fr)] content-start gap-3 overflow-y-auto px-4 py-3 focus-inside"
       >

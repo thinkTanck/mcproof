@@ -36,7 +36,9 @@ describe('HeroReplay', () => {
         category={run.category}
       />,
     );
-    expect(screen.getByRole('img', { name: /ASI02 sample replay/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: /ASI02 Tool Misuse and Exploitation sample replay/i }),
+    ).toBeInTheDocument();
   });
 
   it('draws one node per real step (bound to the trace, never a literal)', async () => {

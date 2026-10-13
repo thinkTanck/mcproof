@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
-import { StatusChip } from '@/components/hud';
+import { AsiLabel, StatusChip } from '@/components/hud';
 import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
@@ -26,17 +26,6 @@ import { useReplayLayout } from './phone-layout';
  * 768px up nothing here applies and the replay is as it was.
  */
 const SPEEDS = [0.5, 1, 2, 4];
-
-/** The attack narrative per Core-7 category (titles match the design reference). */
-const CATEGORY_TITLE: Record<string, string> = {
-  ASI01: 'Agent Goal Hijack',
-  ASI02: 'Tool Misuse & Exploitation',
-  ASI03: 'Identity & Privilege Abuse',
-  ASI04: 'Agentic Supply Chain',
-  ASI05: 'Unexpected Code Execution',
-  ASI06: 'Memory & Context Poisoning',
-  ASI10: 'Rogue Agents',
-};
 
 export function Replay({
   run,
@@ -122,8 +111,6 @@ export function Replay({
     />
   );
 
-  const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
-
   // One sentence for the whole run. A clean verdict is a RESULT, not an absence:
   // the agent was served the run and did not act on it.
   const outcomeLabel = run.verdict.compromised
@@ -144,7 +131,10 @@ export function Replay({
         <p className="micro-label text-nominal">Live Attack Replay</p>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="reading-h2 font-semibold text-ink-hi">
-            {run.category} · {title}
+            {/* The class this run staged, with its official name from the one
+                lookup. It printed a table of its own before, which had drifted
+                from the board's spelling. */}
+            <AsiLabel code={run.category} separator=" · " />
           </h1>
           <span data-testid="run-outcome" className="shrink-0">
             <StatusChip

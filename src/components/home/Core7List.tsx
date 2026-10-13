@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CORE7 } from './core7';
+import { CORE7, core7RowId } from './core7';
 
 /**
  * The Core-7 as a "pick a sample" launcher — one row per category, each a link to
@@ -21,7 +21,7 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
       </div>
       <ul className="flex flex-col">
         {CORE7.map((c) => (
-          <li key={c.id}>
+          <li key={c.id} id={core7RowId(c.id)}>
             <Link
               href={runHref(c.id)}
               aria-label={`Watch the ${c.id} ${c.title} sample attack`}

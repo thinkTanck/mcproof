@@ -365,8 +365,10 @@ describe('LiveRunConsole · the selection notice on an expired run', () => {
     rerender(<LiveRunConsole port={port} category="ASI05" signedIn now={AFTER} />);
     const notice = await screen.findByTestId('run-selection-notice');
 
-    expect(notice).toHaveTextContent('This run served ASI01 (ATTACK RUN).');
-    expect(notice).toHaveTextContent('You now have ASI05 (ATTACK RUN) selected above.');
+    expect(notice).toHaveTextContent('This run served ASI01 Agent Goal Hijack (ATTACK RUN).');
+    expect(notice).toHaveTextContent(
+      'You now have ASI05 Unexpected Code Execution (RCE) (ATTACK RUN) selected above.',
+    );
     expect(notice).toHaveTextContent('A new selection takes effect on the next run you issue.');
     expect(notice).not.toHaveTextContent(/endpoint|token|task goal|on this page/i);
   });
@@ -384,8 +386,10 @@ describe('LiveRunConsole · the selection notice on a finished run', () => {
     rerender(<LiveRunConsole port={port} category="ASI05" signedIn now={NOW} />);
     const notice = await screen.findByTestId('run-selection-notice');
 
-    expect(notice).toHaveTextContent('This run served ASI01 (ATTACK RUN).');
-    expect(notice).toHaveTextContent('You now have ASI05 (ATTACK RUN) selected above.');
+    expect(notice).toHaveTextContent('This run served ASI01 Agent Goal Hijack (ATTACK RUN).');
+    expect(notice).toHaveTextContent(
+      'You now have ASI05 Unexpected Code Execution (RCE) (ATTACK RUN) selected above.',
+    );
     expect(notice).toHaveTextContent('A new selection takes effect on the next run you issue.');
     expect(notice).not.toHaveTextContent(/endpoint|token|task goal|on this page/i);
   });

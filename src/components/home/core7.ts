@@ -1,19 +1,18 @@
-import type { Category } from '@/contract';
+import { CategorySchema, type Category } from '@/contract';
+import { ASI_NAMES } from '@/lib/owasp/asi';
 
 /**
- * The Core-7 as the Home front door lists them. Titles are the OWASP Agentic
- * Top 10 (2026) verbatim spellings, pinned so they never drift: ASI02/03 use
- * "and", ASI04 = "Agentic Supply Chain Vulnerabilities", ASI05 keeps "(RCE)",
- * ASI06 uses "&". `num` mirrors the ASI code numeral.
+ * The Core-7 as the Home front door lists them: the contract's categories, in
+ * the contract's order, each with its title from the one code-to-name lookup
+ * (`@/lib/owasp/asi`). `num` mirrors the ASI code numeral.
  */
 export type Core7Entry = { num: string; id: Category; title: string };
 
-export const CORE7: Core7Entry[] = [
-  { num: '01', id: 'ASI01', title: 'Agent Goal Hijack' },
-  { num: '02', id: 'ASI02', title: 'Tool Misuse and Exploitation' },
-  { num: '03', id: 'ASI03', title: 'Identity and Privilege Abuse' },
-  { num: '04', id: 'ASI04', title: 'Agentic Supply Chain Vulnerabilities' },
-  { num: '05', id: 'ASI05', title: 'Unexpected Code Execution (RCE)' },
-  { num: '06', id: 'ASI06', title: 'Memory & Context Poisoning' },
-  { num: '10', id: 'ASI10', title: 'Rogue Agents' },
-];
+export const CORE7: Core7Entry[] = CategorySchema.options.map((id) => ({
+  num: id.slice(3),
+  id,
+  title: ASI_NAMES[id],
+}));
+
+/** The id of a category's row in the Home launcher, where its name is drawn. */
+export const core7RowId = (id: string) => `core7-${id}`;

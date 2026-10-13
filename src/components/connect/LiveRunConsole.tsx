@@ -41,6 +41,7 @@ import {
   type LiveRunTicketView,
 } from './live-run-port';
 import type { Category, VariantKind } from '@/contract';
+import { asiLabel } from '@/lib/owasp/asi';
 
 /**
  * THE LIVE CONSOLE — the Connect screen under the inverted model
@@ -952,9 +953,10 @@ function SelectionNotice({
         SELECTION DIFFERS FROM THIS RUN
       </p>
       <p className="reading measure">
-        This run {over ? 'served' : 'serves'} <span className="readout">{run.category}</span> (
+        This run {over ? 'served' : 'serves'}{' '}
+        <span className="readout">{asiLabel(run.category)}</span> (
         <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>). You now have{' '}
-        <span className="readout">{category}</span> (
+        <span className="readout">{asiLabel(category)}</span> (
         <span className="readout">{RUN_TYPE_LABEL[kind]}</span>) selected above.{' '}
         {over
           ? 'A new selection takes effect on the next run you issue.'
@@ -1066,7 +1068,7 @@ function Endpoint({ run }: { run: ActiveRun }) {
           counted up or animated. */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="instrument-faint">
-          SERVING <span className="readout">{run.category}</span>
+          SERVING <span className="readout">{asiLabel(run.category)}</span>
         </span>
         <span className="instrument-faint">
           RUN TYPE <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>
@@ -1158,7 +1160,7 @@ function TaskGoal({ run }: { run: ActiveRun }) {
             prints: the picker and its task preview can move on while this run is
             open, and this is the task of the run, not of the selection. */}
         <CopyOut
-          label={`TASK GOAL · ${run.category}`}
+          label={`TASK GOAL · ${asiLabel(run.category)}`}
           name="task goal"
           value={run.taskGoal}
           tone="prose"
@@ -1661,7 +1663,7 @@ function Connection({
           {(lapsed || phase === 'finished') && (
             <>
               <p className="instrument-faint">
-                SERVING <span className="readout">{category}</span>
+                SERVING <span className="readout">{asiLabel(category)}</span>
               </p>
               <p className="instrument-faint">
                 RUN TYPE <span className="readout">{RUN_TYPE_LABEL[kind]}</span>

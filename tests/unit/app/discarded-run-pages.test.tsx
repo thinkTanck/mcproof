@@ -188,7 +188,7 @@ describe('/account: a discarded run reads as discarded, not as a result', () => 
     render(await AccountPage());
 
     const item = screen.getByText('DISCARDED').closest('li')!;
-    expect(within(item).getByText('ASI05')).toBeInTheDocument();
+    expect(within(item).getByText('ASI05 Unexpected Code Execution (RCE)')).toBeInTheDocument();
     expect(item.textContent).not.toMatch(/COMPROMISED|CLEAR/);
     expect(screen.queryByText(/no runs yet/i)).not.toBeInTheDocument();
     // Inert, never the breach red and never the all-clear cyan.
@@ -227,7 +227,7 @@ describe('the discarded state on its own', () => {
       <RunDiscarded surface="replay" category="ASI05" discardedAt="2026-10-09T10:00:00.000Z" />,
     );
 
-    expect(screen.getByText('ASI05')).toBeInTheDocument();
+    expect(screen.getByText('ASI05 Unexpected Code Execution (RCE)')).toBeInTheDocument();
     expect(screen.getByText('2026-10-09')).toBeInTheDocument();
   });
 

@@ -12,6 +12,7 @@ import {
   vsCodeConfig,
 } from '@/lib/mcp/config';
 import { CopyOut } from './CopyOut';
+import { asiLabel } from '@/lib/owasp/asi';
 import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
 
 /**
@@ -410,7 +411,7 @@ function ThreeSteps({
           {/* The label carries the ISSUED run's category: this is the task of the
               run, not of whatever the picker above now has selected. */}
           <CopyOut
-            label={`TASK GOAL · ${ticket.category}`}
+            label={`TASK GOAL · ${asiLabel(ticket.category)}`}
             name="job for your agent"
             value={ticket.taskGoal}
             tone="prose"

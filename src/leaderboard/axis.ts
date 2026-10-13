@@ -1,4 +1,5 @@
 import { CategorySchema, type Category } from '@/contract';
+import { ASI_NAMES } from '@/lib/owasp/asi';
 import type { CategoryTitles } from './view';
 
 /**
@@ -16,16 +17,11 @@ import type { CategoryTitles } from './view';
 export const CORE7_AXIS: readonly Category[] = CategorySchema.options;
 
 /**
- * Column titles, verbatim from the official OWASP Top 10 for Agentic
+ * Column titles, read from the one code-to-name lookup (`@/lib/owasp/asi`),
+ * which holds them verbatim from the official OWASP Top 10 for Agentic
  * Applications (2026). A code with no title here renders as the bare code
  * rather than as an invented name.
  */
-export const CORE7_TITLES: CategoryTitles = {
-  ASI01: 'Agent Goal Hijack',
-  ASI02: 'Tool Misuse and Exploitation',
-  ASI03: 'Identity and Privilege Abuse',
-  ASI04: 'Agentic Supply Chain Vulnerabilities',
-  ASI05: 'Unexpected Code Execution (RCE)',
-  ASI06: 'Memory & Context Poisoning',
-  ASI10: 'Rogue Agents',
-};
+export const CORE7_TITLES: CategoryTitles = Object.fromEntries(
+  CORE7_AXIS.map((id) => [id, ASI_NAMES[id]]),
+);

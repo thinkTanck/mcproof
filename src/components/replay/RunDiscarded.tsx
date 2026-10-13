@@ -1,5 +1,6 @@
 import { ConnectCta } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
+import { asiLabel } from '@/lib/owasp/asi';
 import {
   DISCARD_STILL_COUNTS_SENTENCE,
   RUN_DISCARDED_LABEL,
@@ -66,7 +67,7 @@ export function RunDiscarded({
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1">
           {category !== undefined && (
             <p className="instrument-faint">
-              SERVED <span className="readout">{category}</span>
+              SERVED <span className="readout">{asiLabel(category)}</span>
             </p>
           )}
           {day !== null && (

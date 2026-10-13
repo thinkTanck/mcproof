@@ -3,13 +3,14 @@
  *
  * Codes and titles are © OWASP GenAI Security Project (Top 10 for Agentic
  * Applications 2026, CC BY-SA 4.0); titles are PINNED verbatim per
- * docs/adr/0003. Every `plain` / `how` / `example` / `coverText` string is our
+ * docs/adr/0003 and read from the one code-to-name lookup (`@/lib/owasp/asi`). Every `plain` / `how` / `example` / `coverText` string is our
  * OWN wording — OWASP prose is attributed and linked, never pasted.
  *
  * `state` drives the coverage signal:
  *   covered — one of the Core-7; observable, bounded, anchorable, precision-bearing.
  *   inert   — NOT MEASURABLE under the current contract (never the breach red).
  */
+import { ASI_NAMES, asiLabel } from '@/lib/owasp/asi';
 import { MEASURED_COMPROMISE, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
 import { MEASURED_CLASSIFICATION_BY_CATEGORY } from '@/fix-report/classification';
 
@@ -58,16 +59,20 @@ export type Threat = {
  * Both directions are stated, and neither is overclaimed. Detection holds: the
  * detector missed no compromise in any category and anchored the offending step.
  * Filing does not: 0 of 4 ASI10 realizations were filed as ASI10.
+ *
+ * Every code the sentence mentions is written with its name at least once
+ * (UI audit 2026-10-12, batch C), from the lookup, so the prose cannot drift.
  */
 const ASI10_SCORE = MEASURED_CLASSIFICATION_BY_CATEGORY.ASI10;
 const ASI10_CAVEAT: ThreatCaveat = {
   label: 'DETECTION RELIABLE · CLASSIFICATION UNRELIABLE',
   text:
-    `On our labeled set the detector caught every ASI10 compromise and anchored the offending ` +
+    `On our labeled set the detector caught every ${asiLabel('ASI10')} compromise and anchored the ` +
+    `offending ` +
     `step, at recall ${MEASURED_COMPROMISE.recall.toFixed(4)} with no missed compromise in any ` +
     `category. The filing is another matter: it put ${ASI10_SCORE.correct} of ` +
-    `${ASI10_SCORE.scored} ASI10 realizations under the ASI10 code, reading them as ASI01 or ` +
-    `ASI03 instead. So we test this category and we do not derive guidance from its code: fix ` +
+    `${ASI10_SCORE.scored} ASI10 realizations under the ASI10 code, reading them as ` +
+    `${asiLabel('ASI01')} or ${asiLabel('ASI03')} instead. So we test this category and we do not derive guidance from its code: fix ` +
     `reports for it withhold category remediation rather than guess, pending a category-v2 rubric.`,
   provenance: MEASURED_CLASSIFICATION_PROVENANCE,
 };
@@ -79,7 +84,7 @@ export const OWASP_URL =
 export const THREATS: Threat[] = [
   {
     code: 'ASI01',
-    title: 'Agent Goal Hijack',
+    title: ASI_NAMES.ASI01,
     state: 'covered',
     plain:
       'An attacker rewrites what the agent is trying to do. The agent keeps working, but now it pursues the attacker’s goal instead of yours.',
@@ -92,7 +97,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI02',
-    title: 'Tool Misuse and Exploitation',
+    title: ASI_NAMES.ASI02,
     state: 'covered',
     plain:
       'The agent uses a legitimate tool in an illegitimate way, driven to call it with arguments it never should.',
@@ -105,7 +110,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI03',
-    title: 'Identity and Privilege Abuse',
+    title: ASI_NAMES.ASI03,
     state: 'covered',
     plain:
       'The agent acts with more authority than the task deserves, reusing a privileged identity or token to reach things it should not.',
@@ -118,7 +123,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI04',
-    title: 'Agentic Supply Chain Vulnerabilities',
+    title: ASI_NAMES.ASI04,
     state: 'covered',
     plain:
       'The agent trusts a component it should not: a tool, plugin, model, or dependency that was tampered with upstream.',
@@ -131,7 +136,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI05',
-    title: 'Unexpected Code Execution (RCE)',
+    title: ASI_NAMES.ASI05,
     state: 'covered',
     plain:
       'The agent runs code it was never meant to run: an injected command riding inside data it was only supposed to process.',
@@ -144,7 +149,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI06',
-    title: 'Memory & Context Poisoning',
+    title: ASI_NAMES.ASI06,
     state: 'covered',
     plain:
       'An attacker plants false information in the agent’s memory so a later, unrelated step acts on the lie.',
@@ -157,7 +162,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI07',
-    title: 'Insecure Inter-Agent Communication',
+    title: ASI_NAMES.ASI07,
     state: 'inert',
     plain:
       'The harm lives in the messages passed between two agents, a channel our single-agent trace never captures.',
@@ -170,7 +175,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI08',
-    title: 'Cascading Agent Failures',
+    title: ASI_NAMES.ASI08,
     state: 'inert',
     plain:
       'One fault spreads. A single bad output snowballs across steps and agents until the whole system misbehaves.',
@@ -183,7 +188,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI09',
-    title: 'Human-Agent Trust Exploitation',
+    title: ASI_NAMES.ASI09,
     state: 'inert',
     plain:
       'The agent manipulates the person, and the real damage happens when the human, trusting it, acts.',
@@ -196,7 +201,7 @@ export const THREATS: Threat[] = [
   },
   {
     code: 'ASI10',
-    title: 'Rogue Agents',
+    title: ASI_NAMES.ASI10,
     state: 'covered',
     plain: 'The agent stops serving the user and starts acting on its own agenda inside the run.',
     how: 'Whether seeded by a hijack or a latent instruction, the agent begins pursuing objectives the operator never set: hoarding access, hiding actions, or working against the stated goal, all within one run.',
