@@ -17,6 +17,24 @@ const BASE_URL = `http://localhost:${PORT}`;
 const WEBKIT_SPECS =
   /(small-text-line-spacing|phone-replay-layout|run-bar-short-screens|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate|large-text-wraps|run-bar-clears-header|phone-run-bar|contrast-text-floor-focus|buttons-targets-nav-skip|words-and-meaning|readability-hierarchy|no-sideways-scroll|replay-rows-no-transition|security-headers)\.spec\.ts$/;
 
+/**
+ * The WebKit specs that put a style tag of their own into the page with
+ * `page.addStyleTag` (a 12px root size, the WCAG 1.4.12 spacing override).
+ *
+ * The site sends a report-only content security policy whose `style-src` wants
+ * a nonce. A test's style tag has none, so WebKit logs "[Report Only] Refused to
+ * apply a stylesheet", and Playwright's WebKit turns that log line into a thrown
+ * `addStyleTag` error although the style was applied. Chromium does not.
+ *
+ * Those style tags are the test's, not something the site loads, so the policy
+ * is not widened for them. These specs run in a WebKit project of their own with
+ * `bypassCSP`, and ONLY these: every other spec, in both engines, runs with the
+ * policy as sent, and `security-headers.spec.ts` must never be listed here. A
+ * new WebKit spec that calls `addStyleTag` goes on this list.
+ */
+const WEBKIT_SPECS_WITH_TEST_STYLES =
+  /(small-text-line-spacing|contrast-text-floor-focus)\.spec\.ts$/;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -43,7 +61,14 @@ export default defineConfig({
     {
       name: 'webkit',
       testMatch: WEBKIT_SPECS,
+      testIgnore: WEBKIT_SPECS_WITH_TEST_STYLES,
       use: { ...devices['iPhone 13'], permissions: [] },
+    },
+    // The same phone, for the specs that inject a style tag. See the list above.
+    {
+      name: 'webkit-test-styles',
+      testMatch: WEBKIT_SPECS_WITH_TEST_STYLES,
+      use: { ...devices['iPhone 13'], permissions: [], bypassCSP: true },
     },
   ],
   webServer: {
