@@ -1,4 +1,4 @@
-import { request as httpRequest } from 'node:http';
+import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -10,7 +10,11 @@ import { expect, test } from '@playwright/test';
 const PORT = Number(process.env.PORT ?? 3000);
 
 function send(method: 'GET' | 'POST', path: string, host: string) {
-  return new Promise<{ status: number; location: string | undefined }>((resolve, reject) => {
+  return new Promise<{
+    status: number;
+    location: string | undefined;
+    headers: IncomingHttpHeaders;
+  }>((resolve, reject) => {
     const req = httpRequest(
       {
         host: 'localhost',
@@ -25,7 +29,11 @@ function send(method: 'GET' | 'POST', path: string, host: string) {
       },
       (res) => {
         res.resume();
-        resolve({ status: res.statusCode ?? 0, location: res.headers.location });
+        resolve({
+          status: res.statusCode ?? 0,
+          location: res.headers.location,
+          headers: res.headers,
+        });
       },
     );
     req.on('error', reject);
@@ -51,6 +59,24 @@ test.describe('the old host', () => {
 
     expect([301, 302, 303, 307, 308]).not.toContain(res.status);
     expect(res.location).toBeUndefined();
+  });
+
+  // Security lane S3: the old endpoint is answered with the base security headers
+  // and none of the page policies, exactly like the endpoint on the new host.
+  test('answers the old endpoint with the base headers and no page policy', async () => {
+    const { headers } = await send(
+      'POST',
+      '/api/mcp/2b1c0e4a-0000-4000-8000-000000000001',
+      'mcpwn.dev',
+    );
+
+    expect(headers['strict-transport-security']).toBe('max-age=63072000; includeSubDomains');
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['x-frame-options']).toBe('DENY');
+    expect(headers['x-powered-by']).toBeUndefined();
+    expect(headers['cross-origin-resource-policy']).toBeUndefined();
+    expect(headers['cross-origin-opener-policy']).toBeUndefined();
+    expect(headers['content-security-policy-report-only']).toBeUndefined();
   });
 
   test('leaves every other host alone', async () => {
