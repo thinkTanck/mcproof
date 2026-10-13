@@ -3,7 +3,13 @@ import Home from '@/app/(hud)/page';
 import { getDataSource } from '@/data/source';
 import { CORE7 } from '@/components/home/core7';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
-import { MEASURED_CLASSIFICATION, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
+import {
+  MEASURED_CLASSIFICATION,
+  MEASURED_CLASSIFICATION_PROVENANCE,
+  MEASURED_COMPROMISE,
+  MEASURED_COMPROMISE_PROVENANCE,
+} from '@/eval/measured';
+import { describeLiveRunAllowance, describeLiveRunAllowanceNote } from '@/runs/allowance';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 
 /**
@@ -116,6 +122,104 @@ describe('Home — category classification is a SECOND, separate measurement', (
   });
 });
 
+describe('Home: the three measured figures share one component (UI audit batch D)', () => {
+  it('draws precision, recall and classification accuracy through Metric, each with its meaning', async () => {
+    await renderHome();
+    const metrics = [...document.querySelectorAll('[data-metric]')];
+    expect(metrics.map((m) => m.getAttribute('data-metric'))).toEqual([
+      'precision',
+      'recall',
+      'classification-accuracy',
+    ]);
+    const value = (id: string) =>
+      document.querySelector(`[data-metric="${id}"] [data-metric-value]`)!.textContent;
+    expect(value('precision')).toBe(MEASURED_COMPROMISE.precision.toFixed(2));
+    expect(value('recall')).toBe(MEASURED_COMPROMISE.recall.toFixed(2));
+    expect(value('classification-accuracy')).toBe(MEASURED_CLASSIFICATION.accuracy.toFixed(2));
+    for (const metric of metrics) {
+      // A label, and a sentence a reader who has never met the word can follow.
+      expect(metric.querySelector('[data-metric-label]')!.textContent!.length).toBeGreaterThan(3);
+      expect(metric.querySelector('[data-metric-meaning]')!.textContent).toMatch(/^Of the /);
+    }
+    // No figure is drawn outside the component at a size of its own.
+    const classes = (selector: string) =>
+      new Set([...document.querySelectorAll(selector)].map((el) => el.className));
+    expect(classes('[data-metric-value]').size).toBe(1);
+    expect(classes('[data-metric-label]').size).toBe(1);
+    expect(classes('[data-metric-meaning]').size).toBe(1);
+  });
+
+  it('never calls the classification figure plain "accuracy"', async () => {
+    await renderHome();
+    const label = document.querySelector(
+      '[data-metric="classification-accuracy"] [data-metric-label]',
+    )!;
+    expect(label).toHaveTextContent(/^category classification accuracy$/i);
+  });
+
+  it('keeps the two measurements in two groups, each with its own provenance line', async () => {
+    await renderHome();
+    const compromise = screen.getByRole('group', { name: /compromise detection/i });
+    const classification = screen.getByRole('group', { name: /category classification/i });
+    expect(compromise).not.toBe(classification);
+    expect(compromise.contains(classification)).toBe(false);
+    expect(classification.contains(compromise)).toBe(false);
+    // Number and provenance move together: each group holds its own line.
+    expect(within(compromise).getByText(MEASURED_COMPROMISE_PROVENANCE)).toBeInTheDocument();
+    expect(
+      within(classification).getByText(MEASURED_CLASSIFICATION_PROVENANCE),
+    ).toBeInTheDocument();
+    expect(within(compromise).queryByText(MEASURED_CLASSIFICATION_PROVENANCE)).toBeNull();
+    expect(within(classification).queryByText(MEASURED_COMPROMISE_PROVENANCE)).toBeNull();
+    expect(compromise.querySelectorAll('[data-metric]')).toHaveLength(2);
+    expect(classification.querySelectorAll('[data-metric]')).toHaveLength(1);
+    // The denominator the classification figure was scored over stays on screen.
+    expect(classification).toHaveTextContent(/n=22 scored/);
+  });
+
+  it('puts "Read full results" after the figures, as the only thing in its block', async () => {
+    await renderHome();
+    const link = screen.getByRole('link', { name: /^read full results/i });
+    const last = [...document.querySelectorAll('[data-metric]')].at(-1)!;
+    expect(last.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A block of its own: not a link inside a sentence, and not inline.
+    expect(link.closest('p')).toBeNull();
+    expect(link.className.split(/\s+/)).toContain('flex');
+    expect(link.className.split(/\s+/)).toContain('underline');
+    // One link to the writeup on the page, not one under the finding and another here.
+    expect(document.querySelectorAll('a[href$="RESULTS.md"]')).toHaveLength(1);
+  });
+});
+
+describe('Home: the free-runs note beside "Connect your agent" (UI audit batch D)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ['unset', undefined],
+    ['0', '0'],
+    ['empty', ''],
+    ['not a number', 'lots'],
+  ])('is not drawn when LIVE_RUN_ALLOWANCE is %s', async (_name, raw) => {
+    if (raw === undefined) delete process.env.LIVE_RUN_ALLOWANCE;
+    else vi.stubEnv('LIVE_RUN_ALLOWANCE', raw);
+    await renderHome();
+    expect(document.querySelector('[data-free-runs-note]')).toBeNull();
+    expect(screen.queryByText(/free live run/i)).toBeNull();
+  });
+
+  it('is drawn from the configured value, in the block that holds the call to action', async () => {
+    vi.stubEnv('LIVE_RUN_ALLOWANCE', '7');
+    await renderHome();
+    const note = document.querySelector('[data-free-runs-note]')!;
+    expect(note).toHaveTextContent(describeLiveRunAllowanceNote({ LIVE_RUN_ALLOWANCE: '7' })!);
+    expect(note).toHaveTextContent(describeLiveRunAllowance(7));
+    const cta = screen.getByRole('link', { name: 'Connect your agent' });
+    // The same block, and after the button: it is read as a note on the action.
+    expect(note.parentElement!.contains(cta)).toBe(true);
+    expect(cta.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe('Home — Core-7 list', () => {
   it('lists all seven Core-7 categories with their pinned ids + titles', async () => {
     await renderHome();
@@ -192,7 +296,12 @@ describe('Home — the featured ASI02 finding', () => {
 
   it('offers a one-click link to the full RESULTS writeup', async () => {
     await renderHome();
-    const results = screen.getByRole('link', { name: /read the full results/i });
+    const results = screen.getByRole('link', { name: /^read full results/i });
+    // The words on screen are the start of its name, and the name says results
+    // of what and where they are, for a reader who meets the link out of context.
+    expect(results).toHaveAccessibleName(/measured results/i);
+    expect(results).toHaveAccessibleName(/github/i);
+    expect(results).toHaveAttribute('data-results-link');
     expect(results).toHaveAttribute(
       'href',
       'https://github.com/thinkTanck/mcproof/blob/main/RESULTS.md',

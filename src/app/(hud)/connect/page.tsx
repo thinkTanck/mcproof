@@ -16,6 +16,7 @@ import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { sampleRun } from '@/data/source';
 import { buildHostedSurface } from '@/harness/server/surfaces';
 import { getUser } from '@/lib/auth/user';
+import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 
 export const metadata: Metadata = {
   title: 'Connect / Run Setup · MCProof',
@@ -45,6 +46,11 @@ export const metadata: Metadata = {
  * the real server actions are attached to it. The actions go down as
  * props; `ConnectScreen` adapts them through `createConnectLiveRunPort` and the
  * console never learns the server's shape.
+ *
+ * THE FREE-RUNS NOTE is resolved here as well, for the same reason the session
+ * is: the count is server configuration (`LIVE_RUN_ALLOWANCE`, never
+ * `NEXT_PUBLIC_`). Only the finished sentence goes down, or nothing when no
+ * count is configured.
  *
  * The actions are passed rather than imported by the client component because
  * `@/app/actions/live-run` is a `'use server'` module: importing it from the
@@ -99,6 +105,7 @@ export default async function ConnectPage({
       sampleRunIds={sampleRunIds}
       categoryGoals={categoryGoals}
       sampleProvenance={SAMPLE_VERDICT_PROVENANCE}
+      freeRunsNote={describeLiveRunAllowanceNote()}
       liveActions={{
         start: startLiveRun,
         status: getLiveRunStatus,

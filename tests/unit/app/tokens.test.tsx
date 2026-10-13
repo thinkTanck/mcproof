@@ -629,6 +629,50 @@ describe('DTCG token layer (globals.css)', () => {
       expect(offenders).toEqual([]);
     });
   });
+
+  describe('HEADLINE LINE-HEIGHT: 1.2 to 1.3, from tokens (UI audit 2026-10-12, batch D)', () => {
+    // A headline that wraps needs room between its lines. The page headline was
+    // at 1.1, where the descenders of one line touch the capitals of the next,
+    // and the smallest heading was at 1.35. Each heading role now reads its
+    // line-height from a token of its own, and every one sits in the band.
+    const HEADINGS = ['h1', 'h2', 'h3'] as const;
+    const body = (selector: string): string => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = cssNoComments.match(new RegExp(`(?:^|[}{;])\\s*${escaped}\\s*\\{([^}]*)\\}`));
+      return must(match?.[1], `no rule for ${selector} in globals.css`);
+    };
+
+    it.each(HEADINGS)('--reading-%s-line is a bare ratio between 1.2 and 1.3', (h) => {
+      const value = must(vars.get(`--reading-${h}-line`), `--reading-${h}-line defined`);
+      // Unitless on purpose: a ratio follows the heading's own size at any zoom.
+      expect(value).toMatch(/^\d(\.\d+)?$/);
+      expect(parseFloat(value)).toBeGreaterThanOrEqual(1.2);
+      expect(parseFloat(value)).toBeLessThanOrEqual(1.3);
+    });
+
+    it.each(HEADINGS)('.reading-%s takes its line-height from its token, not a literal', (h) => {
+      const lineHeight = must(
+        body(`.reading-${h}`).match(/line-height:\s*([^;]+);/)?.[1],
+        `.reading-${h} line-height`,
+      );
+      expect(lineHeight.trim()).toBe(`var(--reading-${h}-line)`);
+    });
+
+    it('a larger heading is never looser than a smaller one', () => {
+      const ratio = (h: string) => parseFloat(must(vars.get(`--reading-${h}-line`), h));
+      expect(ratio('h1')).toBeLessThanOrEqual(ratio('h2'));
+      expect(ratio('h2')).toBeLessThanOrEqual(ratio('h3'));
+    });
+
+    it('a focal value is not a headline: DISPLAY keeps its own tight line', () => {
+      // The step numeral and the one-line readouts are sized by one line.
+      expect(vars.get('--display-line')).toBe('1.05');
+    });
+
+    it('body prose keeps its own, looser line', () => {
+      expect(vars.get('--reading-line')).toBe('1.6');
+    });
+  });
 });
 
 describe('error boundaries consume only defined tokens', () => {

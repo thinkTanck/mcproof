@@ -7,6 +7,7 @@ import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
+import { REPLAY_KEY_ID, ReplayKey, transcriptKeyEntries } from './ReplayKey';
 import { useReplayLayout } from './phone-layout';
 
 /**
@@ -24,6 +25,15 @@ import { useReplayLayout } from './phone-layout';
  * so it sends the transport in both places and CSS shows the one that fits (no
  * reflow on hydration); once the browser answers, only that one is kept. From
  * 768px up nothing here applies and the replay is as it was.
+ *
+ * THE COLOUR KEY (UI audit 2026-10-12, batch D) is the LAST thing on the stage,
+ * under the step detail, at every width. The transcript draws its prompts in
+ * one colour, its step text in another and the compromise step in red with a
+ * diamond, and the key says so in words. Last, so it pushes nothing down: the
+ * terminal, the controls, the verdict and the step detail are where they
+ * were, on a phone as well. The transcript's list points at it with
+ * `aria-describedby`. It is static text and not a live region; the step detail
+ * stays the one live region here.
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -177,6 +187,8 @@ export function Replay({
         {layout !== 'phone' && transport('wide', 'phone:hidden')}
 
         <StepDetail step={step} index={current} compromised={compromised} />
+
+        <ReplayKey id={REPLAY_KEY_ID} entries={transcriptKeyEntries()} />
       </div>
     </div>
   );

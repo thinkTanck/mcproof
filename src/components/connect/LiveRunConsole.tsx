@@ -42,6 +42,7 @@ import {
 } from './live-run-port';
 import type { Category, VariantKind } from '@/contract';
 import { asiLabel } from '@/lib/owasp/asi';
+import { FreeRunsNote } from '@/components/hud/FreeRunsNote';
 
 /**
  * THE LIVE CONSOLE — the Connect screen under the inverted model
@@ -250,7 +251,14 @@ export function LiveRunConsole({
   onDiscardedChange,
   onBarChange,
   barSlot = null,
+  freeRunsNote,
 }: {
+  /**
+   * How many free live runs an account gets, as a sentence the route read on
+   * the server, or nothing when no count is configured. Drawn by the control
+   * that starts a live run: the sign-in gate, and the button that issues one.
+   */
+  freeRunsNote?: string | null;
   /**
    * Told whether the run bar is drawn. The bar carries the id the skip link
    * goes to (`run-controls.ts`); while there is none, the screen puts that id
@@ -596,7 +604,7 @@ export function LiveRunConsole({
     return () => onBarChange?.(false);
   }, [barPresent, onBarChange]);
 
-  if (!signedIn) return <SignInGate />;
+  if (!signedIn) return <SignInGate freeRunsNote={freeRunsNote} />;
 
   // The refusal and reopening notices are written into regions that every
   // signed-in branch below renders in the same place, so they stay mounted while
@@ -632,7 +640,7 @@ export function LiveRunConsole({
     return withNotices(
       <div className="flex flex-col gap-5">
         {reattachRefusal !== null && <ReattachRefused refusal={reattachRefusal} />}
-        <BeforeIssue onIssue={issue} issuing={issuing} kind={kind} />
+        <BeforeIssue onIssue={issue} issuing={issuing} kind={kind} freeRunsNote={freeRunsNote} />
       </div>,
     );
   }
@@ -767,24 +775,29 @@ export function LiveRunConsole({
 
 // ── Signed out ──
 
-function SignInGate() {
+function SignInGate({ freeRunsNote }: { freeRunsNote?: string | null }) {
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4">
-      <div className="min-w-[220px] flex-1">
-        <p className="micro-label text-caution">SIGN IN TO RUN LIVE</p>
-        <p className="reading measure mt-1.5">
-          A live run hosts an endpoint for your account and spends operator budget on the judge, so
-          it needs an account. Sample playback needs no sign-in and no key.
-        </p>
-      </div>
-      {/* Back to this screen afterwards. A bare /sign-in lands on /account,
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4">
+        <div className="min-w-[220px] flex-1">
+          <p className="micro-label text-caution">SIGN IN TO RUN LIVE</p>
+          <p className="reading measure mt-1.5">
+            A live run hosts an endpoint for your account and spends operator budget on the judge,
+            so it needs an account. Sample playback needs no sign-in and no key.
+          </p>
+        </div>
+        {/* Back to this screen afterwards. A bare /sign-in lands on /account,
           and someone who signed in to run live had to find their way back. */}
-      <Link
-        href="/sign-in?next=%2Fconnect"
-        className="min-h-11 shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] leading-6 tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10"
-      >
-        SIGN IN
-      </Link>
+        <Link
+          href="/sign-in?next=%2Fconnect"
+          className="min-h-11 shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] leading-6 tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10"
+        >
+          SIGN IN
+        </Link>
+      </div>
+      {/* Under the gate and outside its caution box: it is a plain note on what
+        signing in gets, not part of the warning. Nothing when no count is set. */}
+      <FreeRunsNote text={freeRunsNote} />
     </div>
   );
 }
@@ -795,10 +808,12 @@ function BeforeIssue({
   onIssue,
   issuing,
   kind,
+  freeRunsNote,
 }: {
   onIssue: () => void;
   issuing: boolean;
   kind: VariantKind;
+  freeRunsNote?: string | null;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -828,6 +843,9 @@ function BeforeIssue({
           {issuing ? 'ISSUING' : 'ISSUE RUN ENDPOINT'}
         </button>
       </div>
+      {/* Directly under the button that spends one. It states the limit for any
+          account, never what this account has left: no usage is read here. */}
+      <FreeRunsNote text={freeRunsNote} />
     </div>
   );
 }

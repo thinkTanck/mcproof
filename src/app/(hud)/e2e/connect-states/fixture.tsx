@@ -26,9 +26,15 @@ import type { ConnectLiveRunPort, LiveRunPhase } from '@/components/connect/live
 export function ConnectStatesFixture({
   state,
   categoryGoals,
+  signedIn = true,
+  freeRunsNote,
 }: {
   state: string;
   categoryGoals?: CategoryGoals;
+  /** Signed out draws the sign-in gate in live mode. Signed in unless told. */
+  signedIn?: boolean;
+  /** The free-runs sentence to hand the screen, for the fixture that shows it. */
+  freeRunsNote?: string | null;
 }) {
   const phase: LiveRunPhase = state === 'connected' ? 'connected' : 'waiting';
   const expiresAt = state === 'expired' ? '2000-01-01T00:00:00.000Z' : '2999-01-01T00:00:00.000Z';
@@ -84,5 +90,12 @@ export function ConnectStatesFixture({
     [phase, expiresAt],
   );
 
-  return <ConnectScreen signedIn livePort={port} categoryGoals={categoryGoals} />;
+  return (
+    <ConnectScreen
+      signedIn={signedIn}
+      livePort={port}
+      categoryGoals={categoryGoals}
+      freeRunsNote={freeRunsNote}
+    />
+  );
 }

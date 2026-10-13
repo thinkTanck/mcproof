@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { stepColorToken } from '@/lib/hud/trace-view';
 import type { Step } from '@/contract';
 import { asiLabel } from '@/lib/owasp/asi';
+import { HERO_KEY_ID, ReplayKey, heroKeyEntries } from '@/components/replay/ReplayKey';
 import { core7RowId } from './core7';
 
 /**
@@ -23,6 +24,14 @@ import { core7RowId } from './core7';
  * animation only adds a traveling sweep of emphasis over an already-complete
  * picture. Step numerals are rendered at their final value and never counted or
  * animated (they are evidence, not a magnitude).
+ *
+ * THE DOTS HAVE A KEY (UI audit 2026-10-12, batch D). Each dot is coloured by
+ * the kind of step it is, and nothing said which colour is which. A key is
+ * drawn directly under the box: one entry for each dot colour this trace uses,
+ * then the breach reticle. It is OUTSIDE the box on purpose. The box is one
+ * picture with a text alternative, and what is inside a picture is not read;
+ * the picture points at the key with `aria-describedby`, once, so the key is
+ * its description. Static text, never a live region.
  */
 
 /** How long after the node above it each node lights, in seconds. */
@@ -68,12 +77,14 @@ export function HeroReplay({
   const summary = `${asiLabel(category)} sample replay: ${total} steps, an out-of-scope ${offendingTool} at step ${compromiseIndex} lights as the breach.`;
 
   return (
-    <div
-      role="img"
-      aria-label={summary}
-      className="relative overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
-    >
-      {/* THE FRAME ACCENT. One dim cyan light that goes round the box's border,
+    <>
+      <div
+        role="img"
+        aria-label={summary}
+        aria-describedby={HERO_KEY_ID}
+        className="relative overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
+      >
+        {/* THE FRAME ACCENT. One dim cyan light that goes round the box's border,
           once every 14.4 seconds: the cue that this is a readout and not a
           picture. It is kept well under the breach marker, which is the one loud
           thing in this box: two pixels thick, a sliver of the border and
@@ -82,139 +93,141 @@ export function HeroReplay({
           It is laid over the box, out of the flow, so it cannot change the box's
           size, and it moves by transform alone. Under reduced motion it is not
           drawn at all (`.hero-frame-accent` in globals.css). */}
-      <span aria-hidden="true" data-testid="hero-frame-accent" className="hero-frame-accent">
-        <span className="hero-frame-accent-light" />
-      </span>
+        <span aria-hidden="true" data-testid="hero-frame-accent" className="hero-frame-accent">
+          <span className="hero-frame-accent-light" />
+        </span>
 
-      {/* Honest eyebrow: this is a RECORDED constructed sample, never a live run.
+        {/* Honest eyebrow: this is a RECORDED constructed sample, never a live run.
           No green "live" dot, consistent with how the rest of the site labels a
           constructed demonstration. */}
-      <div aria-hidden="true" className="mb-3 flex items-center justify-between gap-2">
-        {/* One line beside the RECORDED pill, with no room for the category's
+        <div aria-hidden="true" className="mb-3 flex items-center justify-between gap-2">
+          {/* One line beside the RECORDED pill, with no room for the category's
             name, so the code points at its row in the launcher directly under
             this box, where the name is drawn. */}
-        <span
-          aria-describedby={core7RowId(category)}
-          className="font-mono text-(length:--text-floor) uppercase tracking-[0.14em] text-nominal"
-        >
-          {category} · sample replay
-        </span>
-        <span className="rounded-full border border-line px-2 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint">
-          Recorded
-        </span>
-      </div>
+          <span
+            aria-describedby={core7RowId(category)}
+            className="font-mono text-(length:--text-floor) uppercase tracking-[0.14em] text-nominal"
+          >
+            {category} · sample replay
+          </span>
+          <span className="rounded-full border border-line px-2 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint">
+            Recorded
+          </span>
+        </div>
 
-      {/* The rail is the content. A thin spine threads the step nodes into one
+        {/* The rail is the content. A thin spine threads the step nodes into one
           signal trace, and the breach node breaks it: a larger reticle, a red
           band and a bolder label make the compromise the focal point. */}
-      <ol aria-hidden="true" className="relative flex flex-col">
-        {steps.map((step, i) => {
-          const breach = i + 1 === compromiseIndex;
-          const id = `s${i + 1}`;
-          const isFirst = i === 0;
-          const isLast = i === total - 1;
-          // Stagger the sweep so one pulse of light travels down the rail: each
-          // node lights 0.15s after the one above it, so eight nodes take about
-          // a second, and the loop (3.2s, in globals.css) rests for as long
-          // again. It was 0.42s on a 4.6s loop, which read as nodes blinking in
-          // turn. The delay is the only per-node inline style, and it does
-          // nothing under reduced motion.
-          const delay = `${(i * SWEEP_STAGGER_SECONDS).toFixed(2)}s`;
-          // The spine segment for this row, capped cleanly at the first/last node.
-          const spine =
-            total === 1
-              ? 'hidden'
-              : isFirst
-                ? 'top-1/2 bottom-0'
-                : isLast
-                  ? 'top-0 bottom-1/2'
-                  : 'inset-y-0';
-          return (
-            <li
-              key={step.id}
-              data-testid="hero-step"
-              data-breach={breach ? 'true' : 'false'}
-              className={cn('flex items-center gap-3 rounded-md', breach ? 'py-1.5' : 'py-[3px]')}
-              style={
-                breach
-                  ? { backgroundColor: 'color-mix(in srgb, var(--red-400) 9%, transparent)' }
-                  : undefined
-              }
-            >
-              <div className="relative flex w-5 shrink-0 items-center justify-center self-stretch">
-                <span
-                  aria-hidden="true"
-                  className={cn('absolute left-1/2 w-px -translate-x-1/2 bg-line', spine)}
-                />
-                {breach ? (
+        <ol aria-hidden="true" className="relative flex flex-col">
+          {steps.map((step, i) => {
+            const breach = i + 1 === compromiseIndex;
+            const id = `s${i + 1}`;
+            const isFirst = i === 0;
+            const isLast = i === total - 1;
+            // Stagger the sweep so one pulse of light travels down the rail: each
+            // node lights 0.15s after the one above it, so eight nodes take about
+            // a second, and the loop (3.2s, in globals.css) rests for as long
+            // again. It was 0.42s on a 4.6s loop, which read as nodes blinking in
+            // turn. The delay is the only per-node inline style, and it does
+            // nothing under reduced motion.
+            const delay = `${(i * SWEEP_STAGGER_SECONDS).toFixed(2)}s`;
+            // The spine segment for this row, capped cleanly at the first/last node.
+            const spine =
+              total === 1
+                ? 'hidden'
+                : isFirst
+                  ? 'top-1/2 bottom-0'
+                  : isLast
+                    ? 'top-0 bottom-1/2'
+                    : 'inset-y-0';
+            return (
+              <li
+                key={step.id}
+                data-testid="hero-step"
+                data-breach={breach ? 'true' : 'false'}
+                className={cn('flex items-center gap-3 rounded-md', breach ? 'py-1.5' : 'py-[3px]')}
+                style={
+                  breach
+                    ? { backgroundColor: 'color-mix(in srgb, var(--red-400) 9%, transparent)' }
+                    : undefined
+                }
+              >
+                <div className="relative flex w-5 shrink-0 items-center justify-center self-stretch">
                   <span
-                    data-testid="hero-breach-marker"
-                    className="hero-breach-dot relative z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[var(--surface-base)]"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                      <circle
-                        cx="9"
-                        cy="9"
-                        r="7"
-                        fill="none"
-                        stroke="var(--status-breach)"
-                        strokeWidth="1.4"
-                      />
-                      <circle cx="9" cy="9" r="2.6" fill="var(--status-breach)" />
-                      <path
-                        d="M9 0.5v2.4M9 15.1v2.4M0.5 9h2.4M15.1 9h2.4"
-                        stroke="var(--status-breach)"
-                        strokeWidth="1.2"
-                      />
-                    </svg>
-                  </span>
-                ) : (
-                  // 13px, up from 10: large enough for the passing sweep to read.
-                  // Still well under the 18px breach reticle, which stays the one
-                  // loud node on the rail, and still shorter than the row's line
-                  // of text, so no row grows to hold it.
-                  <span className="relative z-10 flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[var(--surface-base)]">
+                    aria-hidden="true"
+                    className={cn('absolute left-1/2 w-px -translate-x-1/2 bg-line', spine)}
+                  />
+                  {breach ? (
                     <span
-                      aria-hidden="true"
-                      className="hero-sweep absolute inset-[-8px] rounded-full"
-                      style={{
-                        background:
-                          'radial-gradient(circle, color-mix(in srgb, var(--cyan-300) 70%, transparent), transparent 70%)',
-                        animationDelay: delay,
-                      }}
-                    />
-                    <span
-                      className="relative h-[13px] w-[13px] rounded-full"
-                      style={{ background: stepColorToken(step.type) }}
-                    />
-                  </span>
-                )}
-              </div>
-              <span
-                className={cn(
-                  'w-[22px] shrink-0 font-mono text-(length:--text-floor) tabular-nums',
-                  breach ? 'text-breach-text' : 'text-ink-muted',
-                )}
-              >
-                {id}
-              </span>
-              <span
-                className={cn(
-                  'min-w-0 flex-1 font-mono text-[13px] [overflow-wrap:anywhere]',
-                  breach ? 'font-semibold text-breach-text' : 'text-ink',
-                )}
-              >
-                {label(step)}
-              </span>
-              {breach && (
-                <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.1em] text-breach-text">
-                  Breach
+                      data-testid="hero-breach-marker"
+                      className="hero-breach-dot relative z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[var(--surface-base)]"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                        <circle
+                          cx="9"
+                          cy="9"
+                          r="7"
+                          fill="none"
+                          stroke="var(--status-breach)"
+                          strokeWidth="1.4"
+                        />
+                        <circle cx="9" cy="9" r="2.6" fill="var(--status-breach)" />
+                        <path
+                          d="M9 0.5v2.4M9 15.1v2.4M0.5 9h2.4M15.1 9h2.4"
+                          stroke="var(--status-breach)"
+                          strokeWidth="1.2"
+                        />
+                      </svg>
+                    </span>
+                  ) : (
+                    // 13px, up from 10: large enough for the passing sweep to read.
+                    // Still well under the 18px breach reticle, which stays the one
+                    // loud node on the rail, and still shorter than the row's line
+                    // of text, so no row grows to hold it.
+                    <span className="relative z-10 flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[var(--surface-base)]">
+                      <span
+                        aria-hidden="true"
+                        className="hero-sweep absolute inset-[-8px] rounded-full"
+                        style={{
+                          background:
+                            'radial-gradient(circle, color-mix(in srgb, var(--cyan-300) 70%, transparent), transparent 70%)',
+                          animationDelay: delay,
+                        }}
+                      />
+                      <span
+                        className="relative h-[13px] w-[13px] rounded-full"
+                        style={{ background: stepColorToken(step.type) }}
+                      />
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    'w-[22px] shrink-0 font-mono text-(length:--text-floor) tabular-nums',
+                    breach ? 'text-breach-text' : 'text-ink-muted',
+                  )}
+                >
+                  {id}
                 </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </div>
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 font-mono text-[13px] [overflow-wrap:anywhere]',
+                    breach ? 'font-semibold text-breach-text' : 'text-ink',
+                  )}
+                >
+                  {label(step)}
+                </span>
+                {breach && (
+                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.1em] text-breach-text">
+                    Breach
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <ReplayKey id={HERO_KEY_ID} entries={heroKeyEntries(steps)} />
+    </>
   );
 }

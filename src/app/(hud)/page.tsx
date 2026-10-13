@@ -1,9 +1,9 @@
-import Link from 'next/link';
 import { REPO_URL } from '@/config/repo';
-import { ConnectCta } from '@/components/hud';
+import { Metric } from '@/components/hud/Metric';
 import { OwaspBadge, OwaspExplainer } from '@/components/hud/OwaspTopTen';
 import { Core7List } from '@/components/home/Core7List';
 import { HeroReplay } from '@/components/home/HeroReplay';
+import { HomeCtas } from '@/components/home/HomeCtas';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
@@ -14,7 +14,7 @@ import {
   MEASURED_COMPROMISE_PROVENANCE,
 } from '@/eval/measured';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
-import { asiLabel } from '@/lib/owasp/asi';
+import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 import type { RunResult, Step } from '@/contract';
 
 /**
@@ -42,13 +42,23 @@ import type { RunResult, Step } from '@/contract';
  * merge and the weaker figure disappears behind the stronger one. Both live in
  * `@/eval/measured`, each welded to its own provenance line; neither may be
  * edited here.
+ *
+ * ONE COMPONENT DRAWS ALL THREE FIGURES, AT ONE SIZE (UI audit 2026-10-12,
+ * batch D): `Metric`, a label, the value and a plain sentence saying what the
+ * value measures. The classification figure used to be a size smaller, to mark
+ * it as the lesser claim; a reader took the smaller number for a footnote. What
+ * keeps the two measurements apart now is what always did the real work: two
+ * groups, two names, two provenance lines, and a label that says "category
+ * classification accuracy" and never plain "accuracy".
  */
 
 /**
- * The full v1 results writeup, one click away from the finding and the CTAs. It
- * lives at the repo root, so the link is the canonical GitHub blob URL rather than
- * an app route: the finding on screen is a summary, and the provenance the summary
- * leans on (subject model, per-run trace ids, how to reproduce) lives there.
+ * The full v1 results writeup. It lives at the repo root, so the link is the
+ * canonical GitHub blob URL rather than an app route: the finding and the
+ * figures on screen are a summary, and what they lean on (subject model,
+ * per-run trace ids, both measurements with their provenance, how to
+ * reproduce) lives there. The app has no results page of its own, and none is
+ * invented here.
  */
 const RESULTS_URL = `${REPO_URL}/blob/main/RESULTS.md`;
 
@@ -99,6 +109,9 @@ export default async function Home() {
   const first = steps[0];
   const last = steps[total - 1];
   const { index: compromiseIndex, tool: offendingTool } = compromise(sample);
+  // How many free live runs an account gets, as a sentence, read here on the
+  // server. Nothing when no count is configured, and then no note is drawn.
+  const freeRunsNote = describeLiveRunAllowanceNote();
 
   return (
     <div className="flex min-h-[calc(100dvh-62px)] items-start lg:items-center">
@@ -133,7 +146,7 @@ export default async function Home() {
               <OwaspExplainer className="flex-1 basis-[17rem]" />
             </div>
 
-            <p className="reading">
+            <p className="reading measure">
               Most tools only <span className="text-ink-muted">guess</span> whether an agent was
               compromised. We tested our detector against attacks with known outcomes and{' '}
               <span className="font-semibold text-nominal">measured</span> how accurate it is, so
@@ -144,25 +157,17 @@ export default async function Home() {
                 model, never a prediction about the reader's own agent. framing.test.tsx
                 forbids rate/prediction claims about "agents" in general and any promise
                 about "your agent"; this names one frontier model and what it did in a
-                run set we measured, with the full provenance one click away in RESULTS.md.
-                It is not a status chip, so it carries no tri-state glow: red is reserved
+                run set we measured, with the full provenance in RESULTS.md, which
+                "Read full results" under the figures opens. It is not a status chip, so it carries no tri-state glow: red is reserved
                 for a live breach indicator, not a summary statistic. */}
             <div className="border-l-2 border-nominal/50 pl-3">
-              <p className="reading">
+              <p className="reading measure">
                 <span className="micro-label text-nominal">Measured finding</span> Asked to fetch
                 the invoice for a single customer account, a frontier agent performed an
                 out-of-scope read on an unscoped path, which in this simulated environment returns a
                 fabricated credential preview; the read occurred in 5 of 10 in a clean single sweep
                 and 6 of 10 in a prior run, every instance Critical.
               </p>
-              <a
-                href={RESULTS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.06em] text-nominal hover:underline"
-              >
-                Read the full results →
-              </a>
             </div>
 
             {/* THE COMPROMISE CALL — "was this run compromised", scored over every labeled
@@ -173,54 +178,70 @@ export default async function Home() {
 
                 Provenance leads; the numbers render at their FINAL value immediately (SSR +
                 client), NEVER counting up: this claim is the evidence of the core promise,
-                so a transient "0.00 precision" would assert the opposite. */}
+                so a transient "0.00 precision" would assert the opposite.
+
+                Each figure is drawn by Metric, with a sentence saying what it
+                measures: "precision" and "recall" are words a first-time reader
+                has to look up, and which of the two is which is the whole
+                meaning of the pair. */}
             <div
               role="group"
               aria-labelledby="metric-compromise-label"
+              data-metric-group="compromise"
               className="border-t border-line pt-3"
             >
-              <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
+              <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
                 <span id="metric-compromise-label" className="micro-label text-nominal">
                   Compromise detection
                 </span>
-                <span className="instrument-faint">{MEASURED_COMPROMISE_PROVENANCE}</span>
-              </div>
-              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-                <span className="whitespace-nowrap">
-                  <span className="display-lg font-sans">
-                    {MEASURED_COMPROMISE.precision.toFixed(2)}
-                  </span>
-                  <span className="instrument ml-2">precision</span>
-                </span>
-                <span className="whitespace-nowrap">
-                  <span className="display-lg font-sans">
-                    {MEASURED_COMPROMISE.recall.toFixed(2)}
-                  </span>
-                  <span className="instrument ml-2">recall</span>
+                <span data-metric-provenance="" className="instrument-faint">
+                  {MEASURED_COMPROMISE_PROVENANCE}
                 </span>
               </div>
+              <dl className="flex flex-col gap-3">
+                <Metric
+                  id="precision"
+                  label="Precision"
+                  value={MEASURED_COMPROMISE.precision.toFixed(2)}
+                  meaning="Of the runs the detector flagged as compromised, the share that really were."
+                />
+                <Metric
+                  id="recall"
+                  label="Recall"
+                  value={MEASURED_COMPROMISE.recall.toFixed(2)}
+                  meaning="Of the runs that really were compromised, the share the detector flagged."
+                />
+              </dl>
             </div>
 
-            {/* A SECOND measurement, deliberately in its own labelled group and at a smaller
-                DISPLAY size. It answers a different question over a different denominator, so
-                it must not sit in the row above as if it were a third view of one number.
-                Subordinate in size because the product's claim is the compromise call; this
-                qualifies which Core-7 code that compromise is filed under. */}
+            {/* A SECOND measurement, deliberately in its own labelled group. It answers a
+                different question over a different denominator, so it must not sit in the
+                group above as if it were a third view of one number. Its own name, its own
+                provenance line (which quotes its own denominator, n=22 scored), and a label
+                that says what kind of accuracy it is. The same component at the same size
+                as the two above: what separates them is the group, not the type size. */}
             <div
               role="group"
               aria-labelledby="metric-classification-label"
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-(--instrument-stack-rows) border-t border-line/60 pt-3"
+              data-metric-group="classification"
+              className="border-t border-line/60 pt-3"
             >
-              <span id="metric-classification-label" className="micro-label">
-                Category classification
-              </span>
-              <span className="whitespace-nowrap">
-                <span className="display-md font-sans">
-                  {MEASURED_CLASSIFICATION.accuracy.toFixed(2)}
+              <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
+                <span id="metric-classification-label" className="micro-label">
+                  Category classification
                 </span>
-                <span className="instrument ml-2">accuracy</span>
-              </span>
-              <span className="instrument-faint">{MEASURED_CLASSIFICATION_PROVENANCE}</span>
+                <span data-metric-provenance="" className="instrument-faint">
+                  {MEASURED_CLASSIFICATION_PROVENANCE}
+                </span>
+              </div>
+              <dl className="flex flex-col gap-3">
+                <Metric
+                  id="classification-accuracy"
+                  label="Category classification accuracy"
+                  value={MEASURED_CLASSIFICATION.accuracy.toFixed(2)}
+                  meaning="Of the real compromises the detector caught, the share it filed under the right category."
+                />
+              </dl>
             </div>
 
             {/* THE CONDITION BOTH FIGURES CARRY. Stated once, in prose, because a
@@ -228,46 +249,44 @@ export default async function Home() {
                 product rather than of one pinned judge. It names no model and no
                 temperature: the provenance lines above already carry the judge, and
                 re-typing a config value here would give it a second place to drift. */}
-            <p className="reading text-ink-muted">
+            <p className="reading measure text-ink-muted">
               Both figures hold only for the frozen judge named in their provenance lines. Change
               the rubric, the model or the temperature and they are void until re-measured.
             </p>
+
+            {/* THE FULL RESULTS, on a line of their own under the figures (UI audit
+                2026-10-12, batch D). It was a small mono line under the finding, with
+                no underline until hovered. It is a block now, so nothing shares its
+                line; underlined, so it is a link by more than its colour; and at least
+                `--target-min` tall. The words on screen start its name, and the rest
+                of the name, kept for a screen reader, says results of what and where
+                the link goes: read out of context, "Read full results" alone says
+                neither. It leaves the app, so it opens beside it. */}
+            <a
+              href={RESULTS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-results-link=""
+              className="flex min-h-(--target-min) w-fit items-center gap-2 font-mono text-[14px] tracking-[0.06em] text-nominal underline underline-offset-4 transition-colors hover:text-readout"
+            >
+              Read full results
+              <span className="sr-only">: the measured results writeup, on GitHub</span>
+              <span aria-hidden="true">→</span>
+            </a>
 
             {/* BOTH OUTCOMES, NAMED ONCE, NEITHER MARKED AS EXPECTED. The full paragraph
                 that used to carry this was low-contrast and sat between the finding and
                 the numbers; this states the same two-results honesty in one line so the
                 finding leads. framing.test.tsx holds that both outcomes stay named. */}
-            <p className="reading">
+            <p className="reading measure">
               Every run resolves one of two ways: a compromise becomes a fix report anchored to the
               offending step, and a clean run lands on the robustness leaderboard. Which one is
               measured, not predicted.
             </p>
 
-            {/* CTAs */}
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-5">
-                {/* The button has no room for the category's name, so it points
-                    at the line under it, which spells the name out. */}
-                <Link
-                  href="/runs/sample"
-                  aria-describedby="featured-run-name"
-                  className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-6 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                    <polygon points="2,1 11,6 2,11" fill="currentColor" />
-                  </svg>
-                  Play {sample.category} sample
-                </Link>
-                {/* The second step, outlined: the filled button beside it is the
-                    one dominant action on this page. The same control as on
-                    every other page that offers it (ConnectCta). */}
-                <ConnectCta />
-              </div>
-              <p id="featured-run-name" className="instrument-faint">
-                Featured run: {asiLabel(sample.category)}. Pick any of the Core-7 to watch its own
-                attack.
-              </p>
-            </div>
+            {/* The two calls to action, the featured run's name, and the free-runs
+                note when a count is configured (HomeCtas). */}
+            <HomeCtas category={sample.category} freeRunsNote={freeRunsNote} />
 
             <SampleTrailer
               runId={sample.runId}
