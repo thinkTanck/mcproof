@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { StatusChip } from '@/components/hud';
+import { AsiLabel, StatusChip } from '@/components/hud';
 import { stepMeta, stepPayload } from '@/components/replay/step-meta';
 import { CoverageIcon } from '@/components/threats/CoverageIcon';
 import type { FixReport } from '@/fix-report';
@@ -103,7 +103,10 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
             <p className="instrument">
               {finding ? (
                 <>
-                  <span>{finding.category}</span>
+                  {/* The code the judge returned, with that code's name. It is
+                      never relabelled to the class the run staged; it only
+                      gets its name, like any other code. */}
+                  <AsiLabel code={finding.category} />
                   <span aria-hidden="true"> · </span>
                   SEV <span className="text-breach-text">{finding.severity}</span>
                   <span aria-hidden="true"> · </span>
@@ -136,7 +139,10 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
               <p className="readout mt-(--instrument-stack-rows) text-breach-text">
                 {`#${finding.stepIndex} · ${stepMeta(step.type).label}`}
               </p>
-              <dl className="mt-(--instrument-stack-rows) space-y-(--instrument-stack-rows)">
+              <dl
+                data-asi-quoted="trace"
+                className="mt-(--instrument-stack-rows) space-y-(--instrument-stack-rows)"
+              >
                 {stepPayload(step).map((row) => (
                   <div key={row.k} className="instrument flex gap-2">
                     <dt className="text-ink-faint">{row.k}</dt>
@@ -150,14 +156,26 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
 
             <section aria-label="Summary">
               <SectionHeading>Summary</SectionHeading>
-              <p className="reading measure mt-2">{report.summary}</p>
+              <p data-asi-quoted="generated-report" className="reading measure mt-2">
+                {report.summary}
+              </p>
             </section>
           </div>
 
-          {/* Detector rationale (prose, quoted from the judge) */}
+          {/* Detector rationale (prose, quoted from the judge).
+              QUOTED PROSE IS EVIDENCE AND IS PRINTED AS RECORDED (UI audit
+              2026-10-12, batch C). The summary, the caveat, the note and the
+              remediation come out of the frozen fix-report generator, and the
+              rationale is the judge's own words. If one of them mentions a
+              category code, it is not rewritten to add the name: each such
+              paragraph is marked `data-asi-quoted` with where it came from,
+              and the code is named in the page's own text around it (the
+              header line, and the tally under a withheld remediation). */}
           <section aria-label="Detector rationale" className="mt-7 border-t border-breach/30 pt-5">
             <SectionHeading tone="breach">Detector rationale</SectionHeading>
-            <p className="reading measure mt-2">{finding.rationale}</p>
+            <p data-asi-quoted="judge-rationale" className="reading measure mt-2">
+              {finding.rationale}
+            </p>
           </section>
 
           {/* Remediation — an ordered sequence, so numbering is meaningful.
@@ -171,7 +189,9 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
               <SectionHeading tone="cyan">Remediation</SectionHeading>
 
               <div data-testid="classification-caveat" className="mt-3">
-                <p className="reading measure">{classification.caveat}</p>
+                <p data-asi-quoted="generated-report" className="reading measure">
+                  {classification.caveat}
+                </p>
                 <p className="instrument mt-(--instrument-stack) text-ink-faint">
                   {classification.provenance}
                 </p>
@@ -189,7 +209,9 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
                     >
                       {i + 1}
                     </span>
-                    <p className="reading measure">{remedy}</p>
+                    <p data-asi-quoted="generated-report" className="reading measure">
+                      {remedy}
+                    </p>
                   </li>
                 ))}
               </ol>
@@ -206,7 +228,9 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
             >
               <SectionHeading>Remediation withheld</SectionHeading>
               <div data-testid="classification-unreliable" className="mt-3">
-                <p className="reading measure">{classification.note}</p>
+                <p data-asi-quoted="generated-report" className="reading measure">
+                  {classification.note}
+                </p>
                 <p className="instrument mt-(--instrument-stack)">
                   <span style={{ color: 'var(--status-inert)' }}>
                     {classification.staged} {classification.stagedTitle} filed correctly{' '}
@@ -232,7 +256,9 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
           className="mt-8 border-t border-line pt-6"
         >
           <SectionHeading tone="cyan">Result</SectionHeading>
-          <p className="reading mt-2 measure">{report.summary}</p>
+          <p data-asi-quoted="generated-report" className="reading mt-2 measure">
+            {report.summary}
+          </p>
           <p className="reading mt-3 measure text-ink-muted">
             This run finished and the detector judged it. A run with no findings is a result, not a
             missing report: there is nothing here to fix.

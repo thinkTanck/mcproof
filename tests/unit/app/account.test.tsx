@@ -1,3 +1,4 @@
+import { asiLabel } from '@/lib/owasp/asi';
 import { render, screen } from '@testing-library/react';
 import AccountPage from '@/app/(hud)/account/page';
 import { requireUser } from '@/lib/auth/user';
@@ -38,7 +39,8 @@ describe('Account page (gated · your runs)', () => {
     withRuns([{ id: 'r1', userId: 'u1', createdAt: '2026-01-01T00:00:00Z', run }]);
     render(await AccountPage());
 
-    expect(screen.getByText(run.category)).toBeInTheDocument();
+    // A code is never drawn without its name (UI audit 2026-10-12, batch C).
+    expect(screen.getByText(asiLabel(run.category))).toBeInTheDocument();
     expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.queryByText(/no runs yet/i)).not.toBeInTheDocument();
   });

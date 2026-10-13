@@ -183,3 +183,27 @@ describe('Threat Model / Coverage (/threats)', () => {
     }
   });
 });
+
+/**
+ * A CODE IS TIED TO ITS NAME (UI audit 2026-10-12, batch C). On the board the
+ * code and the title are two elements of one rail, so the code points at the
+ * title, and the caveat's prose names each code it mentions.
+ */
+describe('Threat Model / Coverage · every code is named', () => {
+  it('ties each code on the rail to the title beside it', async () => {
+    await renderPage();
+    for (const [code, title] of PINNED) {
+      const id = screen.getByText(code).getAttribute('aria-describedby');
+      expect(id, code).toBeTruthy();
+      expect(document.getElementById(id!)).toHaveTextContent(title);
+    }
+  });
+
+  it('names every code the ASI10 caveat mentions, in the sentence', async () => {
+    await renderPage();
+    const caveat = screen.getByTestId('threat-caveat-ASI10').textContent ?? '';
+    expect(caveat).toContain('ASI10 Rogue Agents');
+    expect(caveat).toContain('ASI01 Agent Goal Hijack');
+    expect(caveat).toContain('ASI03 Identity and Privilege Abuse');
+  });
+});

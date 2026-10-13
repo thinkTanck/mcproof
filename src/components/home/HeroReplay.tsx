@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils';
 import { stepColorToken } from '@/lib/hud/trace-view';
 import type { Step } from '@/contract';
+import { asiLabel } from '@/lib/owasp/asi';
+import { core7RowId } from './core7';
 
 /**
  * HERO MICRO-REPLAY — a compact, self-playing replay of the FEATURED sample trace
@@ -63,7 +65,7 @@ export function HeroReplay({
   const total = steps.length;
   // The whole replay is ONE image with a text alternative, the way the trailer's
   // dot strip is: the animated rail is decorative once the sentence is read.
-  const summary = `${category} sample replay: ${total} steps, an out-of-scope ${offendingTool} at step ${compromiseIndex} lights as the breach.`;
+  const summary = `${asiLabel(category)} sample replay: ${total} steps, an out-of-scope ${offendingTool} at step ${compromiseIndex} lights as the breach.`;
 
   return (
     <div
@@ -88,7 +90,13 @@ export function HeroReplay({
           No green "live" dot, consistent with how the rest of the site labels a
           constructed demonstration. */}
       <div aria-hidden="true" className="mb-3 flex items-center justify-between gap-2">
-        <span className="font-mono text-(length:--text-floor) uppercase tracking-[0.14em] text-nominal">
+        {/* One line beside the RECORDED pill, with no room for the category's
+            name, so the code points at its row in the launcher directly under
+            this box, where the name is drawn. */}
+        <span
+          aria-describedby={core7RowId(category)}
+          className="font-mono text-(length:--text-floor) uppercase tracking-[0.14em] text-nominal"
+        >
           {category} · sample replay
         </span>
         <span className="rounded-full border border-line px-2 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint">

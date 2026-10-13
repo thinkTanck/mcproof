@@ -5,6 +5,7 @@ import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
 import { HeaderHeightSync } from './HeaderHeightSync';
 import type { ShellAccount } from '@/lib/shell-account';
+import { RUN_CATEGORY_NAME_ID } from '@/components/hud/AsiLabel';
 
 /** Run-context telemetry shown in the status bar on a run screen. */
 export type RunContext = {
@@ -140,7 +141,13 @@ export function StatusBar({
               />
               {runContext.compromised ? 'BREACH' : 'CLEAR'}
             </span>
-            <span className="whitespace-nowrap font-mono text-[13.5px] tracking-[0.06em] text-ink-faint">
+            {/* One line with no room for the category's name, so the code points
+                at the place the replay under this bar spells it out (the
+                category row of its verdict rail). */}
+            <span
+              aria-describedby={RUN_CATEGORY_NAME_ID}
+              className="whitespace-nowrap font-mono text-[13.5px] tracking-[0.06em] text-ink-faint"
+            >
               {runContext.category} · SEV{' '}
               <span className={sevBreach ? 'text-breach-text' : 'text-caution'}>
                 {runContext.severity.toUpperCase()}

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { AsiLabel, RUN_CATEGORY_NAME_ID } from '@/components/hud';
 import { StatusBar } from '@/components/shell/StatusBar';
 import { isE2eFixturesEnabled } from '@/config/e2e-fixtures';
 
@@ -52,6 +53,14 @@ export default async function HeaderStatesFixturePage({
           Header states fixture. Everything on this page is invented, and it exists only in a build
           made for browser tests.
         </p>
+        {/* The bar's chip has no room for the category's name and points at
+            the place its page spells it out. A replay does that in its verdict
+            rail; this page has no replay, so it does it here. */}
+        {origin && (
+          <p className="instrument mt-(--instrument-stack)">
+            <AsiLabel code="ASI02" id={RUN_CATEGORY_NAME_ID} />
+          </p>
+        )}
       </main>
     </div>
   );

@@ -79,6 +79,8 @@ function CellShapeAndValue({ cell }: { cell: ScoredCell }) {
 export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }) {
   const { categories, rows, source } = leaderboard;
   const measured = source === 'measured';
+  // One board per page, so a fixed prefix is enough for the legend's entry ids.
+  const legendId = 'leaderboard-category';
 
   const provenanceWord = measured ? 'measured' : 'fixture';
   // Suffix carried in every scored cell's accessible name, so provenance is not
@@ -204,6 +206,23 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
         </span>
       </figcaption>
 
+      {/* THE COLUMN CODES, NAMED (UI audit 2026-10-12, batch C). A column is
+          too narrow for the longest of the names (the supply chain one), and
+          a `title` on the header was a tooltip no finger or keyboard could
+          reach. So the names are a legend in plain sight directly above the
+          table, one entry per column, and each column header points at its
+          entry with `aria-describedby`. */}
+      <ul
+        aria-label="Category names"
+        className="mb-(--instrument-stack) flex flex-wrap gap-x-5 gap-y-(--instrument-stack-rows)"
+      >
+        {categories.map((c) => (
+          <li key={c.id} id={`${legendId}-${c.id}`} className="instrument">
+            <span className="text-ink-hi">{c.id}</span> {c.full}
+          </li>
+        ))}
+      </ul>
+
       {/* Swipe / scroll affordance — a terse INSTRUMENT cue (micro-label, not a
           sentence) that the board scrolls and the model column is pinned. */}
       <p className="micro-label mb-2.5 flex items-center gap-2">
@@ -250,7 +269,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
                   <th
                     key={c.id}
                     scope="col"
-                    title={c.full}
+                    aria-describedby={`${legendId}-${c.id}`}
                     className="min-w-[86px] border-b border-l border-line px-2 py-2.5 text-center align-bottom font-mono text-[13px] font-medium tracking-[0.04em] text-ink"
                   >
                     <span aria-hidden="true">{c.id}</span>

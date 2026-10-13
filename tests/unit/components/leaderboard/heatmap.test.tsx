@@ -216,3 +216,34 @@ describe('LeaderboardHeatmap', () => {
     });
   });
 });
+
+/**
+ * A COLUMN CODE IS NAMED IN SIGHT (UI audit 2026-10-12, batch C). A column is
+ * too narrow for "Agentic Supply Chain Vulnerabilities", so the names are a
+ * visible legend above the table and each column header points at its entry.
+ * A `title` attribute is a hover tooltip and is not a name.
+ */
+describe('LeaderboardHeatmap · the column codes are named in a visible legend', () => {
+  it('lists every code with its name as visible text', () => {
+    renderHeatmap();
+    const legend = screen.getByRole('list', { name: /category names/i });
+    const entries = within(legend).getAllByRole('listitem');
+    expect(entries).toHaveLength(CATS.length);
+    for (const [i, c] of CATS.entries()) {
+      expect(entries[i]).toHaveTextContent(`${c.id} ${c.full}`);
+      expect(entries[i]!.closest('.sr-only')).toBeNull();
+      expect(entries[i]!.querySelector('.sr-only')).toBeNull();
+    }
+  });
+
+  it('ties each column header to its legend entry, and drops the hover title', () => {
+    renderHeatmap();
+    for (const c of CATS) {
+      const header = screen.getByRole('columnheader', { name: new RegExp(c.id) });
+      expect(header).not.toHaveAttribute('title');
+      const id = header.getAttribute('aria-describedby');
+      expect(id).toBeTruthy();
+      expect(document.getElementById(id!)).toHaveTextContent(`${c.id} ${c.full}`);
+    }
+  });
+});

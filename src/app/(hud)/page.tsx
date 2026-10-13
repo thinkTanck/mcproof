@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { REPO_URL } from '@/config/repo';
 import { ConnectCta } from '@/components/hud';
+import { OwaspBadge, OwaspExplainer } from '@/components/hud/OwaspTopTen';
 import { Core7List } from '@/components/home/Core7List';
 import { HeroReplay } from '@/components/home/HeroReplay';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
@@ -13,6 +14,7 @@ import {
   MEASURED_COMPROMISE_PROVENANCE,
 } from '@/eval/measured';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
+import { asiLabel } from '@/lib/owasp/asi';
 import type { RunResult, Step } from '@/contract';
 
 /**
@@ -108,10 +110,28 @@ export default async function Home() {
               Red-team your MCP agent. Trust the verdict either way.
             </h1>
 
-            <p className="reading-lead">
-              Point your own agent at an endpoint we host, and we serve it one of the OWASP Agentic
-              Top 10 attacks and record every tool call it chooses to make.
+            {/* WHAT THE PRODUCT DOES, in one plain sentence (UI audit 2026-10-12,
+                batch C). It replaces the lead that described the mechanism
+                (an endpoint we host, the tool calls we record): the mechanism
+                is what Connect is for, and a first-time reader needs to know
+                what this is before how it works. It promises nothing about
+                the reader's own agent: "whether" and "if one is" keep both
+                results open, as framing.test.tsx requires. No number, so
+                nothing in it can drift from a measurement. */}
+            <p data-testid="home-subhead" className="reading-lead measure">
+              MCProof tests whether an AI agent can be tricked into misusing its tools, and if one
+              is, shows the exact step where it happened.
             </p>
+
+            {/* WHAT IT MAPS TO, and what that phrase means. The badge is text
+                only and links to the coverage board, where the claim is exact:
+                which of the ten are tested and which are not. The explanation
+                beside it is a native disclosure, closed until asked for, so it
+                takes one line here and moves nothing above it when it opens. */}
+            <div className="flex flex-wrap items-start gap-x-4">
+              <OwaspBadge />
+              <OwaspExplainer className="flex-1 basis-[17rem]" />
+            </div>
 
             <p className="reading">
               Most tools only <span className="text-ink-muted">guess</span> whether an agent was
@@ -226,8 +246,11 @@ export default async function Home() {
             {/* CTAs */}
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-5">
+                {/* The button has no room for the category's name, so it points
+                    at the line under it, which spells the name out. */}
                 <Link
                   href="/runs/sample"
+                  aria-describedby="featured-run-name"
                   className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-6 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
@@ -240,8 +263,9 @@ export default async function Home() {
                     every other page that offers it (ConnectCta). */}
                 <ConnectCta />
               </div>
-              <p className="instrument-faint">
-                Featured run: tool misuse. Pick any of the Core-7 to watch its own attack.
+              <p id="featured-run-name" className="instrument-faint">
+                Featured run: {asiLabel(sample.category)}. Pick any of the Core-7 to watch its own
+                attack.
               </p>
             </div>
 

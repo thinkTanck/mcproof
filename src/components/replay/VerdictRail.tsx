@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Verdict } from '@/contract';
+import { AsiLabel, RUN_CATEGORY_NAME_ID } from '@/components/hud';
 
 /**
  * The detector verdict, rendered as a second terminal (same rules as the
@@ -117,7 +118,15 @@ export function VerdictRail({
         v={compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
         breachValue={compromised}
       />
-      <Row k="category" v={verdict.category} />
+      {/* The code the judge returned, with that code's name: the rail wraps,
+          so there is room for both. It is the verdict's category, which for a
+          recorded misfiling is not the class the run staged, and it is never
+          relabelled: it only gets its name, like any other code. The status
+          bar's chip points here for the name it has no room for. */}
+      <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
+        <span style={{ opacity: 0.85 }}>{'category'.padEnd(11, ' ')}</span>
+        <AsiLabel code={verdict.category} id={RUN_CATEGORY_NAME_ID} />
+      </div>
       <Row k="severity" v={verdict.severity.toUpperCase()} breachValue={compromised} />
       {compromised && compromiseStepNumber !== null && (
         <Row

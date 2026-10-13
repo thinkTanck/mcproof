@@ -155,7 +155,9 @@ describe('Home — hero micro-replay', () => {
   it('renders the featured trace as a micro-replay in the hero slot', async () => {
     await renderHome();
     // The hero is a live micro-replay of the ASI02 finding, not generic decoration.
-    expect(screen.getByRole('img', { name: /ASI02 sample replay/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: /ASI02 Tool Misuse and Exploitation sample replay/i }),
+    ).toBeInTheDocument();
   });
 
   it('has retired the particle-globe sentinel core from the hero', async () => {
@@ -254,5 +256,42 @@ describe('the repository is named in one place', () => {
   it('points at the renamed repo', async () => {
     const { REPO_URL } = await import('@/config/repo');
     expect(REPO_URL).toBe('https://github.com/thinkTanck/mcproof');
+  });
+});
+
+/**
+ * WORDS AND MEANING (UI audit 2026-10-12, batch C). The front door says what
+ * the product does in one sentence, says what it maps to, explains that, and
+ * never prints a category code without its name.
+ */
+describe('Home — what the product is, in words', () => {
+  it('puts one plain sentence directly under the headline', async () => {
+    await renderHome();
+    const h1 = screen.getByRole('heading', { level: 1 });
+    const subhead = screen.getByTestId('home-subhead');
+    expect(h1.nextElementSibling).toBe(subhead);
+    expect(subhead.tagName).toBe('P');
+    expect(subhead.className).toMatch(/\breading-lead\b/);
+    const text = (subhead.textContent ?? '').replace(/\s+/g, ' ').trim();
+    expect(text).toMatch(/^MCProof tests whether /);
+    expect(text).toMatch(/^[^.!?]+\.$/);
+    expect(text).not.toMatch(/—|\d/);
+  });
+
+  it('carries the OWASP badge and its explanation in the headline block', async () => {
+    await renderHome();
+    const hero = screen.getByRole('region', { name: /red-team your mcp agent/i });
+    const badge = within(hero).getByRole('link', { name: 'Maps to OWASP Agentic Top 10' });
+    expect(badge).toHaveAttribute('href', '/threats');
+    expect(within(hero).getByTestId('owasp-explainer').tagName).toBe('DETAILS');
+  });
+
+  it('names the featured category where the play button points', async () => {
+    await renderHome();
+    const play = screen.getByRole('link', { name: /play asi02 sample/i });
+    const ids = (play.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    expect(ids.length).toBeGreaterThan(0);
+    const described = ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ');
+    expect(described).toContain('ASI02 Tool Misuse and Exploitation');
   });
 });

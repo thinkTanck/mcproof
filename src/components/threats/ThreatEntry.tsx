@@ -39,13 +39,19 @@ export function ThreatEntry({
     >
       {/* Left rail — code · title · state badge */}
       <div className="flex flex-col gap-3">
+        {/* The code and its title are two lines of one rail: the code points
+            at the title, so the pair is tied for assistive technology as it
+            is for the eye. */}
         <span
+          aria-describedby={`threat-title-${threat.code}`}
           className="font-mono text-[20px] leading-none tracking-tight"
           style={covered ? { color: 'var(--status-nominal)' } : stateStyle}
         >
           {threat.code}
         </span>
-        <h2 className="reading-h3 font-semibold">{threat.title}</h2>
+        <h2 id={`threat-title-${threat.code}`} className="reading-h3 font-semibold">
+          {threat.title}
+        </h2>
         <span
           className={
             'inline-flex w-fit items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[13px] uppercase tracking-[0.12em] ' +

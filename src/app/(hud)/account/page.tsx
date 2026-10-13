@@ -6,6 +6,7 @@ import { getRunRepository } from '@/data/run-repository.factory';
 import { signOut } from '@/lib/auth/actions';
 import { ConnectCta, SectionLabel } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
+import { asiLabel } from '@/lib/owasp/asi';
 
 export const metadata: Metadata = {
   title: 'Your account · MCProof',
@@ -93,7 +94,7 @@ export default async function AccountPage() {
               return (
                 <li key={row.id} className={item}>
                   <span className="flex items-center gap-3 font-mono text-[14px]">
-                    <span className="text-readout">{run.category}</span>
+                    <span className="text-readout">{asiLabel(run.category)}</span>
                     {/* Inert, with its icon: not a result, and never the red a
                         compromise wears or the cyan an all-clear does. */}
                     <span
@@ -128,7 +129,7 @@ export default async function AccountPage() {
                 className={`${item} group relative transition-colors hover:border-line-em`}
               >
                 <span className="flex items-center gap-3 font-mono text-[14px]">
-                  <span className="text-readout">{run.category}</span>
+                  <span className="text-readout">{asiLabel(run.category)}</span>
                   <span className={run.verdict.compromised ? 'text-breach-text' : 'text-nominal'}>
                     {run.verdict.compromised ? 'COMPROMISED' : 'CLEAR'}
                   </span>

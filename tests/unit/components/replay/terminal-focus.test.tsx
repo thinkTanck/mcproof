@@ -235,3 +235,19 @@ describe('ReplayTerminal · jumping to a step that was not drawn', () => {
     }
   });
 });
+
+/**
+ * THE COMPROMISE STEP IS NOT RED ALONE (UI audit 2026-10-12, batch C; WCAG
+ * 1.4.1). Its line was the same text as every other line in a different
+ * colour. It now carries a mark as well, and only it does.
+ */
+describe('ReplayTerminal · the compromise step carries a mark as well as its colour', () => {
+  it('draws the breach mark on the compromise step and on no other', () => {
+    terminal(TOTAL - 1);
+    for (const [i, button] of stepButtons().entries()) {
+      const marks = button.querySelectorAll('[data-breach-mark] svg');
+      expect(marks.length, `step ${i + 1}`).toBe(i === COMPROMISE ? 1 : 0);
+    }
+    expect(stepButtons()[COMPROMISE]).toHaveAccessibleName(/compromise step/);
+  });
+});
