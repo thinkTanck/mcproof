@@ -40,7 +40,7 @@ looks exactly like an empty table.
 
 | Migration                 | What it adds                                                                                                                                                                                                                                                                   |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0001_runs.sql`           | `public.runs` — a user's finished live runs, owner-scoped by RLS.                                                                                                                                                                                                              |
+| `0001_runs.sql`           | `public.runs` — a user's finished live runs, owner-scoped by RLS. The app only ever READS it with a user's session; every insert is made server-side with the service role (`src/runs/run-writes.ts`).                                                                         |
 | `0002_run_tokens.sql`     | `public.run_tokens` — the per-run, per-account connection credential (ADR-0006). Stores a SHA-256 digest, never a token. RLS on with **zero policies**: server-side only.                                                                                                      |
 | `0003_durable_stores.sql` | `public.live_runs` + `public.live_run_events` (the open-run registry and its observable steps) and `public.otp_rate_limit_hits` (the sign-up rate-limit counters). Same posture as 0002: RLS on with zero policies **and** an explicit revoke from `anon` and `authenticated`. |
 
@@ -53,6 +53,26 @@ already run.
 `src/runs/run-token.ts` lands on, and the MCP server that will issue and verify
 against it is unbuilt (plan.md B2). Applying it early is harmless (an empty,
 closed table); leaving it unapplied until the server lands is equally fine.
+
+## Testing the policies against a local stack
+
+`tests/integration/rls/` asks the database directly, as a signed-in owner, a
+signed-in stranger and an anonymous visitor, to insert, update and delete, and
+drives the app's own write paths over real Postgres. It needs Docker and the
+local stack, and is skipped without `RLS_LOCAL_STACK=1`. It refuses to run
+against any URL that is not loopback, so it cannot be pointed at the real
+project by accident. From the repo root, in bash:
+
+```bash
+npx --yes supabase@2.120.0 start -x studio,imgproxy,storage-api,edge-runtime,logflare,vector,realtime
+eval "$(npx --yes supabase@2.120.0 status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')" \
+  && RLS_LOCAL_STACK=1 NEXT_PUBLIC_SUPABASE_URL="$API_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
+     SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" npx vitest run tests/integration/rls
+npx --yes supabase@2.120.0 stop
+```
+
+`supabase start` and `supabase db reset` only ever touch the local database.
+Never run `supabase link` or `db push` as part of this.
 
 ## Conventions
 

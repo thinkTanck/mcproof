@@ -84,7 +84,9 @@ export function isDiscardedPayload(payload: unknown): boolean {
  * Persistence port for a user's live runs (Slice 1). Every method is scoped to a
  * `userId`: a run is only ever readable by its owner. Two adapters satisfy it —
  * an in-memory one (tests / offline) and a Supabase one (prod, where Row-Level
- * Security enforces the same ownership at the database). The public sample/
+ * Security enforces the same ownership at the database for every READ a
+ * signed-in session makes; the WRITE is made server-side on the service role by
+ * `src/runs/run-writes.ts`, which checks ownership itself). The public sample/
  * fixture data keeps flowing through the separate `DataSource`.
  *
  * TWO KINDS OF ROW, AND WHICH READ SEES WHICH. A row is either a judged
@@ -134,6 +136,18 @@ export interface DiscardedRunStore {
   /** All of the user's discarded runs, newest first. */
   listDiscardedRuns(userId: string): Promise<StoredDiscardedRun[]>;
 }
+
+/**
+ * The READ half of each port: what a caller holding only a browser session's
+ * identity is given.
+ *
+ * A signed-in session reads its own rows and writes none. The two inserts are
+ * made by one server-only module on the service-role client
+ * (`src/runs/run-writes.ts`), so the cookie-bound factories hand out these
+ * types and there is no write method on what they return.
+ */
+export type RunReader = Omit<RunRepository, 'saveRun'>;
+export type DiscardedRunReader = Omit<DiscardedRunStore, 'saveDiscardedRun'>;
 
 const newestFirst = (a: { createdAt: string }, b: { createdAt: string }): number =>
   b.createdAt.localeCompare(a.createdAt);

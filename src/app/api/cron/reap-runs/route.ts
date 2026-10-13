@@ -28,21 +28,19 @@
  * client would read nothing and the per-account allowance would count zero runs
  * for everybody — a gate that silently passes. The job is therefore wired to the
  * SERVICE-ROLE client, and the accounts are read off the run rows themselves.
- * Ownership is still set in code: `saveRun(userId, run)` writes the owner the
- * registry recorded, and the host refuses a run that does not belong to the
- * account it was asked about.
+ * Ownership is still set in code, twice: the host refuses a run that does not
+ * belong to the account it was asked about, and the run writer
+ * (`src/runs/run-writes.ts`, the one module that inserts into `public.runs`)
+ * writes the owner the registry recorded and refuses any other.
  */
 import { timingSafeEqual } from 'node:crypto';
-import { getSupabaseConfig } from '@/config/env';
-import { InMemoryRunRepository } from '@/data/run-repository';
-import { SupabaseRunRepository } from '@/data/run-repository.supabase';
 import { resolveLiveDetector } from '@/detector/resolve';
-import { createAdminSupabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { createLiveRunHost } from '@/runs/live-run';
 import { getLiveRunSessionStore, getRunTokenStore } from '@/runs/live-run-stores.factory';
 import { checkLiveRunPreflight } from '@/runs/preflight';
 import { reapAbandonedRuns } from '@/runs/reaper';
+import { getRunRecordStore } from '@/runs/run-writes';
 
 /** `node:crypto` compares the credential, so this route runs on Node, not the Edge. */
 export const runtime = 'nodejs';
@@ -80,16 +78,12 @@ function authorized(request: Request): boolean {
   return timingSafeEqual(a, b);
 }
 
-/** The run store the job writes verdicts into: service-role, never a session. */
-function reaperRepository() {
-  const admin = getSupabaseConfig() ? createAdminSupabase() : null;
-  return admin ? new SupabaseRunRepository(admin) : new InMemoryRunRepository();
-}
-
 /** One pass over the registry, wired to the durable stores. */
 async function reap(): Promise<Response> {
   const sessions = getLiveRunSessionStore();
-  const repository = reaperRepository();
+  // The run store for a caller with no session: service-role, with the owner
+  // of every write taken from the run record and never from this request.
+  const repository = getRunRecordStore();
   const host = createLiveRunHost({
     // The SAME gate the interactive path passes, counted against the same rows,
     // just read with a client that has no session to be scoped to.

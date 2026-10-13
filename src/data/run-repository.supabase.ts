@@ -4,7 +4,9 @@ import {
   DiscardedRunSchema,
   isDiscardedPayload,
   type DiscardedRun,
+  type DiscardedRunReader,
   type DiscardedRunStore,
+  type RunReader,
   type RunRepository,
   type StoredDiscardedRun,
   type StoredRun,
@@ -41,35 +43,29 @@ function toDiscarded(row: RunRow): StoredDiscardedRun {
 }
 
 /**
- * Supabase-backed `RunRepository`. Constructed with a supabase-js client that
- * carries the caller's identity, so **Row-Level Security enforces ownership at
- * the database** — the `userId` argument sets `user_id` on insert (which RLS
- * checks against auth.uid()) and narrows reads defensively. Only observable data
- * is written (the RunResult holds no BYOK key).
+ * The READS of `public.runs`, for a supabase-js client that carries the
+ * caller's identity. **Row-Level Security enforces ownership at the database**
+ * (`runs_select_own`), and every query narrows by `user_id` as well.
+ *
+ * THIS CLASS CANNOT WRITE, ON PURPOSE. It is what the cookie-bound factories
+ * hand out (`getRunRepository()`, `getDiscardedRunStore()`), so a signed-in
+ * browser session has no method that inserts a row, whatever the database
+ * grants. Writes live on {@link SupabaseRunRepository} below, and that class is
+ * built in exactly one place: `src/runs/run-writes.ts`, on the service-role
+ * client.
  *
  * ONE TABLE, TWO SHAPES, NO MIGRATION. A discarded run is stored in the same
  * `run` jsonb column as a result, as the marker shape `DiscardedRunSchema`
- * describes. The column has no check constraint and the insert policy only
- * checks ownership, so nothing in the database had to change. The two kinds are
- * told apart HERE, in code, after the row is read: a row is routed by
- * `isDiscardedPayload` and then validated by the schema for its kind. That keeps
- * every query in the two forms this adapter already used against the real
- * project (`eq` on a column, `eq` on `run->>runId`), and it means a discarded row
- * can never reach `RunResultSchema.parse`, where it would throw and take a whole
- * list down with it.
+ * describes. The column has no check constraint, so nothing in the database had
+ * to change. The two kinds are told apart HERE, in code, after the row is read:
+ * a row is routed by `isDiscardedPayload` and then validated by the schema for
+ * its kind. That keeps every query in the two forms this adapter already used
+ * against the real project (`eq` on a column, `eq` on `run->>runId`), and it
+ * means a discarded row can never reach `RunResultSchema.parse`, where it would
+ * throw and take a whole list down with it.
  */
-export class SupabaseRunRepository implements RunRepository, DiscardedRunStore {
-  constructor(private readonly client: SupabaseClient) {}
-
-  async saveRun(userId: string, run: RunResult): Promise<StoredRun> {
-    const { data, error } = await this.client
-      .from('runs')
-      .insert({ user_id: userId, run })
-      .select(COLS)
-      .single();
-    if (error) throw new Error(`saveRun failed: ${error.message}`);
-    return toStored(data as RunRow);
-  }
+export class SupabaseRunReader implements RunReader, DiscardedRunReader {
+  constructor(protected readonly client: SupabaseClient) {}
 
   /** One row by id, of either kind, scoped to its owner. */
   private async rowById(label: string, userId: string, id: string): Promise<RunRow | null> {
@@ -146,19 +142,6 @@ export class SupabaseRunRepository implements RunRepository, DiscardedRunStore {
     return count;
   }
 
-  async saveDiscardedRun(userId: string, discarded: DiscardedRun): Promise<StoredDiscardedRun> {
-    // Validated BEFORE the insert: the schema is strict, so nothing can ride
-    // along into the row, a verdict least of all.
-    const marker = DiscardedRunSchema.parse(discarded);
-    const { data, error } = await this.client
-      .from('runs')
-      .insert({ user_id: userId, run: marker })
-      .select(COLS)
-      .single();
-    if (error) throw new Error(`saveDiscardedRun failed: ${error.message}`);
-    return toDiscarded(data as RunRow);
-  }
-
   async getDiscardedRun(userId: string, id: string): Promise<StoredDiscardedRun | null> {
     const row = await this.rowById('getDiscardedRun', userId, id);
     return row !== null && isDiscardedPayload(row.run) ? toDiscarded(row) : null;
@@ -172,5 +155,48 @@ export class SupabaseRunRepository implements RunRepository, DiscardedRunStore {
   async listDiscardedRuns(userId: string): Promise<StoredDiscardedRun[]> {
     const rows = await this.rows('listDiscardedRuns', userId);
     return rows.filter((row) => isDiscardedPayload(row.run)).map(toDiscarded);
+  }
+}
+
+/**
+ * The reads above PLUS the two inserts: the whole `RunRepository` and
+ * `DiscardedRunStore` ports over Postgres.
+ *
+ * BUILT WITH THE SERVICE-ROLE CLIENT, AND ONLY IN `src/runs/run-writes.ts`. The
+ * service role skips Row-Level Security, so nothing in the database checks who a
+ * row is written for: `user_id` is whatever this is handed. That module is what
+ * decides it, from the verified server session or the run's own server-side
+ * record, and `tests/unit/runs/run-write-paths.guard.test.ts` fails if this
+ * class is constructed anywhere else. Only observable data is written (a
+ * `RunResult` holds no credential of anybody's).
+ *
+ * Runs are immutable once written: there is an insert for each shape and no
+ * update or delete, here or anywhere.
+ */
+export class SupabaseRunRepository
+  extends SupabaseRunReader
+  implements RunRepository, DiscardedRunStore
+{
+  async saveRun(userId: string, run: RunResult): Promise<StoredRun> {
+    const { data, error } = await this.client
+      .from('runs')
+      .insert({ user_id: userId, run })
+      .select(COLS)
+      .single();
+    if (error) throw new Error(`saveRun failed: ${error.message}`);
+    return toStored(data as RunRow);
+  }
+
+  async saveDiscardedRun(userId: string, discarded: DiscardedRun): Promise<StoredDiscardedRun> {
+    // Validated BEFORE the insert: the schema is strict, so nothing can ride
+    // along into the row, a verdict least of all.
+    const marker = DiscardedRunSchema.parse(discarded);
+    const { data, error } = await this.client
+      .from('runs')
+      .insert({ user_id: userId, run: marker })
+      .select(COLS)
+      .single();
+    if (error) throw new Error(`saveDiscardedRun failed: ${error.message}`);
+    return toDiscarded(data as RunRow);
   }
 }
