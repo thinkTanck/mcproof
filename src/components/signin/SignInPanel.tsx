@@ -492,7 +492,12 @@ export function SignInPanel({
       {/* The copy promises the sample is open to everyone; give it a door. */}
       <p className="reading mt-6 text-ink-muted">
         Just exploring?{' '}
-        <Link href="/runs/sample" className="text-nominal hover:underline">
+        {/* A link inside a sentence: the line keeps its spacing and a hit area of
+            `--target-min` is laid over the link (`target-area`, globals.css). */}
+        <Link
+          href="/runs/sample"
+          className="target-area whitespace-nowrap text-nominal hover:underline"
+        >
           Watch the sample run
         </Link>
         , no sign-in needed.

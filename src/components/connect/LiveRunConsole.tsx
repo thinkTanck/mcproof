@@ -27,6 +27,7 @@ import {
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
 import { useRunBarClearance, useRunBarPinned } from './run-bar-pin';
+import { RUN_CONTROLS_ID } from './run-controls';
 import { RUN_TYPE_LABEL } from './run-kinds';
 import {
   notWiredLiveRunPort,
@@ -246,8 +247,15 @@ export function LiveRunConsole({
   onExpiredChange,
   onFinishedChange,
   onDiscardedChange,
+  onBarChange,
   barSlot = null,
 }: {
+  /**
+   * Told whether the run bar is drawn. The bar carries the id the skip link
+   * goes to (`run-controls.ts`); while there is none, the screen puts that id
+   * on the block that starts a run instead, and it needs to know which.
+   */
+  onBarChange?: (present: boolean) => void;
   /**
    * Where the run bar is drawn on a phone held upright: an element the screen
    * keeps at the end of its column, held at the bottom of the window. Without
@@ -578,6 +586,14 @@ export function LiveRunConsole({
     onDiscardedChange?.(runDiscarded);
     return () => onDiscardedChange?.(false);
   }, [runDiscarded, onDiscardedChange]);
+
+  // Whether the bar is drawn, reported upward the same way. It is drawn for
+  // every state of a run this page holds, and for nothing else.
+  const barPresent = signedIn && refusal === null && run !== null;
+  useEffect(() => {
+    onBarChange?.(barPresent);
+    return () => onBarChange?.(false);
+  }, [barPresent, onBarChange]);
 
   if (!signedIn) return <SignInGate />;
 
@@ -1744,12 +1760,20 @@ const PX_GAP = 'gap-x-[12px]';
  * the setup, and the heading that names it stays at the top of the run column
  * with the prose that explains its readings. While it is there its height is
  * measured for the document's bottom scroll padding (`useRunBarClearance`).
+ *
+ * IT IS WHERE "SKIP TO RUN CONTROLS" LANDS (`run-controls.ts`), in either
+ * place: the id travels with the one section. Focusable by script only. Where
+ * its ring is drawn and its scroll margin are set once, by the id, in
+ * globals.css (`#run-controls`), so the bar's own classes are exactly what
+ * they were.
  */
 function RunBar({ slot, children }: { slot: HTMLElement | null; children: ReactNode }) {
   const measure = useRunBarClearance(slot !== null);
   const bar = (
     <section
       ref={measure}
+      id={RUN_CONTROLS_ID}
+      tabIndex={-1}
       aria-labelledby="connect-state"
       className={slot !== null ? BAR_AT_BOTTOM : BAR_IN_COLUMN}
     >

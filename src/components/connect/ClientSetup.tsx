@@ -489,7 +489,7 @@ export function ClientSetup({
               aria-controls={PANEL_ID}
               onClick={() => setClient(id)}
               className={cn(
-                'inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border px-4 py-2.5 text-left font-mono text-[13px] tracking-[0.08em] transition-colors',
+                'inline-flex min-h-11 max-w-full cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border px-4 py-2.5 text-left font-mono text-[13px] tracking-[0.08em] transition-colors',
                 active
                   ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
                   : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',

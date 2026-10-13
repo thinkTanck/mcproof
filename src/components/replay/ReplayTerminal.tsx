@@ -216,7 +216,14 @@ export function ReplayTerminal({
                 // A step that is not drawn is not a tab stop (see the note above).
                 tabIndex={reached ? undefined : -1}
                 onClick={() => onSelect(i)}
-                className="block w-full whitespace-pre-wrap break-words text-left focus-inside focus-visible:underline"
+                // At least `--target-min` tall (UI audit 2026-10-12, batch B). A
+                // line that wraps already was; a one-line step was 24px, with
+                // the next step's line directly under it. A hit area could not
+                // fix that without overlapping its neighbour, so the row
+                // itself is the height, and a short line sits in the middle
+                // of it. The terminal's own height does not change: it is a
+                // fixed clamp from 768px up and capped on a phone.
+                className="block min-h-(--target-min) w-full whitespace-pre-wrap break-words text-left focus-inside focus-visible:underline"
                 style={{ color }}
               >
                 {line.kind === 'out' ? (
@@ -256,7 +263,9 @@ export function ReplayTerminal({
             <div
               key={steps[i]!.id}
               data-reserve-line=""
-              className="whitespace-pre-wrap break-words"
+              // The same floor as the row it stands in for, so the height
+              // held back for a step is the height the step will have.
+              className="min-h-(--target-min) whitespace-pre-wrap break-words"
             >
               <span
                 data-text={

@@ -561,6 +561,74 @@ describe('DTCG token layer (globals.css)', () => {
       expect(offenders).toEqual([]);
     });
   });
+
+  describe('POINTER TARGETS: at least 44px, from a token (UI audit 2026-10-12, batch B)', () => {
+    it('the smallest target is a token, in px, and at least 44', () => {
+      const min = must(vars.get('--target-min'), '--target-min defined');
+      // px, not rem: a target must not shrink when the browser text is turned down.
+      expect(min).toMatch(/^\d+px$/);
+      expect(parseFloat(min)).toBeGreaterThanOrEqual(44);
+    });
+
+    it('target-min sets the width and the height from the token and nothing else', () => {
+      const utility = must(
+        cssNoComments.match(/@utility target-min\s*\{([^}]*)\}/)?.[1],
+        '@utility target-min',
+      );
+      const decls = utility
+        .split(';')
+        .map((decl) => decl.trim())
+        .filter(Boolean);
+      expect(decls).toEqual(['min-width: var(--target-min)', 'min-height: var(--target-min)']);
+    });
+
+    it('target-area lays a hit area of the token size over the control and takes no room', () => {
+      const utility = must(
+        cssNoComments.match(/@utility target-area\s*\{([\s\S]*?\})\s*\}/)?.[1],
+        '@utility target-area',
+      );
+      // The control only becomes the box the hit area is placed against.
+      expect(utility.split('&::after')[0]?.trim()).toBe('position: relative;');
+      const after = must(utility.match(/&::after\s*\{([^}]*)\}/)?.[1], 'the ::after rule');
+      // Out of the flow, so it moves nothing; at least the token each way; centred.
+      expect(after).toMatch(/position:\s*absolute/);
+      expect(after).toMatch(/width:\s*max\(\s*100%\s*,\s*var\(--target-min\)\s*\)/);
+      expect(after).toMatch(/height:\s*max\(\s*100%\s*,\s*var\(--target-min\)\s*\)/);
+      expect(after).toMatch(/transform:\s*translate\(-50%,\s*-50%\)/);
+    });
+
+    it('the place the run-controls skip link lands draws its ring inside and takes no scroll margin', () => {
+      const rule = must(cssNoComments.match(/#run-controls\s*\{([^}]*)\}/)?.[1], '#run-controls');
+      const decls = rule
+        .split(';')
+        .map((decl) => decl.trim())
+        .filter(Boolean);
+      expect(decls).toEqual([
+        '--focus-ring-place: var(--focus-ring-offset-inside)',
+        'scroll-margin-top: 0',
+      ]);
+    });
+
+    it('the bar beside the current nav item is a token, in px, at least 2', () => {
+      const width = must(vars.get('--nav-indicator-width'), '--nav-indicator-width defined');
+      expect(width).toMatch(/^\d+px$/);
+      expect(parseFloat(width)).toBeGreaterThanOrEqual(2);
+    });
+
+    it('no control is held to a floor smaller than the token', () => {
+      // `min-h-6` (24px) was the WCAG 2.5.8 minimum, spelled beside three
+      // controls; the owner's floor is 44. A control that needs a floor takes
+      // the token (`target-min`, `min-h-(--target-min)`) or the 44px step.
+      const offenders: string[] = [];
+      for (const file of sourceFiles('src', /\.tsx$/)) {
+        const source = read(file);
+        for (const m of source.matchAll(/\bmin-[hw]-(?:[1-9]|10)\b(?![.\d])/g)) {
+          offenders.push(`${file}: ${m[0]}`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
 });
 
 describe('error boundaries consume only defined tokens', () => {

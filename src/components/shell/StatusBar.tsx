@@ -71,7 +71,7 @@ export function StatusBar({
       <Link
         href="/"
         aria-label="MCProof home"
-        className="flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
+        className="target-min flex shrink-0 items-center gap-1 rounded-md min-[360px]:gap-1.5 min-[420px]:gap-2.5"
       >
         <LogoLockup />
       </Link>

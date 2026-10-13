@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { REPO_URL } from '@/config/repo';
+import { ConnectCta } from '@/components/hud';
 import { Core7List } from '@/components/home/Core7List';
 import { HeroReplay } from '@/components/home/HeroReplay';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
@@ -234,15 +235,10 @@ export default async function Home() {
                   </svg>
                   Play {sample.category} sample
                 </Link>
-                {/* The secondary CTA sits in a control row, not in a sentence, so
-                    the WCAG 2.2 2.5.8 inline-link exception does not cover it. It
-                    measured 195x21 and now clears the 24px minimum with room. */}
-                <Link
-                  href="/connect"
-                  className="inline-flex min-h-11 items-center font-mono text-[14px] tracking-[0.06em] text-nominal hover:underline"
-                >
-                  Connect your agent →
-                </Link>
+                {/* The second step, outlined: the filled button beside it is the
+                    one dominant action on this page. The same control as on
+                    every other page that offers it (ConnectCta). */}
+                <ConnectCta />
               </div>
               <p className="instrument-faint">
                 Featured run: tool misuse. Pick any of the Core-7 to watch its own attack.

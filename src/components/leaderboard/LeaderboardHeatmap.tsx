@@ -179,12 +179,11 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
         </span>
         {/* A visible, touch/keyboard-reachable path to the category names (the column
             codes' full names + explanations live on the coverage board). */}
-        {/* 24px minimum target: a 13px line box is 20px tall, which fails WCAG
-            2.2 AA 2.5.8, and the inline-text exception does not cover a link
-            sitting alone in a legend row. */}
+        {/* A link sitting alone in a legend row is not covered by the
+            inline-text exception, so it is a full `--target-min` target. */}
         <Link
           href="/threats"
-          className="inline-flex min-h-6 items-center font-mono text-[13px] tracking-[0.04em] text-nominal hover:underline"
+          className="target-min inline-flex items-center font-mono text-[13px] tracking-[0.04em] text-nominal hover:underline"
         >
           Category names → Threats
         </Link>

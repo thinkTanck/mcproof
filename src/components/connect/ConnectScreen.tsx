@@ -17,6 +17,7 @@ import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
 import { LiveRunConsole, RUN_EXPIRED_LABEL, RUN_FINISHED_LABEL } from './LiveRunConsole';
 import { PhoneNote } from './PhoneNote';
+import { RUN_CONTROLS_ID, RUN_CONTROLS_LABEL } from './run-controls';
 import { RUN_DISCARDED_LABEL } from '@/runs/discard-copy';
 import { readActiveRunId, subscribeActiveRunId, writeActiveRunId } from './active-run-store';
 import {
@@ -340,6 +341,10 @@ export function ConnectScreen({
   // The element the run bar is drawn into on a phone held upright. Kept in
   // state so the console renders again once it exists.
   const [barSlot, setBarSlot] = useState<HTMLElement | null>(null);
+  // Whether the console is drawing the run bar. While it is, the bar is where
+  // "Skip to run controls" lands; while it is not, the block below is.
+  const [barPresent, setBarPresent] = useState(false);
+  const startIsLanding = !(live && barPresent);
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
   const previewGoal = categoryGoals?.[category];
   const hasRun = activeRunId !== null && activeRunId !== settledRunId;
@@ -379,7 +384,7 @@ export function ConnectScreen({
                 aria-pressed={active}
                 onClick={() => setMode(m)}
                 className={cn(
-                  'min-h-11 flex-1 rounded-md border px-4 py-2.5 font-mono text-[13px] tracking-[0.08em] transition-colors',
+                  'min-h-11 flex-1 cursor-pointer rounded-md border px-4 py-2.5 font-mono text-[13px] tracking-[0.08em] transition-colors',
                   active
                     ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
                     : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',
@@ -555,41 +560,53 @@ export function ConnectScreen({
                     : 'YOUR RUN ENDPOINT'
           }
         />
-        {live ? (
-          <LiveRunConsole
-            port={port}
-            category={category}
-            kind={kind}
-            signedIn={signedIn}
-            reattachRunId={activeRunId ?? undefined}
-            onRunChange={onRunChange}
-            onRunOver={forgetRun}
-            onExpiredChange={setRunExpired}
-            onFinishedChange={setRunFinished}
-            onDiscardedChange={setRunDiscarded}
-            barSlot={barSlot}
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <p className="reading measure">
-              The sample is a constructed run judged by the real frozen detector. It shows what a
-              finding looks like; it is not a capture of a live agent, and it never claims to be.
-            </p>
-            {sampleProvenance && <p className="instrument-faint">{sampleProvenance}</p>}
-            <div className="flex flex-wrap items-center gap-4">
-              <Link
-                href={sampleHref}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                  <polygon points="2,1 11,6 2,11" fill="currentColor" />
-                </svg>
-                PLAY SAMPLE RUN
-              </Link>
-              <span className="instrument">streams into Live Attack Replay</span>
+        {/* WHERE "SKIP TO RUN CONTROLS" LANDS WHILE NO RUN IS ON SHOW
+            (run-controls.ts): the block that starts one. Once the console
+            draws the run bar, the bar carries the id and this is a plain
+            wrapper again, so the id is never on two elements. */}
+        <div
+          id={startIsLanding ? RUN_CONTROLS_ID : undefined}
+          tabIndex={startIsLanding ? -1 : undefined}
+          role={startIsLanding ? 'group' : undefined}
+          aria-label={startIsLanding ? RUN_CONTROLS_LABEL : undefined}
+        >
+          {live ? (
+            <LiveRunConsole
+              port={port}
+              category={category}
+              kind={kind}
+              signedIn={signedIn}
+              reattachRunId={activeRunId ?? undefined}
+              onRunChange={onRunChange}
+              onRunOver={forgetRun}
+              onExpiredChange={setRunExpired}
+              onFinishedChange={setRunFinished}
+              onDiscardedChange={setRunDiscarded}
+              onBarChange={setBarPresent}
+              barSlot={barSlot}
+            />
+          ) : (
+            <div className="flex flex-col gap-4">
+              <p className="reading measure">
+                The sample is a constructed run judged by the real frozen detector. It shows what a
+                finding looks like; it is not a capture of a live agent, and it never claims to be.
+              </p>
+              {sampleProvenance && <p className="instrument-faint">{sampleProvenance}</p>}
+              <div className="flex flex-wrap items-center gap-4">
+                <Link
+                  href={sampleHref}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                    <polygon points="2,1 11,6 2,11" fill="currentColor" />
+                  </svg>
+                  PLAY SAMPLE RUN
+                </Link>
+                <span className="instrument">streams into Live Attack Replay</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
       {/* WHERE THE RUN BAR IS HELD ON A PHONE (see run-bar-pin.ts). The last
           thing in the page column, sticky at the bottom of the window: while

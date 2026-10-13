@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth/user';
 import { getDiscardedRunStore } from '@/data/discarded-run-store.factory';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { signOut } from '@/lib/auth/actions';
-import { SectionLabel } from '@/components/hud';
+import { ConnectCta, SectionLabel } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
 
 export const metadata: Metadata = {
@@ -73,12 +73,9 @@ export default async function AccountPage() {
           <p className="reading measure mt-2 text-ink-faint">
             Point MCProof at your own MCP agent to run your first live red-team.
           </p>
-          <Link
-            href="/connect"
-            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 font-mono text-[14px] tracking-[0.06em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-          >
-            Connect your agent →
-          </Link>
+          <div className="mt-5">
+            <ConnectCta />
+          </div>
         </div>
       ) : (
         <ul className="mt-8 flex flex-col gap-2">
@@ -121,7 +118,15 @@ export default async function AccountPage() {
             }
             const { run } = entry.row;
             return (
-              <li key={row.id} className={item}>
+              // A row with a replay can be pressed anywhere: the link's hit area
+              // is stretched over the row (`after:inset-0`), and under a pointer
+              // the row's border brightens and "Replay" is underlined.
+              // A discarded row has nowhere to go, so it does neither.
+              <li
+                key={row.id}
+                data-run-row="linked"
+                className={`${item} group relative transition-colors hover:border-line-em`}
+              >
                 <span className="flex items-center gap-3 font-mono text-[14px]">
                   <span className="text-readout">{run.category}</span>
                   <span className={run.verdict.compromised ? 'text-breach-text' : 'text-nominal'}>
@@ -135,7 +140,7 @@ export default async function AccountPage() {
                       `model::category` and is not unique per user over time. */}
                   <Link
                     href={`/runs/${row.id}`}
-                    className="inline-flex min-h-11 items-center font-mono text-[13px] uppercase tracking-[0.1em] text-nominal underline-offset-4 hover:underline"
+                    className="inline-flex min-h-11 items-center font-mono text-[13px] uppercase tracking-[0.1em] text-nominal underline-offset-4 after:absolute after:inset-0 after:rounded-md after:content-[''] group-hover:underline"
                   >
                     Replay
                   </Link>

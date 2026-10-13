@@ -57,10 +57,15 @@ export function NavLink({
         active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised/70',
       )}
     >
+      {/* THE BAR THAT MARKS THE CURRENT ITEM. A shape, so the state is not
+          carried by colour alone (WCAG 1.4.1): `--nav-indicator-width` wide, in
+          the nominal colour, which is well over 3:1 on the deck. Decoration for
+          a screen reader, which is told by `aria-current`. */}
       <span
         aria-hidden="true"
+        data-nav-indicator=""
         className={cn(
-          'absolute bottom-2 left-[-12px] top-2 w-0.5 rounded-full',
+          'absolute bottom-2 left-[-12px] top-2 w-(--nav-indicator-width) rounded-full',
           active ? 'bg-nominal shadow-glow-nominal' : 'bg-transparent',
         )}
       />

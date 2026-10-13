@@ -245,7 +245,7 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
           <p className="reading mt-3 measure">
             <Link
               href="/leaderboard"
-              className="text-nominal underline underline-offset-2 hover:text-readout"
+              className="target-min inline-flex items-center text-nominal underline underline-offset-2 hover:text-readout"
             >
               See it on the robustness leaderboard
             </Link>
@@ -255,7 +255,7 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
             <p className="reading mt-3 measure">
               <Link
                 href={`/runs/${routeId}`}
-                className="text-nominal underline underline-offset-2 hover:text-readout"
+                className="target-min inline-flex items-center text-nominal underline underline-offset-2 hover:text-readout"
               >
                 Open the replay of this run
               </Link>
