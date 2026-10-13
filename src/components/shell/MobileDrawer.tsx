@@ -38,7 +38,8 @@ export function MobileDrawer({ pathname, account }: { pathname: string; account:
       <div
         id="mobile-deck"
         popover="auto"
-        className="fixed bottom-0 left-0 top-(--header-h) m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink shadow-[var(--shadow-drawer)]"
+        className="fixed bottom-0 left-0 top-(--header-h) m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink"
+        data-elev="2"
       >
         <div className="flex h-full flex-col">
           <div className="px-3 pb-2.5 pt-1.5 font-mono text-[13px] tracking-[0.16em] text-ink-faint">

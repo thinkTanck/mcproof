@@ -54,7 +54,7 @@ export function NavLink({
         // word stacks under the icon, and the target is at least 44px.
         rail &&
           'max-header-wide:min-h-11 max-header-wide:flex-col max-header-wide:justify-center max-header-wide:gap-1 max-header-wide:px-0.5 max-header-wide:py-2',
-        active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised/70',
+        active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised',
       )}
     >
       {/* THE BAR THAT MARKS THE CURRENT ITEM. A shape, so the state is not

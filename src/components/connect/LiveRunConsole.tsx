@@ -838,7 +838,7 @@ function BeforeIssue({
         <button
           type="button"
           onClick={onIssue}
-          className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+          className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20"
         >
           {issuing ? 'ISSUING' : 'ISSUE RUN ENDPOINT'}
         </button>
@@ -1130,7 +1130,7 @@ function Result({ runId }: { runId: string }) {
           aria-label="Open the replay"
           className={cn(
             link,
-            'border-nominal bg-nominal/10 text-readout shadow-glow-nominal hover:bg-nominal/20',
+            'border-nominal bg-nominal/10 text-readout glow-accent hover:bg-nominal/20',
           )}
         >
           OPEN THE REPLAY
@@ -1501,7 +1501,7 @@ function Connection({
               // visible words are always inside the name (WCAG 2.5.3).
               aria-label={finishing ? undefined : 'End run and judge'}
               title={finishing ? undefined : 'End run and judge'}
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 max-sm:col-start-3 max-sm:row-start-2 max-sm:whitespace-nowrap max-sm:px-3 sm:px-5"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20 max-sm:col-start-3 max-sm:row-start-2 max-sm:whitespace-nowrap max-sm:px-3 sm:px-5"
             >
               {finishing ? (
                 'JUDGING'
@@ -1535,7 +1535,7 @@ function Connection({
                 <Link
                   href={`/runs/${replayRunId}`}
                   aria-label="Open the replay"
-                  className="inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-nominal bg-nominal/10 px-3 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20 sm:px-5"
+                  className="inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-nominal bg-nominal/10 px-3 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20 sm:px-5"
                 >
                   <span className="sm:hidden">REPLAY</span>
                   <span className="hidden sm:inline">OPEN THE REPLAY</span>

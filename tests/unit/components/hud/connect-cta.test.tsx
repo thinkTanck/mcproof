@@ -43,9 +43,11 @@ describe('ConnectCta', () => {
     expect(classes).toContain('bg-transparent');
     expect(classes).toContain('text-nominal');
     expect(classes).toContain('target-min');
-    // Nothing fills it at rest and nothing glows, at rest or under a pointer.
+    // Nothing fills it at rest and nothing glows at rest. Under the pointer or
+    // the keyboard it takes the shared accent glow (batch F), by name.
     expect(classes.filter((c) => /^bg-/.test(c))).toEqual(['bg-transparent']);
     expect(classes.filter((c) => /shadow/.test(c))).toEqual([]);
+    expect(classes).toContain('glow-accent');
   });
 
   it('takes no props, so no page can restyle it', () => {

@@ -14,7 +14,9 @@ export const CONNECT_CTA_LABEL = 'Connect your agent';
  * page, one of them without its arrow. It is one outlined button now: no fill,
  * a solid border in the nominal colour (at least 3:1 against any surface it
  * sits on), the label in the same colour (at least 4.5:1), no glow and no
- * shadow, at least `--target-min` each way. Outlined on purpose: on Home the
+ * shadow at rest, at least `--target-min` each way. While the pointer or the
+ * keyboard is on it, it takes the accent glow every primary and outlined
+ * button takes (`glow-accent`, UI audit 2026-10-13, batch F). Outlined on purpose: on Home the
  * filled button is "Play sample", and this is the second step, not a rival
  * to the first.
  *
@@ -29,7 +31,7 @@ export function ConnectCta() {
     <Link
       href={CONNECT_CTA_HREF}
       data-cta="connect-agent"
-      className="target-min inline-flex items-center justify-center gap-2 rounded-md border border-nominal bg-transparent px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-nominal transition-colors hover:bg-nominal/10 hover:text-readout"
+      className="glow-accent target-min inline-flex items-center justify-center gap-2 rounded-md border border-nominal bg-transparent px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-nominal transition-colors hover:bg-nominal/10 hover:text-readout"
     >
       {CONNECT_CTA_LABEL}
       <span aria-hidden="true">→</span>

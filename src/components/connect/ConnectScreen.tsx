@@ -603,7 +603,7 @@ export function ConnectScreen({
               <div className="flex flex-wrap items-center gap-4">
                 <Link
                   href={sampleHref}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                     <polygon points="2,1 11,6 2,11" fill="currentColor" />

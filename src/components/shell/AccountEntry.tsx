@@ -78,7 +78,7 @@ const InertIcon = () => (
 
 /** The row every control here shares with the destinations above it. */
 const ROW =
-  'flex min-h-11 w-full items-center gap-3 rounded-md px-3.5 py-2.5 font-mono text-xs tracking-[0.06em] text-ink-hi transition-colors hover:bg-raised/70';
+  'flex min-h-11 w-full items-center gap-3 rounded-md px-3.5 py-2.5 font-mono text-xs tracking-[0.06em] text-ink-hi transition-colors hover:bg-raised';
 
 /** The narrow rail's version of the row: the word stacks under the icon, 44px or more. */
 const RAIL_ROW =
@@ -92,7 +92,7 @@ const RAIL_ROW =
  * setting must not swell this one control past its neighbours.
  */
 const HEADER_ROW =
-  'instrument one-line target-min inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 text-ink-hi transition-colors hover:bg-raised/70';
+  'instrument one-line target-min inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 text-ink-hi transition-colors hover:bg-raised';
 
 /** The short word the narrow rail shows; aria-hidden, the name says it already. */
 function RailWord({ children }: { children: string }) {

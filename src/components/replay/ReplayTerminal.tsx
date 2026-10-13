@@ -190,6 +190,7 @@ export function ReplayTerminal({
   return (
     <div
       ref={boxRef}
+      data-elev="2"
       className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6] phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]! phone:[@media(min-height:500px)]:scroll-cap"
       style={{
         height: 'clamp(280px, 40vh, 460px)',

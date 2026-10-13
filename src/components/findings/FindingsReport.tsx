@@ -154,7 +154,16 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
               </dl>
             </section>
 
-            <section aria-label="Summary">
+            {/* THE SUMMARY IS A CARD (UI audit 2026-10-13, batch F): the raised
+                surface and `--elev-1`, asked for by `data-elev`. It is the one
+                sentence that says what happened, so it is the one box on this
+                page that is lifted. `self-start`, so the card is as tall as its
+                sentence and not as tall as the payload beside it. */}
+            <section
+              aria-label="Summary"
+              data-elev="1"
+              className="self-start rounded-lg border border-line p-4"
+            >
               <SectionHeading>Summary</SectionHeading>
               <p data-asi-quoted="generated-report" className="reading measure mt-2">
                 {report.summary}
@@ -253,7 +262,8 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
         <section
           aria-label="Summary"
           data-testid="clean-result"
-          className="mt-8 border-t border-line pt-6"
+          data-elev="1"
+          className="mt-8 rounded-lg border border-line p-4"
         >
           <SectionHeading tone="cyan">Result</SectionHeading>
           <p data-asi-quoted="generated-report" className="reading mt-2 measure">

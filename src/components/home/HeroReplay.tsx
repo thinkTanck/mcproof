@@ -82,7 +82,8 @@ export function HeroReplay({
         role="img"
         aria-label={summary}
         aria-describedby={HERO_KEY_ID}
-        className="relative overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_0%,color-mix(in_srgb,var(--cyan-700)_14%,transparent),var(--surface-base)_72%)] px-4 py-3.5"
+        data-elev="1"
+        className="relative overflow-hidden rounded-xl border border-line px-4 py-3.5"
       >
         {/* THE FRAME ACCENT. One dim cyan light that goes round the box's border,
           once every 14.4 seconds: the cue that this is a readout and not a
@@ -160,7 +161,7 @@ export function HeroReplay({
                   {breach ? (
                     <span
                       data-testid="hero-breach-marker"
-                      className="hero-breach-dot relative z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[var(--surface-base)]"
+                      className="hero-breach-dot relative z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-raised"
                     >
                       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
                         <circle
@@ -184,7 +185,7 @@ export function HeroReplay({
                     // Still well under the 18px breach reticle, which stays the one
                     // loud node on the rail, and still shorter than the row's line
                     // of text, so no row grows to hold it.
-                    <span className="relative z-10 flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[var(--surface-base)]">
+                    <span className="relative z-10 flex h-[13px] w-[13px] items-center justify-center rounded-full bg-raised">
                       <span
                         aria-hidden="true"
                         className="hero-sweep absolute inset-[-8px] rounded-full"

@@ -169,7 +169,7 @@ const MAIN_AT_SM_AND_UP = {
   label: 'font-mono text-[13px] tracking-[0.08em]',
   count: 'flex items-baseline gap-2',
   button:
-    'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20',
+    'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20',
 };
 
 /** The classes that apply at 640px and up: unprefixed ones, plus `sm:` ones without the prefix. */
