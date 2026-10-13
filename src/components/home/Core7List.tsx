@@ -25,7 +25,11 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
             <Link
               href={runHref(c.id)}
               aria-label={`Watch the ${c.id} ${c.title} sample attack`}
-              className="group flex min-h-11 items-center gap-3 rounded-md border border-transparent px-2 py-2.5 transition-colors hover:border-line hover:bg-nominal/[0.06]"
+              // Under a pointer the row gets a border and a tint, and "Watch"
+              // is underlined, so the change is not colour alone. Tailwind
+              // puts `hover:` inside `@media (hover: hover)`, so a touch
+              // screen never keeps it.
+              className="group flex min-h-11 items-center gap-3 rounded-md border border-transparent px-2 py-2.5 transition-colors hover:border-line-em hover:bg-nominal/[0.06]"
             >
               <span
                 aria-hidden="true"
@@ -41,7 +45,9 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
                 <span className="block font-sans text-[14px] text-ink">{c.title}</span>
               </span>
               <span className="flex shrink-0 items-center gap-1 font-mono text-[13px] tracking-[0.08em] text-nominal">
-                Watch
+                <span data-hover-mark="" className="underline-offset-4 group-hover:underline">
+                  Watch
+                </span>
                 <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
                   <path
                     d="M2 6h7M6 3l3 3-3 3"

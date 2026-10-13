@@ -28,6 +28,14 @@ const BREACH = 'var(--text-breach)';
 const PROMPT_COLOR = 'var(--terminal-prompt)';
 const PROMPT = 'detector@sentinel:~';
 
+/**
+ * The two answers to the export prompt, `y` and `n`. One letter each, and a
+ * box of at least `--target-min` each way around it: at 24px square they were
+ * the smallest controls in the app, side by side (UI audit 2026-10-12, batch B).
+ */
+const ANSWER =
+  'target-min inline-flex items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus-visible:bg-nominal/20';
+
 function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolean }) {
   return (
     <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
@@ -126,34 +134,38 @@ export function VerdictRail({
           <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
           {exportLabel.toLowerCase()}?
         </span>
-        <span aria-hidden="true">[</span>
-        <Link
-          ref={yRef}
-          href={href}
-          aria-label={exportLabel}
-          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus-visible:bg-nominal/20"
-          style={{ color: CYAN }}
-        >
-          y
-        </Link>
-        <span aria-hidden="true">/</span>
-        <button
-          type="button"
-          onClick={() => setAnswered('n')}
-          aria-label="Decline export"
-          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus-visible:bg-nominal/20"
-          style={{ color: CYAN }}
-        >
-          n
-        </button>
-        <span aria-hidden="true">]</span>
-        {answered === null && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
-            style={{ background: CYAN }}
-          />
-        )}
+        {/* The brackets and the two answers wrap as ONE piece, so a bracket is
+            never left at the end of a line by itself. */}
+        <span className="inline-flex items-center gap-x-1">
+          <span aria-hidden="true">[</span>
+          <Link
+            ref={yRef}
+            href={href}
+            aria-label={exportLabel}
+            className={ANSWER}
+            style={{ color: CYAN }}
+          >
+            y
+          </Link>
+          <span aria-hidden="true">/</span>
+          <button
+            type="button"
+            onClick={() => setAnswered('n')}
+            aria-label="Decline export"
+            className={ANSWER}
+            style={{ color: CYAN }}
+          >
+            n
+          </button>
+          <span aria-hidden="true">]</span>
+          {answered === null && (
+            <span
+              aria-hidden="true"
+              className="inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
+              style={{ background: CYAN }}
+            />
+          )}
+        </span>
       </div>
       {answered === 'n' && <div style={{ color: CYAN }}>&gt; ok</div>}
     </aside>

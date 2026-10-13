@@ -83,7 +83,7 @@ export default async function NotFound() {
               <Link
                 key={r.href}
                 href={r.href}
-                className="group grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-x-2 rounded-sm py-0.5 pl-4 pr-2 transition-colors hover:bg-[color-mix(in_srgb,var(--status-nominal)_7%,transparent)]"
+                className="group grid min-h-(--target-min) grid-cols-[auto_auto_minmax(0,1fr)] content-center items-baseline gap-x-2 rounded-sm py-0.5 pl-4 pr-2 transition-colors hover:bg-[color-mix(in_srgb,var(--status-nominal)_7%,transparent)]"
               >
                 <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
                   →

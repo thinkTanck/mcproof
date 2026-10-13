@@ -74,7 +74,9 @@ export default async function ThreatsPage() {
           href="https://genai.owasp.org"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-nominal underline underline-offset-2"
+          // A link inside a sentence: its line is kept and a hit area of
+          // `--target-min` is laid over it (`target-area`, globals.css).
+          className="target-area whitespace-nowrap text-nominal underline underline-offset-2"
         >
           genai.owasp.org →
         </a>

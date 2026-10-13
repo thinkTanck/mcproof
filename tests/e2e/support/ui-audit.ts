@@ -62,6 +62,32 @@ export interface SmallTarget {
   disabled: boolean;
 }
 
+/** A control whose own box is under the minimum, and whether its hit area makes up for it. */
+export interface MeasuredTarget {
+  selector: string;
+  name: string;
+  width: number;
+  height: number;
+  /** A `min` by `min` square centred on the control lands on the control everywhere. */
+  hitArea: boolean;
+  /** Where the square missed, when it did. */
+  missed: string;
+  /** `scroll-region`: focusable so the keyboard can scroll it, not a pointer target. */
+  kind: 'control' | 'scroll-region';
+  inline: boolean;
+  disabled: boolean;
+}
+
+export type PaintProperty = 'borderTopColor' | 'backgroundColor' | 'color' | 'textDecorationColor';
+
+export interface PaintContrast {
+  ratio: number;
+  fg: string;
+  bg: string;
+  /** The colour's own alpha: 0 for a transparent fill. */
+  alpha: number;
+}
+
 export interface FocusStop {
   selector: string;
   name: string;
@@ -406,6 +432,127 @@ export async function installAudit(page: Page): Promise<void> {
       return out;
     };
 
+    /**
+     * EVERY POINTER TARGET, WITH THE AREA A FINGER CAN ACTUALLY HIT (batch B).
+     *
+     * `smallTargets` above reads the control's own box. A control can also be
+     * given a larger hit area that takes no room in the layout (a
+     * pseudo-element laid over and around it), and a box cannot see that. So a
+     * control whose box is under `min` is brought to the middle of the screen
+     * and a `min` by `min` square centred on it is sampled with
+     * `elementFromPoint`: every sample has to land on the control itself. Two
+     * hit areas that overlap fail here, because one of them wins the sample.
+     *
+     * A focusable box that is not a control (a code box or a payload that
+     * scrolls, focusable so the keyboard can scroll it) is reported as
+     * `scroll-region`: a pointer scrolls it from anywhere and nothing in it is
+     * activated, so it is not a pointer target.
+     */
+    const NATIVE_CONTROL = 'a[href], button, input, select, textarea, summary';
+    const WIDGET_ROLE =
+      /^(button|tab|radio|checkbox|switch|slider|link|menuitem|option|combobox|textbox)$/;
+
+    const targets = async (min: number) => {
+      const out: {
+        selector: string;
+        name: string;
+        width: number;
+        height: number;
+        hitArea: boolean;
+        missed: string;
+        kind: 'control' | 'scroll-region';
+        inline: boolean;
+        disabled: boolean;
+      }[] = [];
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+      for (const el of document.querySelectorAll<HTMLElement>(INTERACTIVE)) {
+        if (!el.checkVisibility({ visibilityProperty: true })) continue;
+        // A visually hidden input is operated through its label.
+        let box: HTMLElement = el;
+        if (visuallyHidden(el)) {
+          const label = (el as HTMLInputElement).labels?.[0];
+          if (!label || visuallyHidden(label)) continue;
+          box = label;
+        }
+        let rect = box.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        const kind: 'control' | 'scroll-region' =
+          el.matches(NATIVE_CONTROL) || WIDGET_ROLE.test(el.getAttribute('role') ?? '')
+            ? 'control'
+            : 'scroll-region';
+        const boxOk = rect.width >= min - 0.05 && rect.height >= min - 0.05;
+        let hitArea = false;
+        let missed = '';
+        if (!boxOk && kind === 'control') {
+          box.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+          await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+          rect = box.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const rx = Math.max(min, rect.width) / 2 - 1;
+          const ry = Math.max(min, rect.height) / 2 - 1;
+          const misses: string[] = [];
+          for (const fx of [-1, 0, 1]) {
+            for (const fy of [-1, 0, 1]) {
+              const hit = document.elementFromPoint(cx + fx * rx, cy + fy * ry);
+              if (hit && (hit === box || box.contains(hit) || hit === el)) continue;
+              misses.push(`${fx},${fy}:${hit ? describe(hit) : 'off screen'}`);
+            }
+          }
+          hitArea = misses.length === 0;
+          missed = misses.slice(0, 2).join(' | ');
+        }
+        const inline =
+          getComputedStyle(el).display.startsWith('inline') &&
+          getComputedStyle(el).display !== 'inline-flex' &&
+          (el.parentElement?.textContent ?? '').trim().length >
+            (el.textContent ?? '').trim().length;
+        if (boxOk) continue;
+        out.push({
+          selector: describe(el),
+          name: nameOf(el),
+          width: Math.round(rect.width * 10) / 10,
+          height: Math.round(rect.height * 10) / 10,
+          hitArea,
+          missed,
+          kind,
+          inline,
+          disabled: isDisabled(el),
+        });
+      }
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
+      return out;
+    };
+
+    /**
+     * One painted colour of one element against what it is painted on: a
+     * border against what surrounds the control, an indicator bar's fill
+     * against what is under it. `alpha` is the colour's own, so a transparent
+     * fill reads 0.
+     */
+    const paintContrast = (
+      selector: string,
+      property: 'borderTopColor' | 'backgroundColor' | 'color' | 'textDecorationColor',
+    ) => {
+      const el = [...document.querySelectorAll<HTMLElement>(selector)].find((node) =>
+        node.checkVisibility({ visibilityProperty: true }),
+      );
+      if (!el) return null;
+      const style = getComputedStyle(el);
+      const colour = style[property];
+      // A border and a fill are drawn on what is around the element; its text
+      // on its own background.
+      const { candidates } = backgroundsOf(el, property === 'color');
+      const w = worst(colour, opacityOf(el), candidates);
+      return {
+        ratio: Math.floor(w.ratio * 100) / 100,
+        fg: hex(w.fg),
+        bg: hex(w.bg),
+        alpha: Math.round(paint(colour).a * 100) / 100,
+      };
+    };
+
     // ---- focus -----------------------------------------------------------
 
     const FOCUS_PROPS = [
@@ -562,6 +709,8 @@ export async function installAudit(page: Page): Promise<void> {
       contrastOf,
       smallText,
       smallTargets,
+      targets,
+      paintContrast,
       focusBaseline,
       focusStop,
     };
@@ -573,6 +722,8 @@ interface AuditApi {
   contrastOf(selector: string): ContrastPair | null;
   smallText(floor: number): SmallText[];
   smallTargets(min: number): SmallTarget[];
+  targets(min: number): Promise<MeasuredTarget[]>;
+  paintContrast(selector: string, property: PaintProperty): PaintContrast | null;
   focusBaseline(): void;
   focusStop(): Promise<FocusStop | 'seen' | null>;
   tabbables(): number;
@@ -598,6 +749,27 @@ export function probeSmallText(page: Page, floor = 12): Promise<SmallText[]> {
 /** Interactive controls whose box is under `min` by `min` CSS px. */
 export function probeSmallTargets(page: Page, min = 44): Promise<SmallTarget[]> {
   return page.evaluate((m) => (window as unknown as AuditWindow).__uiAudit.smallTargets(m), min);
+}
+
+/**
+ * Every control whose own box is under `min` by `min`, with whether a hit area
+ * of that size makes up for it. Scrolls the page while it measures and puts it
+ * back.
+ */
+export function probeTargets(page: Page, min = 44): Promise<MeasuredTarget[]> {
+  return page.evaluate((m) => (window as unknown as AuditWindow).__uiAudit.targets(m), min);
+}
+
+/** One painted colour of the first visible match against what it is painted on. */
+export function probePaintContrast(
+  page: Page,
+  selector: string,
+  property: PaintProperty,
+): Promise<PaintContrast | null> {
+  return page.evaluate(
+    ([s, p]) => (window as unknown as AuditWindow).__uiAudit.paintContrast(s, p),
+    [selector, property] as const,
+  );
 }
 
 /**

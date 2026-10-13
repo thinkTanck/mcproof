@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ConnectCta } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
 import {
   DISCARD_STILL_COUNTS_SENTENCE,
@@ -76,12 +76,9 @@ export function RunDiscarded({
           )}
         </div>
       )}
-      <Link
-        href="/connect"
-        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-      >
-        Connect your agent
-      </Link>
+      <div className="mt-6">
+        <ConnectCta />
+      </div>
     </section>
   );
 }

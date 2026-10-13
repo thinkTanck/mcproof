@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { SectionLabel } from '@/components/hud';
+import { ConnectCta, SectionLabel } from '@/components/hud';
 import { InertMark, LeaderboardHeatmap } from '@/components/leaderboard';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { measuredLeaderboard } from '@/leaderboard/measured';
@@ -80,12 +79,9 @@ export default async function LeaderboardPage() {
               ? 'Rows appear one model at a time as your runs complete.'
               : 'Sign in to see your own measured runs here.'}
           </p>
-          <Link
-            href="/connect"
-            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 font-mono text-[14px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
-          >
-            Connect your agent →
-          </Link>
+          <div className="mt-5">
+            <ConnectCta />
+          </div>
         </div>
       ) : (
         <div className="mt-4">

@@ -122,7 +122,9 @@ describe.each(PAGES)('%s: a discarded run, for its owner', (_route, page, metada
 
     const link = screen.getByRole('link', { name: /connect your agent/i });
     expect(link).toHaveAttribute('href', '/connect');
-    expect(link.className).toMatch(/\bmin-h-11\b/);
+    // The shared call to action takes its floor from the target token
+    // (`target-min`: 44px each way), where it used to spell the 44px step.
+    expect(link.className).toMatch(/\btarget-min\b/);
   });
 });
 

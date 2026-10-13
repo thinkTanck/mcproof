@@ -6,6 +6,7 @@ import { readShellAccount } from '@/lib/shell-identity';
 import { Graticule } from './Graticule';
 import { StatusBar } from './StatusBar';
 import { CommandDeck } from './CommandDeck';
+import { SkipLinks } from './SkipLinks';
 
 /**
  * The HUD frame: status bar + command deck + main. A Server Component: the
@@ -52,14 +53,10 @@ export async function AppShell({ children }: { children: ReactNode }) {
   const account = readShellAccount(headerList, { authConfigured: isAuthEnabled() });
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
-      {/* Skip link (WCAG 2.4.1) — first focusable element, so a keyboard user can
-          bypass the six-item deck straight to content. Off-screen until focused. */}
-      <a
-        href="#main"
-        className="sr-only rounded-md border border-line-em bg-solid px-4 py-2 font-mono text-xs tracking-[0.06em] text-nominal focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[60]"
-      >
-        Skip to content
-      </a>
+      {/* Skip links (WCAG 2.4.1): the first focusable elements, so a keyboard
+          user can bypass the six-item deck straight to content, and on Connect
+          go straight to the run's controls. Off-screen until focused. */}
+      <SkipLinks pathname={pathname} />
       <Graticule />
       <StatusBar pathname={pathname} mode={mode} runContext={runContext} account={account} />
       <div className="flex min-h-[calc(100dvh-var(--header-h))]">
