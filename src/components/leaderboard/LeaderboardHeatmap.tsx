@@ -227,7 +227,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
           role="region"
           aria-label={`${measured ? 'Measured' : 'Fixture'} model by category robustness heatmap`}
           tabIndex={0}
-          className="overflow-x-auto border-y border-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring)]"
+          className="overflow-x-auto border-y border-line"
         >
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">

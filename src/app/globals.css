@@ -142,8 +142,17 @@
    * size; with the text enlarged the header grows and only this follows it. */
   --header-clear: var(--header-live-h, var(--header-h));
 
+  /* The ring's shape (UI audit 2026-10-12). At least 2px, and drawn 2px
+   * outside the control so it never sits on the control's own border.
+   * Where a control lies inside a box that clips (a scroll box, a panel with
+   * hidden overflow) an outside ring is cut off, so there it is drawn just
+   * inside the control instead: the `focus-inside` utility below swaps
+   * `--focus-ring-place`, the one value the ring rule reads. The inside offset
+   * is the negative of the width, derived, so the two cannot disagree. */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+  --focus-ring-offset-inside: calc(var(--focus-ring-width) * -1);
+  --focus-ring-place: var(--focus-ring-offset);
 
   /* Spacing — 8-pt scale (self-documenting px names) */
   --sp-2: 2px;
@@ -170,6 +179,17 @@
   --motion-slow: 360ms;
   --motion-sweep: 1200ms;
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  /* THE TEXT FLOOR (UI audit 2026-10-12): no text is drawn smaller than this.
+   * In px on purpose. Every role size below is px and already above it; the
+   * one step that was not px is Tailwind's `text-xs`, 0.75rem, which is 12px at
+   * the default root and 9px in a browser whose text size is turned down to
+   * 12. The bridge below clamps that step to the floor with max(), so it still
+   * grows with an enlarged root and stops here on the way down. A component
+   * that wants the floor itself writes `text-(length:--text-floor)`, never a
+   * literal 12px. Locked in tests/unit/app/tokens.test.tsx; measured in
+   * tests/e2e/contrast-text-floor-focus.spec.ts. */
+  --text-floor: 12px;
 
   /* Type — next/font sets --font-geist-*; these stacks fall back gracefully. */
   --font-mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, 'SF Mono', monospace;
@@ -312,6 +332,9 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+
+  /* The smallest type step, held at the floor (see --text-floor). */
+  --text-xs: max(0.75rem, var(--text-floor));
 }
 
 body {
@@ -483,14 +506,45 @@ html {
 }
 
 /* =========================================================================
- * Focus — one visible ring on every interactive element (design-system §8).
- * :focus-visible so pointer users don't see rings but keyboard users always
- * do. Applied globally because inline styles can't express focus-visible.
+ * Focus — ONE visible ring on everything the keyboard can reach
+ * (design-system §8; UI audit 2026-10-12; WCAG 2.4.7, 2.4.13).
+ *
+ * The selector is the bare `:focus-visible`: whatever matches it is focused by
+ * definition, so links, buttons, inputs, tabs, `summary`, a scroll box with a
+ * tabindex and anything added later all get the same ring. It had been a list
+ * of tag names, and a list is something someone forgets to extend.
+ * `:focus-visible` and not `:focus`, so a pointer does not leave rings behind.
+ *
+ * UNLAYERED ON PURPOSE. An unlayered rule beats every layered one, so no
+ * utility beside a control can switch the ring off. That is also why the
+ * `focus:outline-none` some components carried never did anything, and why
+ * they are gone: a component does not style its own focus ring.
+ *
+ * AN OUTLINE AND NOTHING ELSE. An outline takes no room in the layout, so
+ * focus cannot move anything; it is not clipped by the control's own overflow;
+ * and it survives forced-colors, where a box-shadow ring disappears.
  * ========================================================================= */
-:where(a, button, input, select, textarea, [tabindex], [role='button']):focus-visible {
+:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-md);
+  outline-offset: var(--focus-ring-place);
+}
+
+/* A control with square corners gets the ring's corners rounded. In the base
+ * layer, so a control that has a radius of its own (`rounded-lg`,
+ * `rounded-full`) keeps it: this used to be part of the unlayered rule above
+ * and overrode every control's own shape while it was focused. */
+@layer base {
+  :focus-visible {
+    border-radius: var(--radius-md);
+  }
+}
+
+/* The ring drawn just inside the control. For a control that lies inside a box
+ * that clips, where an outside ring would be cut off: a row of the replay
+ * terminal, the step payload. It only moves the offset; width and colour are
+ * the shared ones. */
+@utility focus-inside {
+  --focus-ring-place: var(--focus-ring-offset-inside);
 }
 
 /* Native popover (mobile command deck) backdrop — dim + slight blur. */

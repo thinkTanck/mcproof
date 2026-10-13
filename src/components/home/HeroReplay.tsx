@@ -88,10 +88,10 @@ export function HeroReplay({
           No green "live" dot, consistent with how the rest of the site labels a
           constructed demonstration. */}
       <div aria-hidden="true" className="mb-3 flex items-center justify-between gap-2">
-        <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-nominal">
+        <span className="font-mono text-(length:--text-floor) uppercase tracking-[0.14em] text-nominal">
           {category} · sample replay
         </span>
-        <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint">
+        <span className="rounded-full border border-line px-2 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint">
           Recorded
         </span>
       </div>
@@ -184,7 +184,7 @@ export function HeroReplay({
               </div>
               <span
                 className={cn(
-                  'w-[22px] shrink-0 font-mono text-[12px] tabular-nums',
+                  'w-[22px] shrink-0 font-mono text-(length:--text-floor) tabular-nums',
                   breach ? 'text-breach-text' : 'text-ink-muted',
                 )}
               >
@@ -199,7 +199,7 @@ export function HeroReplay({
                 {label(step)}
               </span>
               {breach && (
-                <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.1em] text-breach-text">
+                <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.1em] text-breach-text">
                   Breach
                 </span>
               )}

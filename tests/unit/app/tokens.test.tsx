@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import ErrorBoundary from '@/app/error';
@@ -25,6 +25,15 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 function must<T>(value: T | undefined | null, message: string): T {
   if (value === undefined || value === null) throw new Error(message);
   return value;
+}
+
+/** Every file under `dir` (relative to the project root) whose name matches. */
+function sourceFiles(dir: string, pattern: RegExp): string[] {
+  return readdirSync(join(process.cwd(), dir), { withFileTypes: true }).flatMap((entry) => {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) return sourceFiles(rel, pattern);
+    return pattern.test(entry.name) ? [rel] : [];
+  });
 }
 
 const css = read('src/app/globals.css');
@@ -404,6 +413,153 @@ describe('DTCG token layer (globals.css)', () => {
     expect(decls).toMatch(/outline/);
     expect(decls).toMatch(/var\(--focus-ring\)/);
     expect(vars.has('--focus-ring')).toBe(true);
+  });
+
+  describe('THE TEXT FLOOR: nothing is set smaller than 12px (UI audit 2026-10-12)', () => {
+    const floor = () => must(vars.get('--text-floor'), '--text-floor defined');
+
+    it('the floor is a token, in px, and at least 12', () => {
+      // In px on purpose: a floor that followed the root font size would sink
+      // with it, which is the one case a floor exists for.
+      expect(floor()).toMatch(/^\d+(\.\d+)?px$/);
+      expect(parseFloat(floor())).toBeGreaterThanOrEqual(12);
+    });
+
+    it('no type-size token of any role resolves below the floor', () => {
+      const min = parseFloat(floor());
+      const sizeTokens = [...vars.entries()].filter(([name]) =>
+        /^--(reading|instrument|display)-(body|lead|h1|h2|h3|label|base|sm|md|lg|xl)$/.test(name),
+      );
+      expect(sizeTokens.length, 'type-size tokens found').toBeGreaterThanOrEqual(11);
+      for (const [name, value] of sizeTokens) {
+        const pxs = [...value.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) =>
+          parseFloat(must(m[1], 'px')),
+        );
+        expect(pxs.length, `${name} (${value}) names a px size`).toBeGreaterThan(0);
+        expect(Math.min(...pxs), `${name} (${value}) is under the floor`).toBeGreaterThanOrEqual(
+          min,
+        );
+      }
+    });
+
+    it('the smallest Tailwind step (text-xs) is clamped to the floor, so it cannot follow a small root below it', () => {
+      // `text-xs` is 0.75rem: 12px at the default root, 9px in a browser whose
+      // text size is turned down to 12. max() keeps the rem (so enlarged text
+      // still grows) and stops it at the floor on the way down.
+      const theme = must(
+        cssNoComments.match(/@theme inline\s*\{([\s\S]*?)\}/)?.[1],
+        '@theme inline block',
+      );
+      expect(theme).toMatch(/--text-xs:\s*max\(\s*0\.75rem\s*,\s*var\(--text-floor\)\s*\)/);
+    });
+
+    it('no component sets a literal size at or under the floor: 12px is spelled as the token', () => {
+      // A class-list guard. `text-[12px]` is the floor written as a number, and
+      // anything smaller is under it; both are spelled `text-(length:--text-floor)`
+      // or a role class instead. Also catches rem and em literals under 0.75.
+      const min = parseFloat(floor());
+      const offenders: string[] = [];
+      for (const file of sourceFiles('src', /\.tsx?$/)) {
+        const source = read(file);
+        for (const m of source.matchAll(/text-\[(\d*\.?\d+)(px|rem|em)\]/g)) {
+          const px = parseFloat(must(m[1], 'size')) * (m[2] === 'px' ? 1 : 16);
+          if (px <= min) offenders.push(`${file}: ${m[0]}`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
+
+  describe('THE FOCUS RING: one ring, from tokens, on everything the keyboard can reach', () => {
+    /** Every rule in globals.css whose selector mentions :focus-visible. */
+    const focusRules = () =>
+      [...cssNoComments.matchAll(/(?:^|[}{;])\s*([^{};]*:focus-visible[^{};]*)\{([^}]*)\}/g)].map(
+        (m) => ({ selector: must(m[1], 'selector').trim(), body: must(m[2], 'body') }),
+      );
+    const ringRules = () => focusRules().filter((rule) => /(^|[;\s])outline\s*:/.test(rule.body));
+
+    it('the ring tokens exist: a width of at least 2px, an outside offset and an inside one', () => {
+      expect(parseFloat(must(vars.get('--focus-ring-width'), 'width'))).toBeGreaterThanOrEqual(2);
+      expect(must(vars.get('--focus-ring-width'), 'width')).toMatch(/^\d+px$/);
+      expect(must(vars.get('--focus-ring-offset'), 'offset')).toMatch(/^\d+px$/);
+      // Inside a box that clips, the ring is drawn just inside the control: the
+      // negative of its own width, derived, so the two can never disagree.
+      expect(must(vars.get('--focus-ring-offset-inside'), 'inside offset')).toBe(
+        'calc(var(--focus-ring-width) * -1)',
+      );
+      // What the rule reads. Outside by default; `focus-inside` swaps it.
+      expect(vars.get('--focus-ring-place')).toBe('var(--focus-ring-offset)');
+    });
+
+    it('the ring colour is at least 3:1 on every surface a control sits on', () => {
+      const ring = resolveColor('var(--focus-ring)', surfaceBase);
+      for (const surface of [
+        '--surface-base',
+        '--surface-panel',
+        '--surface-solid',
+        '--surface-raised',
+        '--terminal-chrome',
+      ]) {
+        const bg = resolveColor(`var(${surface})`, surfaceBase);
+        expect(contrast(ring, bg), `--focus-ring on ${surface}`).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it('exactly ONE rule draws the ring, and it is the bare :focus-visible', () => {
+      // Bare, so nothing focusable is left out: links, buttons, inputs, tabs,
+      // summary, anything with a tabindex. A list of tag names is a list that
+      // someone forgets to extend.
+      const rules = ringRules();
+      expect(rules.map((rule) => rule.selector)).toEqual([':focus-visible']);
+    });
+
+    it('the ring is an outline and nothing else, so focus can never move the layout', () => {
+      // outline and outline-offset take no room in the layout and survive
+      // forced-colors. A border, a shadow or a radius here would redraw the
+      // control itself; the old rule set a radius and overrode every control's own.
+      const props = must(ringRules()[0], 'ring rule')
+        .body.split(';')
+        .map((decl) => decl.split(':')[0]?.trim())
+        .filter(Boolean);
+      expect(props.sort()).toEqual(['outline', 'outline-offset']);
+      const body = must(ringRules()[0], 'ring rule').body;
+      expect(body).toMatch(/outline:\s*var\(--focus-ring-width\)\s+solid\s+var\(--focus-ring\)/);
+      expect(body).toMatch(/outline-offset:\s*var\(--focus-ring-place\)/);
+    });
+
+    it('the ring rule is not inside a layer, so no utility beside it can switch it off', () => {
+      // Unlayered beats every layer (see the note on the role classes above).
+      const at = cssNoComments.indexOf(':focus-visible {');
+      expect(at).toBeGreaterThan(-1);
+      const before = cssNoComments.slice(0, at);
+      const opens = (before.match(/\{/g) ?? []).length;
+      const closes = (before.match(/\}/g) ?? []).length;
+      expect(opens - closes, 'the ring rule sits at the top level').toBe(0);
+    });
+
+    it('the inside placement is a utility that only moves the offset', () => {
+      const utility = must(
+        cssNoComments.match(/@utility focus-inside\s*\{([^}]*)\}/)?.[1],
+        '@utility focus-inside',
+      );
+      expect(utility.trim()).toBe('--focus-ring-place: var(--focus-ring-offset-inside);');
+    });
+
+    it('no component removes the ring or draws one of its own', () => {
+      // `focus:outline-none` beside a control was dead code (the unlayered rule
+      // won) and read as if the ring were off; a `focus-visible:outline-*` or a
+      // `ring-*` is a second ring. Either is a per-component focus style.
+      const offenders: string[] = [];
+      for (const file of sourceFiles('src', /\.tsx?$/)) {
+        const source = read(file);
+        for (const m of source.matchAll(
+          /\b(?:focus|focus-visible|focus-within):(?:outline|ring)[\w\-[\]:().]*|\boutline-(?:none|hidden)\b/g,
+        )) {
+          offenders.push(`${file}: ${m[0]}`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
   });
 });
 
