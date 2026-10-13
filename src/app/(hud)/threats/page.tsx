@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { SectionLabel } from '@/components/hud';
 import { CoverageLegend } from '@/components/threats/CoverageLegend';
 import { CoverageIcon } from '@/components/threats/CoverageIcon';
+import { Glossary } from '@/components/threats/Glossary';
 import { ThreatEntry } from '@/components/threats/ThreatEntry';
 import { THREATS } from '@/components/threats/threat-data';
 import { getDataSource } from '@/data/source';
@@ -66,6 +67,9 @@ export default async function ThreatsPage() {
           <ThreatEntry key={threat.code} threat={threat} sampleHref={sampleHref(threat.code)} />
         ))}
       </div>
+
+      {/* What "Sentinel" names, at the anchor the replay's prompts link to. */}
+      <Glossary />
 
       <footer className="instrument-faint mt-6 max-w-[760px] border-t border-line pt-4 leading-relaxed">
         Category codes and titles © OWASP GenAI Security Project, Top 10 for Agentic Applications

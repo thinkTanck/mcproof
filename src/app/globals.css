@@ -215,6 +215,14 @@
    * Locked in tests/unit/app/tokens.test.tsx; measured on every page in
    * tests/e2e/buttons-targets-nav-skip.spec.ts. */
   --target-min: 44px;
+  /* WHAT A BOX CAPPED BY `scroll-cap` GIVES UP (Batch G, 2026-10-13). Zero
+   * everywhere, so the cap is 45% of the screen as it always was. The replay
+   * terminal on a phone sets it to `--replay-key-closed`: the closed "Key"
+   * above it is one target tall plus one 1rem gap, less the 1.5rem of stage
+   * padding it is pulled up into, and with that given back Play is exactly
+   * where it was before the Key was there. */
+  --scroll-cap-less: 0px;
+  --replay-key-closed: calc(var(--target-min) - 0.5rem);
   /* The bar beside the command deck's current item. At least 2px, in px, so
    * the item that is current is marked by a shape and not by colour alone
    * (WCAG 1.4.1), at any text size. */
@@ -1062,8 +1070,13 @@ html {
  * started on the box at its end: the box had nothing left to move and the page
  * did not move either (measured at 390x844; a whole-pixel height chained).
  * The first line is for a browser without `round()`.
+ *
+ * `--scroll-cap-less` (Batch G, 2026-10-13) is height the box gives up to
+ * something that shares its 45% with it: the replay terminal sets it to what
+ * the closed "Key" above it adds, so the two together are no taller than the
+ * terminal was. Unset, it is zero and the cap is what it always was.
  * ========================================================================= */
 @utility scroll-cap {
-  max-height: 45dvh;
-  max-height: round(down, 45dvh, 1px);
+  max-height: calc(45dvh - var(--scroll-cap-less, 0px));
+  max-height: calc(round(down, 45dvh, 1px) - var(--scroll-cap-less, 0px));
 }

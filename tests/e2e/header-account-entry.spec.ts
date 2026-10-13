@@ -22,7 +22,7 @@ import { suppressBootSplash } from './support/screen';
  * WHAT THE HEADER GIVES UP FOR IT. On the replay the bar already carried the
  * run telemetry, the outcome and the mode chip, and at 1100 in the fallback
  * font it had 140px left. So from 1100 up the replay's bar drops the
- * "SENTINEL FIELDS" tag (it keeps it on every other page), the chip sits to the
+ * "SENTINEL FIELDS" tag (Batch G then removed it from every page), the chip sits to the
  * left of the entry, and nothing in the bar is drawn over anything else: that
  * last part is measured here, at 1100 in the fallback font, the worst case.
  *
@@ -301,10 +301,12 @@ test.describe('1100px: the bar of the replay has room', () => {
     expect(replay.telemetryWidth ?? 0, 'run telemetry width').toBeGreaterThan(replay.set);
     expect(replay.tag, 'SENTINEL FIELDS on the replay at 1100').toBe(false);
 
-    // Every other page keeps the tag.
+    // Batch G (2026-10-13, the owner's instruction): the tag is gone from every
+    // page, not only the replay. This read `toBe(true)`, "every other page
+    // keeps the tag".
     await page.goto('/findings/sample');
     await settle(page);
-    expect((await measure(page)).header!.tag, 'SENTINEL FIELDS on the report').toBe(true);
+    expect((await measure(page)).header!.tag, 'SENTINEL FIELDS on the report').toBe(false);
   });
 });
 

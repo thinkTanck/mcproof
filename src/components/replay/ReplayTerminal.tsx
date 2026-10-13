@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
 import { cn } from '@/lib/utils';
 import { BandShape } from '@/components/leaderboard/BandShape';
@@ -8,6 +8,8 @@ import { stepMeta } from './step-meta';
 import { REPLAY_KEY_ID } from './ReplayKey';
 import { followStepInside } from './follow-step';
 import { useReplayLayout } from './phone-layout';
+import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
+import { OPERATOR_HANDLE, agentHandle, handleForStep } from '@/lib/replay/roles';
 import type { Step } from '@/contract';
 
 /**
@@ -49,6 +51,18 @@ import type { Step } from '@/contract';
  * playback never grows the terminal and never moves the controls under it. The
  * terminal then follows the current step by scrolling only itself, the least it
  * can (see follow-step.ts), smooth unless motion is reduced.
+ *
+ * EACH PROMPT OPENS ITS DEFINITION (Batch G, 2026-10-13). A row that is typed
+ * under a prompt (`user@console`, `target-agent@sentinel`) has a second
+ * control, `SpeakerHandle`, laid over the handle at the start of the row. It is
+ * a SIBLING of the row's button, never inside it, and it is a native
+ * disclosure and not a `<button>`: the steps stay the list's buttons, all of
+ * them and nothing else. The handle's text is still printed by the row's
+ * button, where it always was, so no line moved; the row's button is what it
+ * was, text and all. Pressing the handle does not select the step. The handle
+ * is not a Tab stop (one stop a step, as before): Left from a step moves to
+ * its handle and Right moves back, and the same definitions are in the legend
+ * above the terminal. A row the playhead has not reached draws no handle.
  */
 
 function compact(v: unknown): string {
@@ -125,8 +139,28 @@ export function ReplayTerminal({
   const activeRef = useRef<HTMLLIElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const layout = useReplayLayout();
-  const userPrompt = 'user@console:~';
-  const agentPrompt = `${model}@sentinel:~`;
+  const agentAt = agentHandle(model);
+  const userPrompt = `${OPERATOR_HANDLE}:~`;
+  const agentPrompt = `${agentAt}:~`;
+
+  // Left from a step goes to the handle at the start of its row, Right goes
+  // back. The handle is not a Tab stop, so this is how the keyboard reaches it
+  // from the transcript.
+  const onRowKey = (event: KeyboardEvent<HTMLOListElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    const from = event.target as HTMLElement;
+    const row = from.closest('li');
+    if (!row) return;
+    const to =
+      event.key === 'ArrowLeft' && from.matches('button')
+        ? row.querySelector<HTMLElement>('summary')
+        : event.key === 'ArrowRight' && from.matches('summary')
+          ? row.querySelector<HTMLElement>(':scope > button')
+          : null;
+    if (!to) return;
+    event.preventDefault();
+    to.focus();
+  };
 
   // Typewriter for the active line. setState runs only inside rAF callbacks, so
   // this never trips react-hooks/set-state-in-effect.
@@ -187,6 +221,9 @@ export function ReplayTerminal({
   // tests/e2e/replay-wide-unchanged.spec.ts tells phone classes from main's.
   // No `overscroll-behavior` is set, here or anywhere: at either end the
   // scroll chains to the page.
+  // THE CAP IS LESS THE CLOSED "KEY" ABOVE IT: `--scroll-cap-less`, which this
+  // box inherits from the box Replay wraps it in on a phone (see the note
+  // there and on the token in globals.css).
   return (
     <div
       ref={boxRef}
@@ -198,14 +235,15 @@ export function ReplayTerminal({
         containerType: 'size',
       }}
     >
-      {/* The list points at the colour key Replay draws under the step detail
-          (ReplayKey): one reference, from the element that holds every
-          coloured line, and not one on each of the lines. */}
+      {/* The list points at the colour key in the legend Replay draws above
+          this terminal (ReplayKey): one reference, from the element that holds
+          every coloured line, and not one on each of the lines. */}
       <ol
         aria-label="Attack replay step timeline"
         aria-describedby={REPLAY_KEY_ID}
         data-asi-quoted="trace"
         className="phone:[grid-area:1/1]"
+        onKeyDown={onRowKey}
       >
         {steps.map((step, i) => {
           const meta = stepMeta(step.type);
@@ -214,12 +252,18 @@ export function ReplayTerminal({
           const active = i === current;
           const reached = i <= current;
           const color = breach ? 'var(--text-breach)' : 'var(--text-readout)';
+          const handle = handleForStep(step, model);
           return (
             <li
               key={step.id}
               ref={active ? activeRef : undefined}
-              className={reached ? '' : 'sr-only'}
+              // A column, so the handle's definition (first in the document,
+              // `order-last` on screen) opens UNDER the row it belongs to.
+              className={reached ? 'relative flex flex-col' : 'sr-only'}
             >
+              {reached && handle !== null && (
+                <SpeakerHandle handle={handle} className="order-last" />
+              )}
               <button
                 type="button"
                 aria-current={active ? 'step' : undefined}
@@ -266,7 +310,8 @@ export function ReplayTerminal({
                 ) : (
                   <>
                     <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
-                      {line.kind === 'input' ? userPrompt : agentPrompt}${' '}
+                      <PrintedHandle handle={line.kind === 'input' ? OPERATOR_HANDLE : agentAt} />
+                      :~${' '}
                     </span>
                     {visibleText(i)}
                   </>

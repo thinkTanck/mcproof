@@ -4,6 +4,7 @@ import { OwaspBadge, OwaspExplainer } from '@/components/hud/OwaspTopTen';
 import { Core7List } from '@/components/home/Core7List';
 import { HeroReplay } from '@/components/home/HeroReplay';
 import { HomeCtas } from '@/components/home/HomeCtas';
+import { HowATestWorks } from '@/components/home/HowATestWorks';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
@@ -313,6 +314,12 @@ export default async function Home() {
               offendingTool={offendingTool}
               category={sample.category}
             />
+
+            {/* HOW A TEST WORKS, under the replay it explains (Batch G). In this
+                column, so it is beside the pitch from 1024px and after it on a
+                phone: either way it is not above the two calls to action and
+                moves neither of them. */}
+            <HowATestWorks />
 
             <Core7List runHref={runHref} />
           </div>

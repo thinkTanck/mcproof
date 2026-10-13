@@ -90,14 +90,19 @@ describe('the replay transcript and its key', () => {
     expect(document.querySelectorAll('[data-replay-key]')).toHaveLength(1);
   });
 
-  it('the key comes after the controls and the step detail, so it pushes nothing down', async () => {
+  // It came AFTER the controls and the step detail (batch D). Batch G
+  // (2026-10-13, the owner's instruction) moves it directly above the terminal
+  // it explains, so this holds the new place and nothing else changed here.
+  it('the key comes before the transcript it explains, and so before the controls and the step detail', async () => {
     const run = await sampleRun();
     render(<Replay run={run} routeId="sample" />);
     const key = document.getElementById(REPLAY_KEY_ID)!;
+    const timeline = screen.getByRole('list', { name: /step timeline/i });
     const detail = screen.getByRole('region', { name: 'Step detail' });
     const play = screen.getAllByRole('button', { name: 'Play' })[0]!;
-    expect(detail.compareDocumentPosition(key) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(play.compareDocumentPosition(key) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(key.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(key.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(key.compareDocumentPosition(play) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('the replay still has exactly one live region, and the key is not it', async () => {

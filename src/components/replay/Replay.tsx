@@ -7,7 +7,9 @@ import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
-import { REPLAY_KEY_ID, ReplayKey, transcriptKeyEntries } from './ReplayKey';
+import { REPLAY_KEY_ID } from './ReplayKey';
+import { ReplayLegend } from './ReplayLegend';
+import { SpeakerDefinitions } from './SpeakerHandle';
 import { useReplayLayout } from './phone-layout';
 
 /**
@@ -26,22 +28,25 @@ import { useReplayLayout } from './phone-layout';
  * reflow on hydration); once the browser answers, only that one is kept. From
  * 768px up nothing here applies and the replay is as it was.
  *
- * THE COLOUR KEY (UI audit 2026-10-12, batch D) is the LAST thing on the stage,
- * under the step detail, at every width. The transcript draws its prompts in
- * one colour, its step text in another and the compromise step in red with a
- * diamond, and the key says so in words. Last, so it pushes nothing down: the
- * terminal, the controls, the verdict and the step detail are where they
- * were, on a phone as well. The transcript's list points at it with
- * `aria-describedby`. It is static text and not a live region; the step detail
- * stays the one live region here.
+ * THE LEGEND (Batch G, 2026-10-13) is directly ABOVE the terminal, at every
+ * width: who each prompt is, then the colour key (`ReplayLegend`). The key was
+ * the last thing on the stage, under the step detail, a screen away from the
+ * transcript it explains; it is the same component, moved, and the
+ * transcript's list still points at it with `aria-describedby`. From 768px up
+ * the legend is an open block across both terminals. On a phone it is a "Key"
+ * disclosure, closed when the page opens. Like the transport, the server sends
+ * both and CSS shows the one that fits; once the browser has answered only
+ * that one is kept, and the id the list points at is on one of them at a time.
+ * It is static text and not a live region; the step detail stays the one live
+ * region here.
+ *
+ * EACH PROMPT OPENS ITS DEFINITION (`SpeakerHandle`), one at a time across the
+ * transcript and the verdict rail, which is why both sit inside one
+ * `SpeakerDefinitions`.
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
-export function Replay({
-  run,
-  routeId,
-  provenance,
-}: {
+interface ReplayProps {
   run: RunResult;
   /**
    * The id this run was OPENED under (the `/runs/[id]` segment). The report
@@ -56,7 +61,18 @@ export function Replay({
    * nothing is claimed.
    */
   provenance?: string | null;
-}) {
+}
+
+/** One replay, and the one place that holds which prompt's definition is open. */
+export function Replay(props: ReplayProps) {
+  return (
+    <SpeakerDefinitions>
+      <ReplayStage {...props} />
+    </SpeakerDefinitions>
+  );
+}
+
+function ReplayStage({ run, routeId, provenance }: ReplayProps) {
   const steps = run.trace.steps;
   const total = steps.length;
   const compromiseIndex = steps.findIndex((s) => s.id === run.verdict.stepId);
@@ -162,10 +178,32 @@ export function Replay({
           step-detail box directly beneath both (no dead gap). */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-6 lg:px-8">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
+          {/* The legend, above both terminals. On a phone the closed "Key" is
+              pulled up into the stage's own top padding (`-mt-6` against
+              `py-6`), and the terminal gives up the rest of its height, so
+              Play is where it was. */}
+          {layout !== 'phone' && (
+            <ReplayLegend
+              placement="wide"
+              model={run.model}
+              keyId={REPLAY_KEY_ID}
+              className="phone:hidden lg:col-span-2"
+            />
+          )}
+          {layout !== 'wide' && (
+            <ReplayLegend
+              placement="phone"
+              model={run.model}
+              keyId={layout === 'phone' ? REPLAY_KEY_ID : undefined}
+              className="hidden phone:-mt-6 phone:block"
+            />
+          )}
           {/* On a phone: terminal and transport in one box no taller than the
               viewport under the header. From 768px up this box is not drawn
               (display: contents) and the terminal is the grid cell it was. */}
-          <div className="contents phone:flex phone:max-h-[calc(100dvh-var(--header-h)-1rem)] phone:min-h-0 phone:flex-col phone:gap-4">
+          {/* `--scroll-cap-less` is inherited by the terminal: its 45% cap gives
+              back what the closed "Key" above adds, so Play does not move. */}
+          <div className="contents phone:flex phone:max-h-[calc(100dvh-var(--header-h)-1rem)] phone:min-h-0 phone:flex-col phone:gap-4 phone:[--scroll-cap-less:var(--replay-key-closed)]">
             <ReplayTerminal
               steps={steps}
               current={current}
@@ -187,8 +225,6 @@ export function Replay({
         {layout !== 'phone' && transport('wide', 'phone:hidden')}
 
         <StepDetail step={step} index={current} compromised={compromised} />
-
-        <ReplayKey id={REPLAY_KEY_ID} entries={transcriptKeyEntries()} />
       </div>
     </div>
   );

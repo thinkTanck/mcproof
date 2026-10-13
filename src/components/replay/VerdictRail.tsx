@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Verdict } from '@/contract';
 import { AsiLabel, RUN_CATEGORY_NAME_ID } from '@/components/hud';
+import { DETECTOR_HANDLE } from '@/lib/replay/roles';
+import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 
 /**
  * The detector verdict, rendered as a second terminal (same rules as the
@@ -23,11 +25,18 @@ import { AsiLabel, RUN_CATEGORY_NAME_ID } from '@/components/hud';
  * result") so the off-ramp stays keyboard- and screen-reader-operable. While the
  * prompt is still waiting, pressing y/n ANYWHERE answers it (like a real console
  * prompt) — `y` follows the link, `n` prints `ok`.
+ *
+ * THE FIRST PROMPT OPENS ITS DEFINITION (Batch G, 2026-10-13): who
+ * `detector@sentinel` is, from the roles lookup, drawn under that line
+ * (`SpeakerHandle`). It is a Tab stop here, the first thing in the rail. The
+ * second prompt, on the export line, is printed and not a control: it shares
+ * its line with the two answers, and a second target beside them would crowd
+ * theirs.
  */
 const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
 const PROMPT_COLOR = 'var(--terminal-prompt)';
-const PROMPT = 'detector@sentinel:~';
+const PROMPT = `${DETECTOR_HANDLE}:~`;
 
 /**
  * The two answers to the export prompt, `y` and `n`. One letter each, and a
@@ -111,8 +120,13 @@ export function VerdictRail({
           on a saved live run is the session's id: it is in no URL, it opens
           nothing, and beside a different id in the address bar it read as
           another run's verdict. */}
-      <div>
-        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$</span> verdict --run {routeId}
+      <div className="relative">
+        <span style={{ color: PROMPT_COLOR }}>
+          <PrintedHandle handle={DETECTOR_HANDLE} />
+          :~$
+        </span>{' '}
+        verdict --run {routeId}
+        <SpeakerHandle handle={DETECTOR_HANDLE} place="line" tabbable />
       </div>
       <Row
         k="outcome"
