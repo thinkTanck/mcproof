@@ -10,7 +10,10 @@ import { isE2eFixturesEnabled } from '@/config/e2e-fixtures';
  * A LIVE header cannot be reached on a real route in a browser test: it needs a
  * signed-in account and a stored live run. This renders the real `StatusBar`
  * with the mode named in the query (`live`, `sample`, anything else is no run),
- * so its chip and its pulse can be measured at every width.
+ * so its chip and its pulse can be measured at every width. `account` names who
+ * the bar says is signed in (an invented address; absent is signed out), so the
+ * signed-in account entry at its right end can be measured as well: a real one
+ * needs a session.
  *
  * It sits outside the HUD layout on purpose, so this bar is the only one on the
  * page. The same two layers keep it out of production as every fixture: the
@@ -28,16 +31,17 @@ export const metadata: Metadata = {
 export default async function HeaderStatesFixturePage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; account?: string }>;
 }) {
   if (!isE2eFixturesEnabled(process.env)) notFound();
-  const { mode } = await searchParams;
+  const { mode, account } = await searchParams;
   const origin = mode === 'live' || mode === 'sample' ? mode : undefined;
   return (
     <div className="min-h-dvh bg-base font-sans text-ink">
       <StatusBar
         pathname="/runs/fixture-run"
         mode={origin}
+        account={account ? { state: 'signed-in', email: account } : { state: 'signed-out' }}
         runContext={
           origin && {
             runId: 'fixture-run',

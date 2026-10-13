@@ -53,7 +53,7 @@ export function NavLink({
         // Narrow rail only (760 to 1099px; the rail is not drawn below 760): the
         // word stacks under the icon, and the target is at least 44px.
         rail &&
-          'max-[1099px]:min-h-11 max-[1099px]:flex-col max-[1099px]:justify-center max-[1099px]:gap-1 max-[1099px]:px-0.5 max-[1099px]:py-2',
+          'max-header-wide:min-h-11 max-header-wide:flex-col max-header-wide:justify-center max-header-wide:gap-1 max-header-wide:px-0.5 max-header-wide:py-2',
         active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised/70',
       )}
     >
@@ -70,12 +70,12 @@ export function NavLink({
         )}
       />
       <span className="shrink-0 opacity-90">{item.icon}</span>
-      <span className={rail ? 'hidden min-[1100px]:inline' : undefined}>{item.label}</span>
+      <span className={rail ? 'hidden header-wide:inline' : undefined}>{item.label}</span>
       {rail && (
         <span
           data-rail-label
           aria-hidden="true"
-          className="instrument one-line whitespace-nowrap text-current min-[1100px]:hidden"
+          className="instrument one-line whitespace-nowrap text-current header-wide:hidden"
         >
           {item.short}
         </span>

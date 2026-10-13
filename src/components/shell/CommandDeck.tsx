@@ -13,9 +13,9 @@ export function CommandDeck({ pathname, account }: { pathname: string; account: 
   return (
     <nav
       aria-label="Command deck"
-      className="sticky top-(--header-h) hidden h-[calc(100dvh-var(--header-h))] shrink-0 flex-col gap-1 self-start overflow-y-auto border-r border-line bg-gradient-to-b from-[var(--scrim-deck-top)] to-[var(--scrim-deck-bottom)] p-3 min-[760px]:flex min-[760px]:w-[100px] min-[1100px]:w-[236px]"
+      className="sticky top-(--header-h) hidden h-[calc(100dvh-var(--header-h))] shrink-0 flex-col gap-1 self-start overflow-y-auto border-r border-line bg-gradient-to-b from-[var(--scrim-deck-top)] to-[var(--scrim-deck-bottom)] p-3 min-[760px]:flex min-[760px]:w-[100px] header-wide:w-[236px]"
     >
-      <div className="hidden px-3 pb-2.5 pt-1.5 font-mono text-[13px] tracking-[0.16em] text-ink-faint min-[1100px]:block">
+      <div className="hidden px-3 pb-2.5 pt-1.5 font-mono text-[13px] tracking-[0.16em] text-ink-faint header-wide:block">
         COMMAND DECK
       </div>
       {NAV_ITEMS.map((item) => (

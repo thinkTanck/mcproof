@@ -12,9 +12,12 @@ import { suppressBootSplash } from './support/screen';
  * that state can never go unexercised. The signed-in state needs a real session
  * and is walked in `authenticated.spec.ts`, in the job that has one.
  *
- * The entry sits at the bottom of the rail and of the mobile drawer. The header
- * is deliberately untouched; `header-fallback-font.spec.ts` still holds the mode
- * chip inside it at 320.
+ * The entry sits at the top right of the header from 1100px (UI audit
+ * 2026-10-13, batch E), at the bottom of the narrow rail from 760 to 1099px, and
+ * at the bottom of the mobile drawer below that. Where each is drawn, and that
+ * there is only ever one, is measured in `header-account-entry.spec.ts`. On a
+ * phone the header is deliberately untouched; `header-fallback-font.spec.ts`
+ * still holds the mode chip inside it at 320.
  */
 const PREVIEW_NAME = 'Sign in. Preview: sign-in is not set up on this build.';
 
@@ -32,7 +35,7 @@ test.beforeEach(async ({ page }) => {
   await suppressBootSplash(page);
 });
 
-test.describe('1280: the rail', () => {
+test.describe('1280: the header', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
   test('carries the entry, marked PREVIEW on a build with no auth, linking to sign-in and back to this page', async ({
@@ -41,16 +44,16 @@ test.describe('1280: the rail', () => {
   }) => {
     const { name, preview } = await entryOnThisBuild(request);
     await page.goto('/leaderboard');
-    const rail = page.getByRole('navigation', { name: 'Command deck' });
-    const link = rail.getByRole('link', { name, exact: true });
+    const banner = page.getByRole('banner');
+    const link = banner.getByRole('link', { name, exact: true });
 
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute('href', '/sign-in?next=%2Fleaderboard');
-    await expect(rail.getByTestId('account-entry').getByText('PREVIEW')).toHaveCount(
-      preview ? 1 : 0,
-    );
+    await expect(
+      banner.getByTestId('account-entry').filter({ visible: true }).getByText('PREVIEW'),
+    ).toHaveCount(preview ? 1 : 0);
     // Signed out either way: nothing claims an account.
-    await expect(rail.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+    await expect(banner.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
     expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
     await link.click();
@@ -70,17 +73,50 @@ test.describe('1280: the rail', () => {
     await rail.getByRole('link', { name: /^Threat Model/ }).click();
     await expect(page).toHaveURL(/\/threats$/);
 
-    await expect(rail.getByRole('link', { name, exact: true })).toHaveAttribute(
+    await expect(page.getByRole('banner').getByRole('link', { name, exact: true })).toHaveAttribute(
       'href',
       '/sign-in?next=%2Fthreats',
     );
   });
 
-  test('the header carries no account control', async ({ page }) => {
+  test('the rail carries no account control, and the header carries one', async ({
+    page,
+    request,
+  }) => {
+    const { name } = await entryOnThisBuild(request);
     await page.goto('/');
 
-    // The drawer's markup sits inside the header element, as a closed popover:
-    // it is not part of the bar. Nothing account-related is VISIBLE in the bar.
+    // The rail still renders its copy, for the narrow widths; from 1100px it is
+    // not drawn. The drawer's markup sits inside the header element, as a closed
+    // popover: it is not part of the bar either. One entry is VISIBLE, the bar's.
+    const rail = page.getByRole('navigation', { name: 'Command deck' });
+    await expect(rail.getByRole('link', { name: /sign in/i })).toHaveCount(0);
+    await expect(rail.getByTestId('account-entry').filter({ visible: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('banner').getByTestId('account-entry').filter({ visible: true }),
+    ).toHaveCount(1);
+    await expect(page.getByRole('link', { name, exact: true })).toHaveCount(1);
+  });
+});
+
+test.describe('1024: the narrow rail', () => {
+  test.use({ viewport: { width: 1024, height: 900 } });
+
+  test('carries the entry, linking to sign-in and back to this page, and the header carries none', async ({
+    page,
+    request,
+  }) => {
+    const { name } = await entryOnThisBuild(request);
+    await page.goto('/leaderboard');
+    const rail = page.getByRole('navigation', { name: 'Command deck' });
+    const link = rail.getByRole('link', { name, exact: true });
+
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('href', '/sign-in?next=%2Fleaderboard');
+    await expect(rail.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+    // Nothing account-related is VISIBLE in the bar.
     await expect(page.getByRole('banner').getByRole('link', { name: /sign in/i })).toHaveCount(0);
     await expect(
       page.getByRole('banner').getByTestId('account-entry').filter({ visible: true }),

@@ -335,6 +335,21 @@
  * these utilities; the token layer stays the single source of truth.
  * ========================================================================= */
 @theme inline {
+  /* WHERE THE SHELL GOES WIDE (UI audit 2026-10-13, batch E): 1100px of viewport.
+   * From here up the command deck is its full width with the labels written out,
+   * the replay's run telemetry is in the header, and the way in and out (Sign in,
+   * or the account entry) sits at the top right of the header. Below it the rail
+   * is narrow and carries that entry itself, and below 760px the drawer does.
+   * One number, so the rail letting go of the entry and the header taking it up
+   * cannot drift apart and draw two of them, or none. It gives the `header-wide:`
+   * variant and its opposite, `max-header-wide:` (under 1100px, 1099.99 included,
+   * which the old `max-[1099px]` left out: that one compiled to "under 1099").
+   * In px, like every other width here, so it follows the window and not the
+   * text size. Locked in tests/unit/app/tokens.test.tsx; both sides of the line
+   * are measured in tests/e2e/header-account-entry.spec.ts.
+   */
+  --breakpoint-header-wide: 1100px;
+
   --color-base: var(--surface-base);
   --color-panel: var(--surface-panel);
   --color-solid: var(--surface-solid);
