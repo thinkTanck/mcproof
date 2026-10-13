@@ -4,6 +4,7 @@ import {
   RLS_LOCAL_STACK,
   adminClient,
   anonClient,
+  catalog,
   removeUser,
   signedInUser,
   type SignedInUser,
@@ -30,23 +31,37 @@ import {
  *
  * See `supabase/README.md` for the one-line version.
  *
- * ── THE TWO `it.fails` BELOW, AND WHEN TO REMOVE THEM ──
+ * ── WHAT CLOSED `public.runs`, AND HOW EACH REFUSAL IS ANSWERED ──
  *
- * Today `public.runs` carries `runs_insert_own` and `runs_delete_own`, so an
- * owner CAN insert and delete their own rows directly. That is findings F1 and
- * F2 of the 2026-10-13 scan: a delete hands a spent lifetime allowance back, and
- * an insert moves the global spend meter and plants a verdict nobody produced.
- * The app no longer needs either grant (every write goes through
- * `src/runs/run-writes.ts` on the service role), but the policies are dropped by
- * a separate migration, lane S1b. Until it lands those two assertions cannot
- * hold, so they are marked `it.fails`: the suite passes now, and the moment S1b
- * drops the policies they start PASSING, which `it.fails` reports as a failure.
- * That failure is the instruction: delete the `.fails` on both.
+ * Until migration 0004 (security lane S1b) the table carried `runs_insert_own`
+ * and `runs_delete_own`, so an owner COULD insert and delete their own rows
+ * directly. Those were findings F1 and F2 of the 2026-10-13 scan: a delete
+ * handed a spent lifetime allowance back, and an insert moved the global spend
+ * meter and planted a verdict nobody produced. The two assertions for them
+ * were `it.fails` while the policies stood, and became plain `it` in the
+ * commit that added the migration that dropped them.
+ *
+ * 0004 closes the table at both layers. The two policies are gone, the one that
+ * is left (`runs_select_own`) is scoped to `authenticated`, and the table
+ * grants are cut to match: `anon` holds nothing and `authenticated` holds
+ * SELECT alone. So a write by a signed-in user, and any request at all by an
+ * anonymous one, is now refused by the GRANT, before row-level security is
+ * consulted. PostgREST answers that with an error whose code is `42501`
+ * (permission denied), not with an empty result, and the tests below assert
+ * the code so that a refusal which quietly went back to "zero rows matched"
+ * would be noticed.
+ *
+ * The last block reads the catalog itself (the policy's role and text, the
+ * TRUNCATE privilege, the sequence grants, the index), because none of those
+ * can be seen through the REST API. See `catalog()` in `local-stack.ts`.
  */
 
 type Row = { id: string; user_id: string; created_at: string; run: unknown };
 
 const RUN_COLS = 'id, user_id, created_at, run';
+
+/** PostgreSQL's `insufficient_privilege`: the role lacks the table grant. */
+const PERMISSION_DENIED = '42501';
 
 /**
  * Each test is a handful of real HTTP round trips to a database in a container,
@@ -124,16 +139,25 @@ describe.runIf(RLS_LOCAL_STACK)('RLS: public.runs, asked directly', STACK_TIMEOU
     expect(direct.data).toEqual([]);
   });
 
-  it('SELECT: an anonymous visitor sees no rows at all', async () => {
-    const { data } = await anon.from('runs').select('id');
+  it('SELECT: an anonymous visitor is refused outright, not answered with zero rows', async () => {
+    const { data, error } = await anon.from('runs').select('id');
 
     expect(data ?? []).toEqual([]);
+    // The grant is gone, so this is "permission denied", not an empty table.
+    expect(error?.code).toBe(PERMISSION_DENIED);
+  });
+
+  it('SELECT: an anonymous visitor cannot count the rows either', async () => {
+    const { count, error } = await anon.from('runs').select('id', { count: 'exact', head: true });
+
+    expect(count).toBeNull();
+    expect(error).not.toBeNull();
   });
 
   // ── INSERT ──
 
-  // S1b: remove `.fails` once the migration drops `runs_insert_own`. This is F2.
-  it.fails('INSERT: the owner cannot insert a row for themselves (F2)', async () => {
+  // F2. `runs_insert_own` is dropped and the INSERT grant revoked (0004).
+  it('INSERT: the owner cannot insert a row for themselves (F2)', async () => {
     const before = await rowCount(owner.id);
 
     const { error } = await owner.client
@@ -166,7 +190,7 @@ describe.runIf(RLS_LOCAL_STACK)('RLS: public.runs, asked directly', STACK_TIMEOU
     expect(await rowCount(owner.id)).toBe(before);
   });
 
-  // ── UPDATE: no policy exists, so the table grant alone does not allow it ──
+  // ── UPDATE: there was never a policy, and since 0004 there is no grant ──
 
   it('UPDATE: the owner cannot change their own row, its verdict or its timestamp', async () => {
     const row = await seed('owner-update');
@@ -182,7 +206,7 @@ describe.runIf(RLS_LOCAL_STACK)('RLS: public.runs, asked directly', STACK_TIMEOU
       .eq('id', row.id)
       .select('id');
 
-    // RLS with no UPDATE policy matches no row: nothing is returned as updated.
+    // Nothing is returned as updated, whichever layer refused it.
     expect(payload.data ?? []).toEqual([]);
     expect(backdated.data ?? []).toEqual([]);
     expect(await truth(row.id)).toEqual(row);
@@ -222,8 +246,8 @@ describe.runIf(RLS_LOCAL_STACK)('RLS: public.runs, asked directly', STACK_TIMEOU
 
   // ── DELETE ──
 
-  // S1b: remove `.fails` once the migration drops `runs_delete_own`. This is F1.
-  it.fails('DELETE: the owner cannot delete their own row (F1)', async () => {
+  // F1. `runs_delete_own` is dropped and the DELETE grant revoked (0004).
+  it('DELETE: the owner cannot delete their own row (F1)', async () => {
     const row = await seed('owner-delete');
 
     await owner.client.from('runs').delete().eq('id', row.id);
@@ -246,6 +270,64 @@ describe.runIf(RLS_LOCAL_STACK)('RLS: public.runs, asked directly', STACK_TIMEOU
     await anon.from('runs').delete().eq('id', row.id);
 
     expect(await truth(row.id)).toEqual(row);
+  });
+
+  // ── The grant layer: refused before row-level security is consulted ──
+
+  it('a signed-in owner’s INSERT, UPDATE and DELETE are each answered "permission denied"', async () => {
+    const row = await seed('owner-grant-layer');
+    const before = await rowCount(owner.id);
+
+    const added = await owner.client
+      .from('runs')
+      .insert({ user_id: owner.id, run: forged('owner-grant-insert') });
+    const changed = await owner.client
+      .from('runs')
+      .update({ run: forged('owner-grant-update') })
+      .eq('id', row.id);
+    const removed = await owner.client.from('runs').delete().eq('id', row.id);
+
+    expect(added.error?.code).toBe(PERMISSION_DENIED);
+    expect(changed.error?.code).toBe(PERMISSION_DENIED);
+    expect(removed.error?.code).toBe(PERMISSION_DENIED);
+    expect(await truth(row.id)).toEqual(row);
+    expect(await rowCount(owner.id)).toBe(before);
+  });
+
+  it('an anonymous visitor’s INSERT, UPDATE and DELETE are each answered "permission denied"', async () => {
+    const row = await seed('anon-grant-layer');
+    const before = await rowCount(owner.id);
+
+    const added = await anon
+      .from('runs')
+      .insert({ user_id: owner.id, run: forged('anon-grant-insert') });
+    const changed = await anon
+      .from('runs')
+      .update({ run: forged('anon-grant-update') })
+      .eq('id', row.id);
+    const removed = await anon.from('runs').delete().eq('id', row.id);
+
+    expect(added.error?.code).toBe(PERMISSION_DENIED);
+    expect(changed.error?.code).toBe(PERMISSION_DENIED);
+    expect(removed.error?.code).toBe(PERMISSION_DENIED);
+    expect(await truth(row.id)).toEqual(row);
+    expect(await rowCount(owner.id)).toBe(before);
+  });
+
+  // ── The writer still writes ──
+
+  it('the service role can still insert, select and delete a row', async () => {
+    const before = await rowCount(owner.id);
+
+    const row = await seed('service-role-round-trip');
+    expect(await rowCount(owner.id)).toBe(before + 1);
+    expect(await truth(row.id)).toEqual(row);
+
+    const removed = await admin.from('runs').delete().eq('id', row.id).select('id');
+    expect(removed.error).toBeNull();
+    expect(removed.data).toEqual([{ id: row.id }]);
+    expect(await truth(row.id)).toBeNull();
+    expect(await rowCount(owner.id)).toBe(before);
   });
 
   // ── After all of the above ──
@@ -427,5 +509,124 @@ describe.runIf(RLS_LOCAL_STACK)('RLS: the closed tables, asked directly', STACK_
         expect(await snapshot(spec)).toBe(before);
       },
     );
+  });
+});
+
+/**
+ * THE CATALOG, READ DIRECTLY.
+ *
+ * What migration 0004 promises and the REST API cannot show: the one policy
+ * left on `public.runs`, its role and its predicate; the table privileges role
+ * by role, TRUNCATE included (row-level security does not apply to TRUNCATE at
+ * all, and PostgREST has no way to send one, so the grant is the only place it
+ * can be checked); the grants on the rate-limit table's sequence; and the index
+ * on `run_tokens(user_id)`. Read with psql inside the local stack's database
+ * container: see `catalog()` in `local-stack.ts`.
+ */
+describe.runIf(RLS_LOCAL_STACK)('the catalog after migration 0004', STACK_TIMEOUT, () => {
+  const PRIVILEGES = [
+    'SELECT',
+    'INSERT',
+    'UPDATE',
+    'DELETE',
+    'TRUNCATE',
+    'REFERENCES',
+    'TRIGGER',
+  ] as const;
+
+  /** The table privileges a role really holds on `public.runs`. */
+  function held(role: string): string[] {
+    const [row] = catalog(
+      `select ${PRIVILEGES.map(
+        (privilege) => `has_table_privilege('${role}', 'public.runs', '${privilege}')`,
+      ).join(', ')};`,
+    );
+    const answers = (row ?? '').split('|');
+    return PRIVILEGES.filter((_, index) => answers[index] === 't');
+  }
+
+  it('public.runs carries exactly one policy: an owner’s SELECT, for signed-in users only', () => {
+    const policies = catalog(
+      `select policyname, cmd, roles::text, coalesce(with_check, '') from pg_policies
+       where schemaname = 'public' and tablename = 'runs' order by policyname;`,
+    );
+
+    expect(policies).toEqual(['runs_select_own|SELECT|{authenticated}|']);
+  });
+
+  it('the SELECT policy compares user_id to (select auth.uid()), evaluated once per statement', () => {
+    const [qual] = catalog(
+      `select qual from pg_policies
+       where schemaname = 'public' and tablename = 'runs' and policyname = 'runs_select_own';`,
+    );
+    const predicate = (qual ?? '').toLowerCase().replace(/\s+/g, ' ');
+
+    // Postgres stores it deparsed, as `(user_id = ( SELECT auth.uid() AS uid))`.
+    expect(predicate).toMatch(/user_id = \( ?select auth\.uid\(\)( as uid)? ?\)/);
+    // And there is no bare call left beside the wrapped one.
+    expect(predicate.match(/auth\.uid\(\)/g)).toHaveLength(1);
+  });
+
+  it('row-level security is still on for public.runs', () => {
+    expect(
+      catalog(`select relrowsecurity from pg_class where oid = 'public.runs'::regclass;`),
+    ).toEqual(['t']);
+  });
+
+  it('anon holds no privilege on public.runs, TRUNCATE included', () => {
+    expect(held('anon')).toEqual([]);
+  });
+
+  it('authenticated holds SELECT on public.runs and nothing else, TRUNCATE included', () => {
+    expect(held('authenticated')).toEqual(['SELECT']);
+  });
+
+  it('the service role still holds every privilege on public.runs', () => {
+    expect(held('service_role')).toEqual([...PRIVILEGES]);
+  });
+
+  it('a TRUNCATE attempted as authenticated or anon is refused by the grant', () => {
+    for (const role of ['authenticated', 'anon']) {
+      // In a transaction that is rolled back either way, so a TRUNCATE that
+      // wrongly succeeded would still destroy nothing.
+      const [answer] = catalog(
+        `begin;
+         do $$
+         begin
+           set local role ${role};
+           begin
+             truncate public.runs;
+             raise exception 'TRUNCATE was allowed for ${role}';
+           exception when insufficient_privilege then
+             null;
+           end;
+         end $$;
+         rollback;
+         select 'refused';`,
+      );
+      expect(answer).toBe('refused');
+    }
+  });
+
+  it('neither browser role holds anything on the rate-limit sequence', () => {
+    const rows = catalog(
+      `select r,
+              has_sequence_privilege(r, 'public.otp_rate_limit_hits_id_seq', 'USAGE'),
+              has_sequence_privilege(r, 'public.otp_rate_limit_hits_id_seq', 'SELECT'),
+              has_sequence_privilege(r, 'public.otp_rate_limit_hits_id_seq', 'UPDATE')
+       from unnest(array['anon', 'authenticated', 'service_role']) r order by r;`,
+    );
+
+    // The service role makes every insert into that table and keeps its grant.
+    expect(rows).toEqual(['anon|f|f|f', 'authenticated|f|f|f', 'service_role|t|t|t']);
+  });
+
+  it('run_tokens has an index on user_id', () => {
+    const [definition] = catalog(
+      `select indexdef from pg_indexes
+       where schemaname = 'public' and tablename = 'run_tokens' and indexname = 'run_tokens_user_idx';`,
+    );
+
+    expect(definition ?? '').toMatch(/on public\.run_tokens using btree \(user_id\)/i);
   });
 });

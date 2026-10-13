@@ -27,15 +27,12 @@ import {
  * through the run writer on the SERVICE-ROLE client and every read on the
  * signed-in user's own session.
  *
- * Nothing in it depends on `runs_insert_own` or `runs_delete_own`. So it passes
- * with those policies in place (today) AND with them dropped (after lane S1b),
- * which is the point: run it once after
- *
- *   drop policy runs_insert_own on public.runs;
- *   drop policy runs_delete_own on public.runs;
- *
- * on the LOCAL database to see that the S1b migration will not break the app,
- * then `supabase db reset` to put the local schema back.
+ * Nothing in it depends on `runs_insert_own` or `runs_delete_own`. It passed
+ * with those policies in place (lane S1a) and it passes with them dropped and
+ * the table's grants closed (migration 0004, lane S1b), which is the schema the
+ * local stack now starts with. That is the point: the migration does not break
+ * the app's create, finish or discard, because none of them ever asked the
+ * user's session to write.
  *
  * The judge is a stub. No model is called, and the gate is the real
  * `checkLiveRunPreflight` over the real tables.
