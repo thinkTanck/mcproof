@@ -52,15 +52,18 @@ test.describe('signed-in screens', () => {
   }) => {
     // ── BEFORE SIGN-IN: the shell offers a way in, and it is not a preview ──
     // This build has a real auth backend, so the entry is the plain one.
+    // At 1280 the entry is at the top right of the header (from 1100px up).
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/connect');
-    const rail = page.getByRole('navigation', { name: 'Command deck' });
-    await expect(rail.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
+    const bar = page.getByRole('banner');
+    const entry = bar.getByTestId('account-entry').filter({ visible: true });
+    await expect(bar.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
       'href',
       '/sign-in?next=%2Fconnect',
     );
-    await expect(rail.getByTestId('account-entry').getByText('PREVIEW')).toHaveCount(0);
-    await expect(rail.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+    await expect(entry).toHaveCount(1);
+    await expect(entry.getByText('PREVIEW')).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
 
     // ── THE LIVE GATE SENDS YOU TO SIGN IN, AND SIGN-IN BRINGS YOU BACK ──
     // It used to link to a bare /sign-in, which lands on /account: someone who
@@ -75,15 +78,18 @@ test.describe('signed-in screens', () => {
     const address = await completeTheSignInForm(page, '/connect');
     await expect(page).toHaveURL(/\/connect$/);
 
-    // ── SIGNED IN: the rail says who, and offers the way out ──
-    const entry = rail.getByTestId('account-entry');
+    // ── SIGNED IN: the header says who, and offers the way out ──
+    await expect(entry).toHaveCount(1);
     await expect(entry.getByText('SIGNED IN')).toBeVisible();
     await expect(entry.getByText(address)).toBeVisible();
     await expect(
-      rail.getByRole('link', { name: `Your runs, signed in as ${address}` }),
+      bar.getByRole('link', { name: `Your runs, signed in as ${address}` }),
     ).toHaveAttribute('href', '/account');
-    await expect(rail.getByRole('button', { name: 'Sign out' })).toBeVisible();
-    await expect(rail.getByRole('link', { name: /^sign in/i })).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(bar.getByRole('link', { name: /^sign in/i })).toHaveCount(0);
+    // And the rail, which carries the entry below 1100px, draws none here.
+    const rail = page.getByRole('navigation', { name: 'Command deck' });
+    await expect(rail.getByTestId('account-entry').filter({ visible: true })).toHaveCount(0);
 
     // ── THE SAME ENTRY ON A PHONE, IN THE DRAWER ──
     await page.setViewportSize({ width: 320, height: 568 });
@@ -106,12 +112,12 @@ test.describe('signed-in screens', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
     // ── /account ──
-    await rail.getByRole('link', { name: `Your runs, signed in as ${address}` }).click();
+    await bar.getByRole('link', { name: `Your runs, signed in as ${address}` }).click();
     await expect(page).toHaveURL(/\/account$/);
     // Proof the session is real and owner-scoped: the page shows the address we
     // just signed in as, which only a resolved session can supply.
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    // In the page itself: the shell now prints the address too (rail and drawer).
+    // In the page itself: the shell now prints the address too (header and drawer).
     await expect(page.getByRole('main').getByText(address)).toBeVisible();
     await expect(page.getByRole('main').getByRole('button', { name: /sign out/i })).toBeVisible();
     await expectNoWcagViolations(page);
@@ -148,11 +154,11 @@ test.describe('signed-in screens', () => {
     await expectNoWcagViolations(page);
 
     // ── SIGN OUT, FROM THE SHELL: back to the front door, session gone ──
-    await rail.getByRole('button', { name: 'Sign out' }).click();
+    await bar.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(rail.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
-    await expect(rail.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
-    await expect(rail.getByText(address)).toHaveCount(0);
+    await expect(bar.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+    await expect(bar.getByText(address).filter({ visible: true })).toHaveCount(0);
     // Not just a label: the session really is cleared.
     await page.goto('/account');
     await expect(page).toHaveURL(/\/sign-in\?next=%2Faccount$/);

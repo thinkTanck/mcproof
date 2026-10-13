@@ -167,20 +167,28 @@ test.describe('outside the band nothing changes', () => {
       await open(page, '/', { width, height: 900 });
       await expect(rail(page)).toBeVisible();
       await expect(rail(page).getByText('COMMAND DECK')).toBeVisible();
-      const controls = railControls(page);
-      for (const [i, name] of EXPECTED_NAMES.entries()) {
+      // The wide rail holds the six destinations. From 1100px the account entry
+      // is at the top right of the header (UI audit 2026-10-13, batch E), so the
+      // rail's copy of it is not drawn here: it has no box at all.
+      const controls = railControls(page).filter({ visible: true });
+      await expect(controls).toHaveCount(FULL_LABELS.length);
+      for (const [i, name] of EXPECTED_NAMES.slice(0, FULL_LABELS.length).entries()) {
         await expect(controls.nth(i)).toHaveAccessibleName(name);
       }
+      const boxes = await rail(page)
+        .getByTestId('account-entry')
+        .evaluate((entry) => entry.getClientRects().length);
+      expect(boxes, 'the rail copy of the account entry is not drawn').toBe(0);
       const measured = await measureRail(page);
       expect(measured.slice(0, FULL_LABELS.length).map((m) => m.visible)).toEqual([...FULL_LABELS]);
       const directions = await controls.evaluateAll((els) =>
         els.map((el) => getComputedStyle(el).flexDirection),
       );
       expect(new Set(directions)).toEqual(new Set(['row']));
-      // The short words are not drawn here.
+      // The short words are not drawn here: none of them has a box.
       const shown = await rail(page)
         .locator('[data-rail-label]')
-        .evaluateAll((els) => els.filter((el) => getComputedStyle(el).display !== 'none').length);
+        .evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).length);
       expect(shown).toBe(0);
       expect(await sideways(page)).toBeLessThanOrEqual(0);
     });

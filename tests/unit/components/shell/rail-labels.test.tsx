@@ -80,7 +80,7 @@ describe('CommandDeck: visible words in the narrow rail', () => {
       expect(short!.textContent).toBe(NAV_ITEMS[i]!.short);
       expect(short).toHaveAttribute('aria-hidden', 'true');
       // Shown in the narrow rail, gone in the wide one, an INSTRUMENT label on one line.
-      expect(short!.className).toMatch(/(^| )min-\[1100px\]:hidden( |$)/);
+      expect(short!.className).toMatch(/(^| )header-wide:hidden( |$)/);
       expect(short!.className).not.toMatch(/(^| )hidden( |$)/);
       expect(short!.className).toMatch(/(^| )instrument( |$)/);
       expect(short!.className).toMatch(/(^| )one-line( |$)/);
@@ -92,7 +92,7 @@ describe('CommandDeck: visible words in the narrow rail', () => {
     const rail = railLinks();
     for (const item of NAV_ITEMS) {
       const full = within(rail).getByText(item.label, { selector: `span:not(${SHORT})` });
-      expect(full.className).toMatch(/hidden min-\[1100px\]:inline/);
+      expect(full.className).toMatch(/hidden header-wide:inline/);
     }
   });
 
@@ -100,9 +100,9 @@ describe('CommandDeck: visible words in the narrow rail', () => {
     const rail = railLinks();
     for (const name of DECK_NAMES) {
       const cls = within(rail).getByRole('link', { name }).className.split(/\s+/);
-      expect(cls).toContain('max-[1099px]:flex-col');
+      expect(cls).toContain('max-header-wide:flex-col');
       // 44px minimum target in the narrow rail.
-      expect(cls).toContain('max-[1099px]:min-h-11');
+      expect(cls).toContain('max-header-wide:min-h-11');
       // Every unprefixed class is the wide rail's, exactly as before.
       expect(cls.filter((c) => !c.includes(':'))).toEqual(
         expect.arrayContaining(['flex', 'items-center', 'gap-3', 'px-3.5', 'py-3.5']),
@@ -114,7 +114,7 @@ describe('CommandDeck: visible words in the narrow rail', () => {
   it('is wider in the narrow band than the old 72px icon rail', () => {
     const rail = railLinks();
     expect(rail.className).not.toMatch(/w-\[72px\]/);
-    expect(rail.className).toMatch(/min-\[1100px\]:w-\[236px\]/);
+    expect(rail.className).toMatch(/header-wide:w-\[236px\]/);
   });
 });
 
@@ -144,8 +144,8 @@ describe('AccountEntry in the narrow rail', () => {
       expect(short!.textContent).toBe(word);
       expect(short).toHaveAttribute('aria-hidden', 'true');
       expect(name.toLowerCase()).toContain(word.toLowerCase());
-      expect(short!.className).toMatch(/(^| )min-\[1100px\]:hidden( |$)/);
-      expect(control.className.split(/\s+/)).toContain('max-[1099px]:flex-col');
+      expect(short!.className).toMatch(/(^| )header-wide:hidden( |$)/);
+      expect(control.className.split(/\s+/)).toContain('max-header-wide:flex-col');
       expect(control.className.split(/\s+/)).not.toContain('flex-col');
     }
   });

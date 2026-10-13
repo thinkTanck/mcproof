@@ -119,6 +119,13 @@ test.describe('header at 1280x900 is unchanged', () => {
           .pop();
         const chip = (word?.parentElement ?? null) as HTMLElement | null;
         const chipCs = chip ? getComputedStyle(chip) : null;
+        // The account entry, which from 1100px is the last thing on the right
+        // (UI audit 2026-10-13, batch E). The chip used to end at the header's
+        // content edge; the entry ends there now and the chip sits one gap to
+        // its left, so the edge is read off the entry and the chip is placed
+        // against it. Both numbers are held as exactly as the chip's edge was.
+        const entry = el.querySelector('[data-account-placement="header"]') as HTMLElement;
+        const entryBox = entry.getBoundingClientRect();
         return {
           padding: `${cs.paddingLeft} ${cs.paddingRight}`,
           gap: cs.columnGap,
@@ -126,10 +133,11 @@ test.describe('header at 1280x900 is unchanged', () => {
           logoLeft: Math.round(logo.getBoundingClientRect().left),
           logoGap: getComputedStyle(logo).columnGap,
           spacerShown: getComputedStyle(spacer).display !== 'none',
+          rightEnd: Math.round(entryBox.right),
           chip:
             chip && chipCs
               ? {
-                  right: Math.round(chip.getBoundingClientRect().right),
+                  beforeEntry: Math.round(entryBox.left - chip.getBoundingClientRect().right),
                   padding: `${chipCs.paddingLeft} ${chipCs.paddingRight}`,
                   gap: chipCs.columnGap,
                   margin: chipCs.marginLeft,
@@ -138,7 +146,9 @@ test.describe('header at 1280x900 is unchanged', () => {
         };
       });
       // The values the desktop header had before #176, measured in the fallback
-      // font. The chip's own values hold on the screens that draw it.
+      // font. The chip's own values hold on the screens that draw it. The right
+      // end (1262, the content edge) was the chip's and is the account entry's
+      // since batch E; the chip ends one 16px gap before the entry.
       expect(m, screen.path).toEqual({
         padding: '18px 18px',
         gap: '16px',
@@ -146,7 +156,10 @@ test.describe('header at 1280x900 is unchanged', () => {
         logoLeft: 18,
         logoGap: '10px',
         spacerShown: true,
-        chip: screen.chip ? { right: 1262, padding: '12px 12px', gap: '8px', margin: '0px' } : null,
+        rightEnd: 1262,
+        chip: screen.chip
+          ? { beforeEntry: 16, padding: '12px 12px', gap: '8px', margin: '0px' }
+          : null,
       });
     }
   });

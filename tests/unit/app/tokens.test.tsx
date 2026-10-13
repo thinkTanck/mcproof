@@ -673,6 +673,45 @@ describe('DTCG token layer (globals.css)', () => {
       expect(vars.get('--reading-line')).toBe('1.6');
     });
   });
+
+  describe('WHERE THE SHELL GOES WIDE: one line, 1100px (UI audit 2026-10-13, batch E)', () => {
+    // From 1100px of viewport the rail is full width and the header carries the
+    // way in and out; under it the rail (or the drawer) does. The rail letting
+    // go and the header taking up have to happen at one width, or a reader gets
+    // two entries or none, so the width is written once and named.
+    it('is declared once, in px, as a Tailwind breakpoint', () => {
+      const declarations = cssNoComments.match(/--breakpoint-header-wide:\s*[^;]+;/g) ?? [];
+      expect(declarations).toEqual(['--breakpoint-header-wide: 1100px;']);
+      // In a theme block, which is what makes `header-wide:` a variant.
+      expect(cssNoComments).toMatch(
+        /@theme(?:\s+inline)?\s*\{[^}]*--breakpoint-header-wide:\s*1100px;[^}]*\}/,
+      );
+    });
+
+    it('no component spells that width out for itself', () => {
+      // `min-[1100px]:` is the same line written a second time, and
+      // `max-[1099px]:` is not even its opposite: Tailwind compiles it to
+      // "narrower than 1099px", which left a window exactly 1099px wide with
+      // neither the narrow rail's layout nor the wide one's.
+      const offenders: string[] = [];
+      for (const file of sourceFiles('src', /\.(tsx|ts)$/)) {
+        // Class names only: prose in a comment may still say "1100px".
+        for (const m of read(file).matchAll(/\b(?:min|max)-\[(?:1099|1100)(?:\.\d+)?px\]:/g)) {
+          offenders.push(`${file}: ${m[0]}`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    it.each([
+      'src/components/shell/StatusBar.tsx',
+      'src/components/shell/AccountEntry.tsx',
+      'src/components/shell/CommandDeck.tsx',
+      'src/components/shell/NavLink.tsx',
+    ])('%s reads the named line', (file) => {
+      expect(read(file)).toMatch(/\b(?:max-)?header-wide:/);
+    });
+  });
 });
 
 describe('error boundaries consume only defined tokens', () => {
