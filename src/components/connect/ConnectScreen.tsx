@@ -222,8 +222,15 @@ export function ConnectScreen({
   liveActions,
   livePort,
   initialRunId,
+  freeRunsNote,
 }: {
   signedIn?: boolean;
+  /**
+   * How many free live runs an account gets, as a sentence read on the server
+   * (`describeLiveRunAllowanceNote()`), or nothing when no count is
+   * configured. Words, never the setting: the browser does not decide the count.
+   */
+  freeRunsNote?: string | null;
   /**
    * A run named in the URL (`?run=<id>`) as the SERVER saw it, to reopen. It is
    * only a seed: the live URL and the stored id are read here as well, because
@@ -584,6 +591,7 @@ export function ConnectScreen({
               onDiscardedChange={setRunDiscarded}
               onBarChange={setBarPresent}
               barSlot={barSlot}
+              freeRunsNote={freeRunsNote}
             />
           ) : (
             <div className="flex flex-col gap-4">

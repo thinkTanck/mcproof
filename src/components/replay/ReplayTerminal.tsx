@@ -5,6 +5,7 @@ import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
 import { cn } from '@/lib/utils';
 import { BandShape } from '@/components/leaderboard/BandShape';
 import { stepMeta } from './step-meta';
+import { REPLAY_KEY_ID } from './ReplayKey';
 import { followStepInside } from './follow-step';
 import { useReplayLayout } from './phone-layout';
 import type { Step } from '@/contract';
@@ -196,8 +197,12 @@ export function ReplayTerminal({
         containerType: 'size',
       }}
     >
+      {/* The list points at the colour key Replay draws under the step detail
+          (ReplayKey): one reference, from the element that holds every
+          coloured line, and not one on each of the lines. */}
       <ol
         aria-label="Attack replay step timeline"
+        aria-describedby={REPLAY_KEY_ID}
         data-asi-quoted="trace"
         className="phone:[grid-area:1/1]"
       >

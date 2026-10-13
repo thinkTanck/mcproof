@@ -64,11 +64,19 @@ describe('ConnectCta', () => {
   });
 
   it.each([
-    'src/app/(hud)/page.tsx',
+    // Home draws it through its calls-to-action block (HomeCtas), which the
+    // browser-test fixture for the free-runs note draws as well.
+    'src/components/home/HomeCtas.tsx',
     'src/app/(hud)/leaderboard/page.tsx',
     'src/app/(hud)/account/page.tsx',
     'src/components/replay/RunDiscarded.tsx',
   ])('%s draws the shared control', (file) => {
     expect(readFileSync(join(process.cwd(), file), 'utf8')).toContain('<ConnectCta />');
+  });
+
+  it('Home draws its calls-to-action block, and so the shared control', () => {
+    expect(readFileSync(join(process.cwd(), 'src/app/(hud)/page.tsx'), 'utf8')).toContain(
+      '<HomeCtas ',
+    );
   });
 });

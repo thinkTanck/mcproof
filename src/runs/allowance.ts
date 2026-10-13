@@ -50,6 +50,41 @@ export function describeLiveRunAllowance(allowance?: number, env: Env = process.
 }
 
 /**
+ * The note beside a Connect call to action: how many free live runs an account
+ * gets, as one sentence, or `null` when there is nothing to say.
+ *
+ * SHOWN ONLY FOR A COUNT THE OPERATOR CHOSE. This is deliberately stricter
+ * than the gate. Unset, the gate falls back to a default so live runs keep
+ * working; the note does not fall back, because a number nobody configured is
+ * not a promise to print on the front door. So it is `null` when
+ * `LIVE_RUN_ALLOWANCE` is unset, empty, `0` (free live runs are off) or not a
+ * value the gate itself accepts, and a broken setting hides the note instead
+ * of breaking the page it sits on.
+ *
+ * It states the limit for any account and never what the reader has left: no
+ * usage is read here. "Up to", because the spend cap can pause live runs
+ * before an account reaches its count. The count is for the life of the
+ * account (ADR-0007), and the sentence says so.
+ *
+ * Read on the server and handed to the screen as words. Never `NEXT_PUBLIC_`.
+ */
+export function describeLiveRunAllowanceNote(env: Env = process.env): string | null {
+  const raw = env.LIVE_RUN_ALLOWANCE;
+  if (raw === undefined || raw.trim() === '') return null;
+  let allowance: number;
+  try {
+    allowance = getLiveRunAllowance(env);
+  } catch {
+    return null;
+  }
+  if (allowance <= 0) return null;
+  return (
+    `Each account gets up to ${describeLiveRunAllowance(allowance)}. ` +
+    `That is a total for the life of the account, not a daily allowance.`
+  );
+}
+
+/**
  * The refusal an exhausted account meets. Its `message` is user-facing copy, so
  * it names the path that still works instead of dead-ending, and it derives the
  * number from the configured allowance rather than stating a numeral of its own.
