@@ -216,7 +216,7 @@ export function ReplayTerminal({
                 // A step that is not drawn is not a tab stop (see the note above).
                 tabIndex={reached ? undefined : -1}
                 onClick={() => onSelect(i)}
-                className="block w-full whitespace-pre-wrap break-words text-left focus:outline-none focus-visible:underline"
+                className="block w-full whitespace-pre-wrap break-words text-left focus-inside focus-visible:underline"
                 style={{ color }}
               >
                 {line.kind === 'out' ? (

@@ -233,7 +233,7 @@ export function BootSplash() {
       <button
         type="button"
         onClick={finish}
-        className="mt-8 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-line px-3 font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:border-line-em hover:text-ink"
+        className="mt-8 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-line px-3 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint transition-colors hover:border-line-em hover:text-ink"
       >
         Skip
         <span aria-hidden="true">→</span>

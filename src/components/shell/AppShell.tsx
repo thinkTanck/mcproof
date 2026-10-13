@@ -64,11 +64,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
       <StatusBar pathname={pathname} mode={mode} runContext={runContext} account={account} />
       <div className="flex min-h-[calc(100dvh-var(--header-h))]">
         <CommandDeck pathname={pathname} account={account} />
-        <main
-          id="main"
-          tabIndex={-1}
-          className="type-flow relative min-w-0 flex-1 overflow-x-clip focus:outline-none"
-        >
+        <main id="main" tabIndex={-1} className="type-flow relative min-w-0 flex-1 overflow-x-clip">
           {children}
         </main>
       </div>

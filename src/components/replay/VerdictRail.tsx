@@ -131,7 +131,7 @@ export function VerdictRail({
           ref={yRef}
           href={href}
           aria-label={exportLabel}
-          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus:outline-none focus-visible:bg-nominal/20"
+          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus-visible:bg-nominal/20"
           style={{ color: CYAN }}
         >
           y
@@ -141,7 +141,7 @@ export function VerdictRail({
           type="button"
           onClick={() => setAnswered('n')}
           aria-label="Decline export"
-          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus:outline-none focus-visible:bg-nominal/20"
+          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus-visible:bg-nominal/20"
           style={{ color: CYAN }}
         >
           n
