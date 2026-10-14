@@ -1,4 +1,7 @@
-import { CategorySchema, type Category } from '@/contract';
+// From the module that defines them, not the contract's index: the index also
+// builds every object schema, and building one in the browser makes zod test
+// whether it may compile code, which the content security policy reports.
+import { CategorySchema, type Category } from '@/contract/common';
 import { ASI_NAMES } from '@/lib/owasp/asi';
 
 /**
