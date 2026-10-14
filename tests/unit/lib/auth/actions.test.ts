@@ -143,7 +143,12 @@ describe('requestEmailCode (email OTP request)', () => {
 });
 
 describe('verifyEmailCode (email OTP verify)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  // Code entry is counted too (S1e), on the same process-wide counters, so each
+  // test starts from an empty count, as the request tests above do.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    otpRateLimitStore.reset();
+  });
 
   it('is inert (ok:false) when auth is not configured', async () => {
     vi.mocked(createServerSupabase).mockResolvedValue(null);

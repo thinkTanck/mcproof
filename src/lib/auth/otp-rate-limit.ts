@@ -112,6 +112,39 @@ export const OTP_RATE_LIMIT = {
 } as const;
 
 /**
+ * The two buckets for ENTERING a code (2026-10-14, security lane S1e).
+ *
+ * Sign-in runs on the server, so every code check reaches Supabase from the
+ * deployment's own addresses, shared by every user, and Supabase's per-IP limit
+ * on verification counts them all together. Without a limit of our own, one
+ * person guessing codes could use that up and block code entry for everyone.
+ *
+ * EMAIL 5 per 15 minutes: a code that was mistyped, then pasted with a stray
+ * character, then typed again is three; five leaves room and still makes
+ * guessing an 8-digit code hopeless.
+ *
+ * IP 20 per 15 minutes: four people behind one office address each using their
+ * full five, and well under Supabase's shared verification limit even though a
+ * mismatched code costs two provider calls.
+ *
+ * These keys live under their own names (`verify-email`, `verify-ip`), so a run
+ * of wrong codes never stops anyone asking for a new one, and a full request
+ * count never stops anyone entering the code they already have.
+ */
+export const OTP_VERIFY_RATE_LIMIT = {
+  email: { limit: 5, windowMs: 15 * 60_000 },
+  ip: { limit: 20, windowMs: 15 * 60_000 },
+} as const;
+
+/** Which of the two limits a limiter enforces: sending a code, or entering one. */
+export type OtpRateLimitPolicy = 'request' | 'verify';
+
+const POLICIES = {
+  request: { rules: OTP_RATE_LIMIT, prefix: '' },
+  verify: { rules: OTP_VERIFY_RATE_LIMIT, prefix: 'verify-' },
+} as const;
+
+/**
  * Why the send was refused. For OUR logs and metrics; the wire sees only the
  * sentence. `address` is the one scope that is not a rate decision at all: the
  * value could not be bucketed, so it could not be counted, so it is refused.
@@ -163,6 +196,8 @@ export interface OtpRateLimitStore {
 export const OTP_RATE_LIMIT_MAX_WINDOW_MS = Math.max(
   OTP_RATE_LIMIT.email.windowMs,
   OTP_RATE_LIMIT.ip.windowMs,
+  OTP_VERIFY_RATE_LIMIT.email.windowMs,
+  OTP_VERIFY_RATE_LIMIT.ip.windowMs,
 );
 
 /** Guard against a hostile header becoming an unbounded map key. */
@@ -255,6 +290,8 @@ export interface OtpRateLimiterOptions {
    * shared one — every instance must derive the same key or the limit multiplies.
    */
   readonly salt?: string;
+  /** Sending a code (the default) or entering one. Each has its own buckets. */
+  readonly policy?: OtpRateLimitPolicy;
 }
 
 export interface OtpRateLimitRequest {
@@ -291,6 +328,7 @@ export function createOtpRateLimiter(options: OtpRateLimiterOptions = {}): OtpRa
   const store = options.store ?? new InMemoryOtpRateLimitStore();
   const now = options.now ?? (() => new Date());
   const salt = options.salt ?? PROCESS_KEY_SALT;
+  const { rules, prefix } = POLICIES[options.policy ?? 'request'];
 
   const refuse = (scope: OtpRateLimitScope): OtpRateLimitDecision => ({
     allowed: false,
@@ -308,13 +346,13 @@ export function createOtpRateLimiter(options: OtpRateLimiterOptions = {}): OtpRa
       const buckets = [
         {
           scope: 'email' as const,
-          key: bucketKey(salt, 'email', email.data),
-          rule: OTP_RATE_LIMIT.email,
+          key: bucketKey(salt, `${prefix}email`, email.data),
+          rule: rules.email,
         },
         {
           scope: 'ip' as const,
-          key: bucketKey(salt, 'ip', request.ip ?? 'unknown'),
-          rule: OTP_RATE_LIMIT.ip,
+          key: bucketKey(salt, `${prefix}ip`, request.ip ?? 'unknown'),
+          rule: rules.ip,
         },
       ];
 
@@ -344,6 +382,12 @@ export const otpRateLimitStore = new InMemoryOtpRateLimitStore();
 
 /** The offline limiter, over the process-local counters and the process salt. */
 const processLimiter = createOtpRateLimiter({ store: otpRateLimitStore });
+
+/** The offline code-entry limiter: the same counters, under its own key names. */
+const processVerifyLimiter = createOtpRateLimiter({
+  store: otpRateLimitStore,
+  policy: 'verify',
+});
 
 /**
  * Label mixed into the durable salt, so the same secret used for another purpose
@@ -392,18 +436,20 @@ function durableSalt(adminSecret: string): string {
  * rather than refuses at capacity. It is an operator error either way, and the
  * lifetime allowance still bounds spend.
  */
-export function resolveOtpRateLimiter(): OtpRateLimiter {
+export function resolveOtpRateLimiter(policy: OtpRateLimitPolicy = 'request'): OtpRateLimiter {
+  const fallback = policy === 'verify' ? processVerifyLimiter : processLimiter;
   try {
-    if (!getSupabaseConfig()) return processLimiter;
+    if (!getSupabaseConfig()) return fallback;
     const client = createAdminSupabase();
     const adminSecret = getSupabaseServiceRoleKey();
-    if (!client || !adminSecret) return processLimiter;
+    if (!client || !adminSecret) return fallback;
     return createOtpRateLimiter({
       store: new SupabaseOtpRateLimitStore(client),
       salt: durableSalt(adminSecret),
+      policy,
     });
   } catch {
-    return processLimiter;
+    return fallback;
   }
 }
 
@@ -414,4 +460,12 @@ export function resolveOtpRateLimiter(): OtpRateLimiter {
  */
 export const otpRateLimiter: OtpRateLimiter = {
   check: (request: OtpRateLimitRequest) => resolveOtpRateLimiter().check(request),
+};
+
+/**
+ * The limiter the code-entry path uses ({@link OTP_VERIFY_RATE_LIMIT}), chosen
+ * the same way and kept in the same table under its own key names.
+ */
+export const otpVerifyRateLimiter: OtpRateLimiter = {
+  check: (request: OtpRateLimitRequest) => resolveOtpRateLimiter('verify').check(request),
 };
