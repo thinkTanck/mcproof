@@ -3,6 +3,8 @@ import {
   SAMPLE_TRACE_CONSTRUCTED,
   humanDate,
   liveDisplayProvenance,
+  localDateTime,
+  sampleDates,
   sampleDisplayProvenance,
   stepLabel,
   withStepNumber,
@@ -35,12 +37,21 @@ describe('humanDate', () => {
 });
 
 describe('a sample says when it was constructed and when its verdict was recorded', () => {
-  it('reads "constructed <date> · verdict recorded <date>", in human dates', () => {
+  it('reads one phrase, "constructed and judged <date>", when both are the same day', () => {
     const line = sampleDisplayProvenance();
     expect(line).toBe(
-      'constructed demonstration · constructed Aug 5, 2026 · verdict recorded Aug 5, 2026 · judge claude-haiku-4-5',
+      'constructed demonstration · constructed and judged Aug 5, 2026 · judge claude-haiku-4-5',
     );
     expect(line).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+  });
+
+  it('keeps the two-part form only when the days differ', () => {
+    expect(sampleDates('2026-07-30', '2026-08-05')).toBe(
+      'constructed Jul 30, 2026 · verdict recorded Aug 5, 2026',
+    );
+    expect(sampleDates('2026-08-05', '2026-08-05T15:00:00Z')).toBe(
+      'constructed and judged Aug 5, 2026',
+    );
   });
 
   it('takes the recording date from the frozen provenance line, which stays ISO', () => {
@@ -65,6 +76,21 @@ describe('a live run says the day it ran', () => {
     expect(liveDisplayProvenance('garbage')).toBe(
       'live run · verdict from the locked validated judge',
     );
+  });
+});
+
+describe('a moment in the viewer’s own time', () => {
+  it('reads "Oct 14, 2026, 1:31 PM CDT" in the given zone', () => {
+    expect(localDateTime('2026-10-14T18:31:00Z', 'America/Chicago')).toBe(
+      'Oct 14, 2026, 1:31 PM CDT',
+    );
+    expect(localDateTime('2026-01-05T09:05:00Z', 'America/New_York')).toBe(
+      'Jan 5, 2026, 4:05 AM EST',
+    );
+  });
+
+  it('answers null for a value that is not a time', () => {
+    expect(localDateTime('never', 'America/Chicago')).toBeNull();
   });
 });
 

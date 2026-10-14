@@ -102,6 +102,19 @@ describe('Live Attack Replay — the sample run', () => {
     expect(getUser).not.toHaveBeenCalled();
   });
 
+  it('prints RUN, TARGET and DETECTOR under the title, wrapping, never cut short', async () => {
+    // G option B (owner ruling 2026-10-14): the run telemetry left the header
+    // bar for the replay's own header, where it can wrap freely.
+    await renderPage('sample');
+    const title = screen.getByRole('heading', { level: 1 });
+    const telemetry = document.querySelector<HTMLElement>('[data-replay-telemetry]');
+    expect(telemetry).not.toBeNull();
+    expect(title.closest('header')!.contains(telemetry)).toBe(true);
+    expect(telemetry!.textContent).toMatch(/^RUN \S+ · TARGET \S+ · DETECTOR BLIND$/);
+    expect(telemetry!.className).not.toMatch(/\btruncate\b/);
+    expect(telemetry!.className).toMatch(/overflow-wrap:anywhere/);
+  });
+
   it('resolves the canonical sample id as well as the alias', async () => {
     await renderPage(SAMPLE_RUN_ID);
     expect(screen.getByRole('list', { name: /step timeline/i })).toBeInTheDocument();

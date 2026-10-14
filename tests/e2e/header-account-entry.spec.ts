@@ -297,8 +297,11 @@ test.describe('1100px: the bar of the replay has room', () => {
   test('the run telemetry is not squeezed out, and the tag gives way to it', async ({ page }) => {
     await open(page, '/runs/sample', 'fallback font');
     const replay = (await measure(page)).header!;
-    // The bar keeps a readable stretch of the run telemetry beside the entry.
-    expect(replay.telemetryWidth ?? 0, 'run telemetry width').toBeGreaterThan(replay.set);
+    // G option B (owner ruling 2026-10-14): RUN, TARGET and DETECTOR left the
+    // bar, where they were cut short, for the replay's own header under the
+    // title. This read that the bar keeps a readable stretch of them.
+    expect(replay.telemetryWidth, 'no run telemetry in the bar').toBeNull();
+    await expect(page.locator('[data-replay-telemetry]')).toBeVisible();
     expect(replay.tag, 'SENTINEL FIELDS on the replay at 1100').toBe(false);
 
     // Batch G (2026-10-13, the owner's instruction): the tag is gone from every

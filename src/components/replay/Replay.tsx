@@ -169,6 +169,18 @@ function ReplayStage({ run, routeId, provenance }: ReplayProps) {
             />
           </span>
         </div>
+        {/* The run telemetry, under the title (G option B, owner ruling
+            2026-10-14). It used to be cut to one line in the header bar; here
+            it wraps, so a long run id or model name is printed in full. */}
+        <p
+          data-replay-telemetry=""
+          className="instrument mt-(--instrument-stack) text-ink-muted [overflow-wrap:anywhere]"
+        >
+          RUN <span className="text-readout">{run.runId}</span>
+          <span aria-hidden="true"> · </span>TARGET{' '}
+          <span className="text-readout">{run.model}</span>
+          <span aria-hidden="true"> · </span>DETECTOR <span className="text-nominal">BLIND</span>
+        </p>
         {provenance ? (
           <p className="instrument mt-(--instrument-stack) text-ink-faint">{provenance}</p>
         ) : null}

@@ -43,12 +43,13 @@ export const ROLES: Readonly<Record<RoleId, SpeakerRole>> = {
   detector: {
     id: 'detector',
     name: 'MCProof detector',
-    definition: 'Flags the moment the agent is hijacked.',
+    definition: 'Flags the step where the agent is compromised, if it is.',
   },
   tool: {
     id: 'tool',
-    name: 'Booby-trapped tool',
-    definition: 'The MCP tool carrying the attack.',
+    name: 'Served tool',
+    definition:
+      'An MCP tool we host for the run. In an attack run, one of them carries the attack.',
   },
 };
 

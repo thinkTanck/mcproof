@@ -188,18 +188,10 @@ export function StatusBar({
           </>
         )}
 
-        {runContext && (
-          <>
-            <div className="hidden h-[26px] w-px shrink-0 bg-line header-wide:block" />
-            <div className="hidden min-w-0 truncate font-mono text-[13.5px] tracking-[0.06em] text-ink-muted header-wide:block">
-              RUN <span className="text-readout">{runContext.runId}</span>
-              <span aria-hidden="true"> · </span>TARGET{' '}
-              <span className="text-readout">{runContext.model}</span>
-              <span aria-hidden="true"> · </span>DETECTOR{' '}
-              <span className="text-nominal">BLIND</span>
-            </div>
-          </>
-        )}
+        {/* RUN, TARGET and DETECTOR are not printed in this bar (G option B,
+            owner ruling 2026-10-14). Cut to one line here they lost their end
+            behind an ellipsis; they are printed under the replay's title,
+            where they wrap, and this bar keeps one row. */}
 
         <div className="flex-1" />
 

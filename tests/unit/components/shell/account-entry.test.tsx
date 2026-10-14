@@ -480,9 +480,11 @@ describe('the header tag on a run screen', () => {
     );
 
     expect(tag().className.split(/\s+/)).toContain('header-wide:hidden');
-    // And the telemetry that takes its place is drawn from the same line.
-    const telemetry = screen.getByText('some-model').parentElement!;
-    expect(telemetry.className.split(/\s+/)).toContain('header-wide:block');
+    // G option B (owner ruling 2026-10-14): RUN, TARGET and DETECTOR left the
+    // bar for the replay's own header, where they wrap. This read that the
+    // telemetry is drawn in the bar from the same line.
+    expect(screen.queryByText('some-model')).toBeNull();
+    expect(document.querySelector('header')!.textContent).not.toMatch(/DETECTOR/);
   });
 });
 

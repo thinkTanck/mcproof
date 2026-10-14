@@ -402,7 +402,13 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await issue(user);
 
     expect(await screen.findByText('AGENT CONNECTED')).toBeInTheDocument();
-    expect(detail()).toHaveTextContent('LAST SEEN 2026-08-05T11:31:00Z');
+    // In the viewer's local time with its zone (owner ruling 2026-10-14), e.g.
+    // "Aug 5, 2026, 6:31 AM CDT"; the ISO value stays in the datetime attribute.
+    expect(detail()).toHaveTextContent(
+      /LAST SEEN [A-Z][a-z]{2} \d{1,2}, 2026, \d{1,2}:\d{2} (AM|PM) \S+/,
+    );
+    expect(detail()).not.toHaveTextContent('2026-08-05T11:31:00Z');
+    expect(detail().querySelector('time')).toHaveAttribute('dateTime', '2026-08-05T11:31:00Z');
   });
 
   it('separates "the agent is here" from "the agent has done something"', async () => {

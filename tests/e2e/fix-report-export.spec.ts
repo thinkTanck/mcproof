@@ -32,7 +32,7 @@ test('/findings/sample: Copy report puts the provenance line on the clipboard', 
   // the copied ticket keeps the ISO provenance line. So the two are compared by
   // what they say, not byte for byte.
   const shown = provenance.match(
-    /^constructed demonstration · .*verdict recorded (\w{3}) (\d{1,2}), (\d{4})/,
+    /^constructed demonstration · .*(?:verdict recorded|constructed and judged) (\w{3}) (\d{1,2}), (\d{4})/,
   );
   expect(shown, 'the page names the day the verdict was recorded').not.toBeNull();
 

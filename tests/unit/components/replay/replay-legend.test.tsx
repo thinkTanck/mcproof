@@ -104,12 +104,12 @@ describe('the legend: one strip, directly above the terminal', () => {
       'target-agent@sentinel Agent under test. The AI agent this run tests.',
     );
     expect(text('detector')).toBe(
-      'detector@sentinel MCProof detector. Flags the moment the agent is hijacked.',
+      'detector@sentinel MCProof detector. Flags the step where the agent is compromised, if it is.',
     );
     // No tool or server handle is drawn anywhere in a replay, so this entry
     // has no handle of its own to show: its chip says which kind it is, in words.
     expect(text('tool')).toBe(
-      'tool or server Booby-trapped tool. The MCP tool carrying the attack.',
+      'tool or server Served tool. An MCP tool we host for the run. In an attack run, one of them carries the attack.',
     );
     expect(who.querySelector('[data-role="tool"] [data-legend-handle]')).toBeNull();
     for (const entry of entries) {

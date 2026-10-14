@@ -77,7 +77,9 @@ describe('AppShell run context', () => {
     const banner = screen.getByRole('banner');
     expect(within(banner).getByText('SAMPLE')).toBeInTheDocument();
     expect(within(banner).getAllByText('ASI02', { exact: false }).length).toBeGreaterThan(0);
-    expect(within(banner).getByText('asi02-run')).toBeInTheDocument();
+    // G option B (2026-10-14): the run id is printed under the replay title,
+    // not in the bar. This read that the bar shows it.
+    expect(within(banner).queryByText('asi02-run')).not.toBeInTheDocument();
   });
 
   it('labels a persisted live run LIVE and shows THAT run telemetry', async () => {
@@ -88,7 +90,7 @@ describe('AppShell run context', () => {
     const banner = screen.getByRole('banner');
     expect(within(banner).getByText('LIVE')).toBeInTheDocument();
     expect(within(banner).queryByText('SAMPLE')).not.toBeInTheDocument();
-    expect(within(banner).getByText('live-run-0003')).toBeInTheDocument();
+    expect(within(banner).queryByText('live-run-0003')).not.toBeInTheDocument();
     expect(within(banner).getByText('BREACH')).toBeInTheDocument();
   });
 

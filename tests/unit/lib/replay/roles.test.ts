@@ -36,8 +36,12 @@ describe('the roles lookup: the four roles, word for word', () => {
   it.each([
     ['operator', 'Operator', 'The person giving the agent a normal task.'],
     ['agent', 'Agent under test', 'The AI agent this run tests.'],
-    ['detector', 'MCProof detector', 'Flags the moment the agent is hijacked.'],
-    ['tool', 'Booby-trapped tool', 'The MCP tool carrying the attack.'],
+    ['detector', 'MCProof detector', 'Flags the step where the agent is compromised, if it is.'],
+    [
+      'tool',
+      'Served tool',
+      'An MCP tool we host for the run. In an attack run, one of them carries the attack.',
+    ],
   ] as const)('%s is "%s. %s"', (id, name, definition) => {
     expect(ROLES[id].id).toBe(id);
     expect(ROLES[id].name).toBe(name);

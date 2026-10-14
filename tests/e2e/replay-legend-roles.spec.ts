@@ -553,7 +553,7 @@ for (const viewport of [
       const panel = handle.locator('[data-speaker-panel]');
       await expect(panel).toBeVisible();
       await expect(panel).toContainText(
-        'MCProof detector. Flags the moment the agent is hijacked.',
+        'MCProof detector. Flags the step where the agent is compromised, if it is.',
       );
       const inside = await panel.evaluate((el) => {
         const r = el.getBoundingClientRect();

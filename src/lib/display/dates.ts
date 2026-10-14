@@ -33,25 +33,37 @@ export function humanDate(iso: string): string | null {
 export const SAMPLE_TRACE_CONSTRUCTED = '2026-08-05';
 
 /** The judge and the ISO recording date, read off the frozen provenance line. */
-function recordedSample(): { judge: string | null; recorded: string | null } {
+function recordedSample(): { judge: string | null; recordedIso: string } {
   const parts = SAMPLE_VERDICT_PROVENANCE.split(' · ');
-  const iso = parts.at(-1) ?? '';
   const judge = parts.find((p) => p.startsWith('claude-')) ?? null;
-  return { judge, recorded: humanDate(iso) };
+  return { judge, recordedIso: parts.at(-1) ?? '' };
 }
 
 /**
- * A sample's label on screen: what it is, when its trace was constructed and
- * when its verdict was recorded, e.g. "constructed demonstration · constructed
- * Aug 5, 2026 · verdict recorded Aug 5, 2026 · judge claude-haiku-4-5".
+ * When a sample was constructed and when its verdict was recorded. One phrase
+ * when they are the same day, "constructed and judged Aug 5, 2026"; the two-part
+ * form only when they differ (owner ruling 2026-10-14). An unreadable date is
+ * dropped rather than printed wrong.
+ */
+export function sampleDates(constructedIso: string, recordedIso: string): string {
+  const constructed = humanDate(constructedIso);
+  const recorded = humanDate(recordedIso);
+  if (constructed && constructed === recorded) return `constructed and judged ${constructed}`;
+  return [constructed && `constructed ${constructed}`, recorded && `verdict recorded ${recorded}`]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ');
+}
+
+/**
+ * A sample's label on screen: what it is, when it was constructed and judged,
+ * and by which judge, e.g. "constructed demonstration · constructed and judged
+ * Aug 5, 2026 · judge claude-haiku-4-5".
  */
 export function sampleDisplayProvenance(): string {
-  const { judge, recorded } = recordedSample();
-  const constructed = humanDate(SAMPLE_TRACE_CONSTRUCTED);
+  const { judge, recordedIso } = recordedSample();
   return [
     'constructed demonstration',
-    constructed && `constructed ${constructed}`,
-    recorded && `verdict recorded ${recorded}`,
+    sampleDates(SAMPLE_TRACE_CONSTRUCTED, recordedIso),
     judge && `judge ${judge}`,
   ]
     .filter((part): part is string => Boolean(part))
@@ -64,6 +76,28 @@ export function liveDisplayProvenance(createdAt: string): string {
   return ['live run', day && `run ${day}`, 'verdict from the locked validated judge']
     .filter((part): part is string => Boolean(part))
     .join(' · ');
+}
+
+/**
+ * A moment in the viewer's own time, with its zone: "Oct 14, 2026, 1:31 PM CDT"
+ * (owner ruling 2026-10-14, Connect's LAST SEEN). Read in the browser, so the
+ * zone is the reader's; `timeZone` is for tests. The ISO value stays in the
+ * data and in the `<time>` element's datetime attribute. Null when not a time.
+ */
+export function localDateTime(iso: string, timeZone?: string): string | null {
+  const at = new Date(iso);
+  if (iso === '' || Number.isNaN(at.getTime())) return null;
+  const text = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+    ...(timeZone === undefined ? {} : { timeZone }),
+  }).format(at);
+  // ICU puts a narrow no-break space before AM/PM; print a plain one.
+  return text.replace(/[  ]/g, ' ');
 }
 
 /** A step as a person counts it: "#2", never its trace id. */
