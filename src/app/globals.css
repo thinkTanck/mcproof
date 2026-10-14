@@ -900,7 +900,15 @@ html {
   *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    /* ZERO, not a very short time (2026-10-13). Every element takes this rule
+     * and the default transition-property is `all`, so at 0.001ms every style
+     * change on every element became a transition. A transition holds its start
+     * value until the next frame begins it, and WebKit can leave it waiting: a
+     * replay line that had just lost `sr-only` kept that class's -1px margin,
+     * was 2px wider than the copy holding its height on a phone, and wrapped
+     * differently. At zero no transition is created and the change is the
+     * final value at once. Guarded by tests/e2e/replay-rows-no-transition.spec.ts. */
+    transition-duration: 0s !important;
   }
 }
 
