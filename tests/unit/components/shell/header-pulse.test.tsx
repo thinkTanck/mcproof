@@ -64,7 +64,6 @@ beforeEach(() => {
   const row = liveRow();
   vi.mocked(getUser).mockResolvedValue({ id: 'user-1' } as never);
   vi.mocked(getRunRepository).mockResolvedValue({
-    saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
     findByRunId: vi.fn(),

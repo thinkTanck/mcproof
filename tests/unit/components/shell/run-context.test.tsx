@@ -61,7 +61,6 @@ beforeEach(() => {
   pathname.current = '/';
   asMock(getUser).mockResolvedValue(null);
   asMock(getRunRepository).mockResolvedValue({
-    saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
     findByRunId: vi.fn(),

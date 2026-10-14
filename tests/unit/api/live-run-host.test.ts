@@ -5,16 +5,20 @@
  *
  * The pipeline's own behaviour is tested in `tests/unit/runs/live-run.test.ts`.
  * What is asserted here is only that the seams point at the real things: the
- * gate is `checkLiveRunPreflight`, persistence is the RLS-scoped
- * `getRunRepository()`, the judge is `resolveLiveDetector()`, and the token store
- * and open-run registry are the ones `src/runs/live-run-stores.factory.ts`
- * picks — which is what makes a run outlive the instance that started it.
+ * gate is `checkLiveRunPreflight`, WRITES go through the session run writer
+ * (`src/runs/run-writes.ts`, service-role, owner checked in code), READS stay on
+ * the RLS-scoped `getRunRepository()`, the judge is `resolveLiveDetector()`, and
+ * the token store and open-run registry are the ones
+ * `src/runs/live-run-stores.factory.ts` picks — which is what makes a run outlive
+ * the instance that started it.
  */
 import type { RunResult } from '@/contract';
 import { checkLiveRunPreflight } from '@/runs/preflight';
+import { getDiscardedRunStore } from '@/data/discarded-run-store.factory';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { resolveLiveDetector } from '@/detector/resolve';
 import { getLiveRunSessionStore, getRunTokenStore } from '@/runs/live-run-stores.factory';
+import { getSessionRunWriter } from '@/runs/run-writes';
 import {
   getLiveRunHost,
   liveRunDeps,
@@ -27,6 +31,8 @@ import {
 
 vi.mock('@/runs/preflight', () => ({ checkLiveRunPreflight: vi.fn() }));
 vi.mock('@/data/run-repository.factory', () => ({ getRunRepository: vi.fn() }));
+vi.mock('@/data/discarded-run-store.factory', () => ({ getDiscardedRunStore: vi.fn() }));
+vi.mock('@/runs/run-writes', () => ({ getSessionRunWriter: vi.fn() }));
 vi.mock('@/detector/resolve', () => ({ resolveLiveDetector: vi.fn() }));
 vi.mock('@/runs/live-run-stores.factory', () => ({
   getRunTokenStore: vi.fn(),
@@ -63,14 +69,43 @@ describe('the live-run host wiring', () => {
     });
   });
 
-  it('persists through the owner-scoped run repository, resolved per call', async () => {
+  it('persists a result through the session run writer, resolved per call', async () => {
     const saveRun = vi.fn().mockResolvedValue({ id: 'row-1' });
-    vi.mocked(getRunRepository).mockResolvedValue({ saveRun } as never);
+    vi.mocked(getSessionRunWriter).mockReturnValue({ saveRun, saveDiscardedRun: vi.fn() });
     const run = { runId: 'r1' } as unknown as RunResult;
 
     await expect(liveRunDeps().repository.saveRun('user-1', run)).resolves.toEqual({ id: 'row-1' });
-    expect(getRunRepository).toHaveBeenCalledTimes(1);
+    expect(getSessionRunWriter).toHaveBeenCalledTimes(1);
     expect(saveRun).toHaveBeenCalledWith('user-1', run);
+    // The caller's cookie-bound repository is never asked to write.
+    expect(getRunRepository).not.toHaveBeenCalled();
+  });
+
+  it('persists a discard marker through the session run writer too', async () => {
+    const saveDiscardedRun = vi.fn().mockResolvedValue({ id: 'row-2' });
+    vi.mocked(getSessionRunWriter).mockReturnValue({ saveRun: vi.fn(), saveDiscardedRun });
+    const marker = { discarded: true, runId: 'r1' } as never;
+
+    await expect(liveRunDeps().repository.saveDiscardedRun?.('user-1', marker)).resolves.toEqual({
+      id: 'row-2',
+    });
+    expect(saveDiscardedRun).toHaveBeenCalledWith('user-1', marker);
+    expect(getDiscardedRunStore).not.toHaveBeenCalled();
+  });
+
+  it('keeps the two reads on the owner-scoped session repository', async () => {
+    const findByRunId = vi.fn().mockResolvedValue(null);
+    const findDiscardedByRunId = vi.fn().mockResolvedValue(null);
+    vi.mocked(getRunRepository).mockResolvedValue({ findByRunId } as never);
+    vi.mocked(getDiscardedRunStore).mockResolvedValue({ findDiscardedByRunId } as never);
+    const { repository } = liveRunDeps();
+
+    await repository.findByRunId?.('user-1', 'r1');
+    await repository.findDiscardedByRunId?.('user-1', 'r1');
+
+    expect(findByRunId).toHaveBeenCalledWith('user-1', 'r1');
+    expect(findDiscardedByRunId).toHaveBeenCalledWith('user-1', 'r1');
+    expect(getSessionRunWriter).not.toHaveBeenCalled();
   });
 
   it('resolves the judge through resolveLiveDetector, so an unconfigured judge is null', () => {

@@ -10,7 +10,10 @@
  *   preflight        -> `checkLiveRunPreflight` (the allowance + the spend cap)
  *   tokens           -> `getRunTokenStore()`, the durable per-run token store
  *   sessions         -> `getLiveRunSessionStore()`, the durable open-run registry
- *   repository       -> `getRunRepository()`, RLS-scoped to the caller's session
+ *   repository       -> WRITES: `getSessionRunWriter()` (`src/runs/run-writes.ts`),
+ *                       service-role, owner checked in code against the verified
+ *                       session and the run record. READS: `getRunRepository()`,
+ *                       RLS-scoped to the caller's session
  *   resolveDetector  -> `resolveLiveDetector()`, the LOCKED validated judge
  *
  * ── ONE HOST PER PROCESS, AND WHAT THAT DOES AND DOES NOT MEAN NOW ──
@@ -138,10 +141,23 @@ const durableSessions: LiveRunSessionStore = {
 /**
  * The production ports, each pointed at the real module.
  *
- * The repository is resolved PER CALL rather than held, because it is bound to
- * the caller's cookie session: one long-lived client would carry one user's
- * session into another user's request. `checkLiveRunPreflight` is called with the
- * clock the pipeline hands it, so a test that pins the clock pins the gate too.
+ * The repository is resolved PER CALL rather than held, because both halves of
+ * it are bound to the caller's cookie session: one long-lived client would carry
+ * one user's session into another user's request. `checkLiveRunPreflight` is
+ * called with the clock the pipeline hands it, so a test that pins the clock
+ * pins the gate too.
+ *
+ * ── WRITES AND READS GO TO DIFFERENT PLACES, ON PURPOSE ──
+ *
+ * The two WRITES (a judged result, a discard marker) go through the server-only
+ * run writer on the service-role client. A browser session's identity is not
+ * what inserts the row, so `public.runs` does not have to let a signed-in user
+ * insert, and a user holding the public key and their own token cannot forge or
+ * delete what the allowance and the spend meter count. The writer re-reads the
+ * verified session and checks it against the run record before it writes.
+ *
+ * The two READS stay on the caller's own RLS-scoped session, under
+ * `runs_select_own`. The service role is not used to read on a user's behalf.
  */
 export function liveRunDeps(): LiveRunHostDeps {
   return {
@@ -151,25 +167,24 @@ export function liveRunDeps(): LiveRunHostDeps {
     sessions: durableSessions,
     repository: {
       async saveRun(userId: string, run: RunResult) {
-        // Imported here, not at the top: the factory reaches for the cookie-bound
-        // Supabase client, which pulls `next/headers`, and this module has to stay
+        // Imported here, not at the top: the writer reaches for the Supabase
+        // server clients, which pull `next/headers`, and this module has to stay
         // importable by anything that only wants a type off it.
-        const { getRunRepository } = await import('@/data/run-repository.factory');
-        const repository = await getRunRepository();
-        return repository.saveRun(userId, run);
+        const { getSessionRunWriter } = await import('@/runs/run-writes');
+        return getSessionRunWriter().saveRun(userId, run);
       },
       async findByRunId(userId: string, runId: string) {
         const { getRunRepository } = await import('@/data/run-repository.factory');
         const repository = await getRunRepository();
         return repository.findByRunId(userId, runId);
       },
-      // The two calls a discard needs. Both go through the caller's own
-      // RLS-scoped session, like a saved result does: a discard is only ever
-      // asked for by the signed-in owner, so the insert policy
-      // (`user_id = auth.uid()`) passes for them and for nobody else.
+      // The two calls a discard needs. The marker is WRITTEN like a saved
+      // result is, by the run writer: a discard is only ever asked for by the
+      // signed-in owner, and the writer checks exactly that before it inserts.
+      // The lookup is a read, on the caller's own session.
       async saveDiscardedRun(userId: string, discarded: DiscardedRun) {
-        const { getDiscardedRunStore } = await import('@/data/discarded-run-store.factory');
-        return (await getDiscardedRunStore()).saveDiscardedRun(userId, discarded);
+        const { getSessionRunWriter } = await import('@/runs/run-writes');
+        return getSessionRunWriter().saveDiscardedRun(userId, discarded);
       },
       async findDiscardedByRunId(userId: string, runId: string) {
         const { getDiscardedRunStore } = await import('@/data/discarded-run-store.factory');

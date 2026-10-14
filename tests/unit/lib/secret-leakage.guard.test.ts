@@ -17,6 +17,15 @@
  * The static half is the half that catches FUTURE violations, which is the point:
  * a one-off sweep is clean the day it is written and silent forever after.
  *
+ * 3. REACHABILITY: the service-role key bypasses Row-Level Security, so it is the
+ *    one secret whose leak is not "a credential got out" but "the database's
+ *    access control is off for whoever holds it". The last block walks the
+ *    run-time import graph from every `'use client'` module and fails if the
+ *    browser bundle can reach the service-role client, the one module that
+ *    writes runs with it, or any file that reads the key from the environment.
+ *    The same question is asked of the BUILT bundle by
+ *    `scripts/verify-no-service-role-in-client.ts`, after `npm run build`.
+ *
  * ESCAPE HATCH: a call may carry `secret-safe:` in a comment on the call or the
  * line above it, with the reason. It is deliberately a conscious, reviewable act.
  */
@@ -24,6 +33,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { createLogger, logger } from '@/lib/logger';
 import { redactSecrets, redactString, REDACTED } from '@/lib/redact';
+import { SRC, clientRoots, leaks, readSource, show } from '../../helpers/import-graph';
 
 // ── The sentinels. Not real credentials: shapes standing in for them. ──
 const JUDGE_KEY = 'sk-ant-test-0123456789abcdef0123456789abcdef';
@@ -439,5 +449,100 @@ describe('no secret survives serialization into an error', () => {
 
   it('redacts a secret out of an error message rendered as text', () => {
     expect(redactString(`refused: ${SERVICE_ROLE}`, { env: ENV })).not.toContain(SERVICE_ROLE);
+  });
+});
+
+// ── Reachability: the service-role key and the browser bundle ──
+
+/** The modules that hold, or are built on, the service-role client. */
+const SERVICE_ROLE_MODULES = ['src/lib/supabase/server.ts', 'src/runs/run-writes.ts'];
+
+/** Reading the key, or building the client that carries it. Comments do not count. */
+const SERVICE_ROLE_USE = /SUPABASE_SERVICE_ROLE_KEY|getSupabaseServiceRoleKey|createAdminSupabase/;
+
+/** Whether the browser must never be sent this file. */
+function holdsServiceRole(file: string, text: string): boolean {
+  return SERVICE_ROLE_MODULES.includes(show(file)) || SERVICE_ROLE_USE.test(stripComments(text));
+}
+
+describe('the service-role key is unreachable from the browser bundle (static)', () => {
+  it('walks from a real set of client modules, so it cannot pass by walking nothing', () => {
+    const roots = clientRoots(readSource()).map(show);
+
+    expect(roots.length).toBeGreaterThan(10);
+    expect(roots).toContain('src/components/connect/ConnectScreen.tsx');
+  });
+
+  it('knows the files it is protecting exist and hold what it thinks they hold', () => {
+    const code = readSource();
+    for (const file of SERVICE_ROLE_MODULES) {
+      expect(code.has(join(SRC, ...file.split('/').slice(1)))).toBe(true);
+    }
+    const holders = [...code]
+      .filter(([file, text]) => holdsServiceRole(file, text))
+      .map(([f]) => f);
+
+    expect(holders.map(show)).toContain('src/config/env.ts');
+    expect(holders.map(show)).toContain('src/lib/supabase/server.ts');
+    expect(holders.map(show)).toContain('src/runs/run-writes.ts');
+  });
+
+  it('lets no client module reach the service-role client or a file that reads the key', () => {
+    expect(leaks(readSource(), holdsServiceRole)).toEqual([]);
+  });
+
+  it('catches a client component that imports the service-role client directly', () => {
+    const code = readSource();
+    const screen = join(SRC, 'components', 'connect', 'ConnectScreen.tsx');
+    code.set(
+      screen,
+      `${code.get(screen)}
+import { createAdminSupabase } from '@/lib/supabase/server';
+`,
+    );
+
+    expect(leaks(code, holdsServiceRole).some((chain) => chain.startsWith(show(screen)))).toBe(
+      true,
+    );
+  });
+
+  it('catches one that reaches the run writer through another module', () => {
+    const code = readSource();
+    const screen = join(SRC, 'components', 'connect', 'ConnectScreen.tsx');
+    const helper = join(SRC, 'components', 'connect', 'categories.ts');
+    code.set(
+      helper,
+      `${code.get(helper)}
+import '@/runs/run-writes';
+`,
+    );
+
+    const chains = leaks(code, holdsServiceRole).filter((chain) => chain.startsWith(show(screen)));
+    expect(chains.some((chain) => chain.endsWith('src/runs/run-writes.ts'))).toBe(true);
+  });
+
+  it('catches a client-reachable file that reads the key from the environment', () => {
+    const code = readSource();
+    const helper = join(SRC, 'components', 'connect', 'categories.ts');
+    code.set(
+      helper,
+      `${code.get(helper)}
+export const k = process.env.SUPABASE_SERVICE_ROLE_KEY;
+`,
+    );
+
+    expect(leaks(code, holdsServiceRole).some((chain) => chain.endsWith(show(helper)))).toBe(true);
+  });
+
+  it('does not stop at a server action: the browser gets a reference, not its code', () => {
+    // The actions import the pipeline, which reaches the writer. That is correct
+    // and must not read as a leak, or the guard would be unusable.
+    const code = readSource();
+    const actions = join(SRC, 'app', 'actions', 'live-run.ts');
+
+    expect(code.get(actions)).toMatch(/^'use server';/);
+    expect(leaks(code, holdsServiceRole).filter((chain) => chain.includes(show(actions)))).toEqual(
+      [],
+    );
   });
 });

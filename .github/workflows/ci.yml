@@ -222,11 +222,28 @@ jobs:
             echo "E2E_AUTH_MAIL_URL=$MAIL_URL"
           } >> "$GITHUB_ENV"
 
+      # THE DATABASE, ASKED DIRECTLY. The stack is already up for the scan below,
+      # so the suites that need a real Postgres run here: what a signed-in user
+      # can and cannot do to each public table with no app in the way, and the
+      # app's own run writes over the real adapters. RLS_LOCAL_STACK turns them
+      # on; without it they skip, which is what every other job sees. They refuse
+      # any Supabase URL that is not loopback.
+      - name: RLS and server-only run writes, against the local stack
+        run: npx vitest run tests/integration/rls
+        env:
+          RLS_LOCAL_STACK: '1'
+
       # A separate build from the one the CWV gate measures, and necessarily so:
       # `NEXT_PUBLIC_*` values are inlined at build time, so an app built without
       # them treats auth as inert and the sign-in form never sends anything.
       - name: Build with auth configured
         run: npm run build
+
+      # The one build in CI made with the service-role key in the environment, so
+      # the one place its VALUE can be looked for in what the browser is sent, as
+      # well as its name.
+      - name: Prove the client bundle carries nothing of the service-role key
+        run: npx tsx scripts/verify-no-service-role-in-client.ts
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

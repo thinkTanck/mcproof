@@ -33,7 +33,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
   asMock(getRunRepository).mockResolvedValue({
-    saveRun: vi.fn(),
     listRuns: vi.fn(),
     countRunsSince: vi.fn(),
     findByRunId: vi.fn(),
