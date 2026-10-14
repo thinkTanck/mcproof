@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -88,4 +91,54 @@ export async function signedInUser(admin: SupabaseClient, tag: string): Promise<
 /** Remove an account. Its runs, tokens and run records cascade with it. */
 export async function removeUser(admin: SupabaseClient, user: SignedInUser | undefined) {
   if (user) await admin.auth.admin.deleteUser(user.id);
+}
+
+/**
+ * THE CATALOG, read with psql inside the local stack's own database container.
+ *
+ * Some of what the migrations promise is not visible through the REST API at
+ * all: which role a policy is scoped to, the text of its predicate, a TRUNCATE
+ * privilege (PostgREST has no way to send one), the grants on a sequence, an
+ * index. PostgREST only exposes the `public` schema and this project keeps no
+ * SQL function there to ask through, so those are read where they live:
+ * `docker exec <the stack's db container> psql`, as the `postgres` superuser.
+ *
+ * That is local by construction. The container is the one the Supabase CLI
+ * names after `project_id` in `supabase/config.toml`, on this machine's Docker,
+ * and `assertLocalStack()` has to pass first. It needs the `docker` command on
+ * the PATH, which a machine running the local stack has.
+ *
+ * Returns one string per row, columns joined by `|`. The statement goes in on
+ * stdin, so nothing in it is ever read by a shell.
+ */
+export function catalog(sql: string): string[] {
+  assertLocalStack();
+  const config = readFileSync(join(process.cwd(), 'supabase', 'config.toml'), 'utf8');
+  const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(config)?.[1];
+  if (!projectId) throw new Error('supabase/config.toml names no project_id.');
+  const out = execFileSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      `supabase_db_${projectId}`,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-X',
+      '-q',
+      '-At',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-f',
+      '-',
+    ],
+    { input: sql, encoding: 'utf8', timeout: 20_000 },
+  );
+  return out
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }
