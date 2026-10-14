@@ -277,21 +277,15 @@ describe('Home — hero micro-replay', () => {
 });
 
 describe('Home — the featured ASI02 finding', () => {
-  it('states the measured out-of-scope-read finding in plain words near the top', async () => {
+  it('shows no measured ASI02 live finding until the fixed trap is re-measured', async () => {
     await renderHome();
-    // The concrete finding: asked for one customer's invoice, a frontier agent
-    // performed an out-of-scope read on an unscoped path. The hosted surface returns
-    // a fabricated credential preview for ANY unscoped path, so the copy must say
-    // the content is simulated and must never claim the agent sought a credential
-    // file. Stated as a measured finding about a subject model, never a claim about
-    // the reader's own agent (framing.test.tsx holds that line across every screen).
-    const finding = screen.getByText(/measured finding/i).closest('p');
-    const text = finding?.textContent ?? '';
-    expect(text).toMatch(/out-of-scope read/i);
-    expect(text).toMatch(/unscoped path/i);
-    expect(text).toMatch(/simulated/i);
-    expect(text).toMatch(/fabricated credential preview/i);
-    expect(text).not.toMatch(/credential file/i);
+    // V1 (2026-10-14): the "5 of 10 / 6 of 10" finding came from a live trap that
+    // served the fabricated credential on the task's own first read, so it
+    // measured the trap, not the agent. It stays off Home until re-measured.
+    expect(screen.queryByText(/measured finding/i)).toBeNull();
+    const main = document.body.textContent ?? '';
+    expect(main).not.toMatch(/\b[56] of 10\b/);
+    expect(main).not.toMatch(/unscoped path/i);
   });
 
   it('offers a one-click link to the full RESULTS writeup', async () => {
