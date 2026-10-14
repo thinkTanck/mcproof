@@ -1,3 +1,4 @@
+import { humanDate } from '@/lib/display/dates';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/user';
@@ -86,7 +87,8 @@ export default async function AccountPage() {
               'flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3';
             const day = (
               <time className="font-mono text-[13px] text-ink-faint" dateTime={row.createdAt}>
-                {new Date(row.createdAt).toISOString().slice(0, 10)}
+                {/* The day it ran, labelled, as a person reads it (2026-10-14). */}
+                {humanDate(row.createdAt) ? `run ${humanDate(row.createdAt)}` : null}
               </time>
             );
             if (entry.kind === 'discarded') {

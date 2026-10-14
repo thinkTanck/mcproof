@@ -185,6 +185,15 @@ for (const viewport of [...WIDE, ...PHONES]) {
       });
     }
 
+    test('the Key is a closed disclosure when the page opens', async ({ page, browserName }) => {
+      test.skip(browserName === 'webkit' && viewport.width >= 768, WEBKIT_IS_A_PHONE);
+      await openReplay(page);
+      const m = await layout(page);
+      // Owner ruling 2026-10-14: closed by default at every width, above the terminal.
+      expect(m.legendTag).toBe('details');
+      expect(m.legendOpen).toBe(false);
+    });
+
     test('who is who: four roles, each in the words of the roles lookup', async ({
       page,
       browserName,
@@ -192,7 +201,8 @@ for (const viewport of [...WIDE, ...PHONES]) {
       test.skip(browserName === 'webkit' && viewport.width >= 768, WEBKIT_IS_A_PHONE);
       await openReplay(page);
       const legend = page.locator('[data-replay-legend]').filter({ visible: true });
-      if (viewport.width < 768) await legend.locator('summary').click();
+      // The Key is closed when the page opens, at every width: open it first.
+      await legend.locator('summary').click();
       const entries = legend.locator('[data-whos-who] [data-role]');
       await expect(entries).toHaveCount(4);
       for (const id of ['operator', 'agent', 'detector', 'tool'] as const) {
@@ -219,6 +229,25 @@ for (const viewport of [...WIDE, ...PHONES]) {
     });
   });
 }
+
+// ── 1b. Play above the fold at 1280x720, with the Key closed ───────────────
+
+test.describe('1b. Play above the fold at 1280x720 with the Key closed', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  for (const run of SAMPLE_RUNS) {
+    test(`/runs/${run}: Play is on the first screen`, async ({ page, browserName }) => {
+      test.skip(browserName === 'webkit', WEBKIT_IS_A_PHONE);
+      await openReplay(page, run);
+      const m = await layout(page);
+      expect(m.legendOpen, 'the Key is closed').toBe(false);
+      expect(m.play, 'Play is drawn').not.toBeNull();
+      expect(m.play!.bottom, 'Play ends inside the first screen').toBeLessThanOrEqual(
+        m.viewport.height,
+      );
+    });
+  }
+});
 
 // ── 2. phones: a Key disclosure, closed when the page opens ──────────────────
 
@@ -405,7 +434,7 @@ for (const viewport of [
       await settle(page);
       const panel = handle.locator('[data-speaker-panel]');
       await expect(panel).toBeVisible();
-      await expect(panel).toContainText('Agent under test. The AI agent being red-teamed.');
+      await expect(panel).toContainText('Agent under test. The AI agent this run tests.');
       expect(await readout.first().innerText()).toBe(before);
 
       const m = await panel.evaluate((el) => {
@@ -552,9 +581,7 @@ test.describe('3. axe on the replay with a definition open', () => {
         await openReplay(page);
         await expectNoWcagViolations(page);
         await toEnd(page);
-        if (viewport.width < 768) {
-          await page.locator('details[data-replay-legend] > summary').click();
-        }
+        await page.locator('details[data-replay-legend] > summary').click();
         await handlesIn(page).nth(1).locator('summary').click();
         await settle(page);
         await expectNoWcagViolations(page);
@@ -611,12 +638,10 @@ for (const viewport of [
         expect(first!.href).toBe(SENTINEL_GLOSSARY_HREF);
         expect(first!.text).toBe('@sentinel');
 
-        // On a phone it is inside the Key, so the Key is opened first.
-        if (viewport.width < 768) {
-          const summary = page.locator('details[data-replay-legend] > summary');
-          await summary.focus();
-          await page.keyboard.press('Enter');
-        }
+        // It is inside the Key, closed at every width, so the Key is opened first.
+        const summary = page.locator('details[data-replay-legend] > summary');
+        await summary.focus();
+        await page.keyboard.press('Enter');
         const link = page
           .locator(`[data-replay-legend] a[href="${SENTINEL_GLOSSARY_HREF}"]`)
           .filter({ visible: true });

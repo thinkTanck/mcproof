@@ -1,3 +1,4 @@
+import { stepLabel } from '@/lib/display/dates';
 import Link from 'next/link';
 import { asiLabel } from '@/lib/owasp/asi';
 
@@ -38,7 +39,6 @@ export function SampleTrailer({
   watchHref: string;
   provenance?: string;
 }) {
-  const pad = (n: number) => String(n).padStart(2, '0');
   const steps = Array.from({ length: total }, (_, i) => i + 1);
 
   return (
@@ -97,15 +97,11 @@ export function SampleTrailer({
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-faint">
-        <span>
-          {pad(1)} · {firstLabel}
-        </span>
+        <span>{`${stepLabel(1)} · ${firstLabel}`}</span>
         <span className="text-breach-text">
-          {pad(compromiseIndex)} · {offendingTool} breach
+          {`${stepLabel(compromiseIndex)} · ${offendingTool} breach`}
         </span>
-        <span>
-          {pad(total)} · {lastLabel}
-        </span>
+        <span>{`${stepLabel(total)} · ${lastLabel}`}</span>
       </div>
 
       {provenance ? <p className="instrument-faint mt-(--instrument-stack)">{provenance}</p> : null}

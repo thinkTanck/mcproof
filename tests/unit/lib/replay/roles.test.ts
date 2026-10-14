@@ -35,7 +35,7 @@ describe('the roles lookup: the four roles, word for word', () => {
 
   it.each([
     ['operator', 'Operator', 'The person giving the agent a normal task.'],
-    ['agent', 'Agent under test', 'The AI agent being red-teamed.'],
+    ['agent', 'Agent under test', 'The AI agent this run tests.'],
     ['detector', 'MCProof detector', 'Flags the moment the agent is hijacked.'],
     ['tool', 'Booby-trapped tool', 'The MCP tool carrying the attack.'],
   ] as const)('%s is "%s. %s"', (id, name, definition) => {

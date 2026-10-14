@@ -4,6 +4,7 @@ import { RunResultSchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { SAMPLE_RUN_ID } from '@/data/source';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 import { getUser } from '@/lib/auth/user';
 import { getRunRepository } from '@/data/run-repository.factory';
 import type { StoredRun } from '@/data/run-repository';
@@ -97,7 +98,7 @@ describe('Live Attack Replay — the sample run', () => {
   it('plays the sample with no sign-in, under its exact recorded provenance label', async () => {
     await renderPage('sample');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ASI02');
-    expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
+    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
     expect(getUser).not.toHaveBeenCalled();
   });
 

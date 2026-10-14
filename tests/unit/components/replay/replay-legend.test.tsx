@@ -101,7 +101,7 @@ describe('the legend: one strip, directly above the terminal', () => {
       'user@console Operator. The person giving the agent a normal task.',
     );
     expect(text('agent')).toBe(
-      'target-agent@sentinel Agent under test. The AI agent being red-teamed.',
+      'target-agent@sentinel Agent under test. The AI agent this run tests.',
     );
     expect(text('detector')).toBe(
       'detector@sentinel MCProof detector. Flags the moment the agent is hijacked.',

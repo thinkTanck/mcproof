@@ -22,10 +22,9 @@ import { ReplayKey, transcriptKeyEntries } from './ReplayKey';
  *    step detail, MOVED here. One key, and still what the transcript's list
  *    points at with `aria-describedby`.
  *
- * FROM 768px UP it is a block in the flow, open, wrapping as it needs to.
- *
- * ON A PHONE it is a native `<details>` named "Key", CLOSED when the page
- * opens, so the terminal and Play stay where they were (the terminal gives up
+ * AT EVERY WIDTH it is a native `<details>` named "Key", CLOSED when the page
+ * opens (owner ruling, 2026-10-14), so Play stays above the fold at 1280 by 720,
+ * and on a phone the terminal and Play stay where they were (the terminal gives up
  * the height of the closed summary: see `--scroll-cap-less` on it). Closed, the
  * colour key is still in the document, so the transcript's description still
  * resolves.
@@ -134,49 +133,42 @@ export function ReplayLegend({
 }: {
   /** The run's model label: the agent's handle is this, at sentinel. */
   model: string;
-  /** `wide`: an open block. `phone`: a "Key" disclosure, closed by default. */
+  /** Which copy this is. Both are a "Key" disclosure, closed by default. */
   placement: 'wide' | 'phone';
   /** The id the transcript points at. Handed to exactly one legend at a time. */
   keyId?: string;
   className?: string;
 }) {
-  if (placement === 'phone') {
-    return (
-      <details data-replay-legend="phone" className={cn('group min-w-0', className)}>
-        <summary className="micro-label one-line target-min inline-flex cursor-pointer list-none items-center gap-2 text-nominal [&::-webkit-details-marker]:hidden">
-          {/* The state, drawn: the chevron points right when closed and down
+  return (
+    <details data-replay-legend={placement} className={cn('group min-w-0', className)}>
+      <summary className="micro-label one-line target-min inline-flex cursor-pointer list-none items-center gap-2 text-nominal [&::-webkit-details-marker]:hidden">
+        {/* The state, drawn: the chevron points right when closed and down
               when open. It turns at once, with no transition. */}
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 12 12"
-            aria-hidden="true"
-            focusable="false"
-            className="shrink-0 group-open:rotate-90"
-          >
-            <path
-              d="M4 2l4 4-4 4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Key
-        </summary>
-        {/* Not drawn at all while closed (display: none, beyond what the browser
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 12 12"
+          aria-hidden="true"
+          focusable="false"
+          className="shrink-0 group-open:rotate-90"
+        >
+          <path
+            d="M4 2l4 4-4 4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Key
+      </summary>
+      {/* Not drawn at all while closed (display: none, beyond what the browser
             does for a closed disclosure), so nothing in it is measured as if it
             were on screen. It stays in the document, so the id still resolves. */}
-        <div className="pb-2 pt-1 [details:not([open])>&]:hidden">
-          <LegendBody model={model} keyId={keyId} />
-        </div>
-      </details>
-    );
-  }
-  return (
-    <div data-replay-legend="wide" className={cn('min-w-0', className)}>
-      <LegendBody model={model} keyId={keyId} />
-    </div>
+      <div className="pb-2 pt-1 [details:not([open])>&]:hidden">
+        <LegendBody model={model} keyId={keyId} />
+      </div>
+    </details>
   );
 }

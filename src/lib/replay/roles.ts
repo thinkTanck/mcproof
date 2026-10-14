@@ -38,7 +38,7 @@ export const ROLES: Readonly<Record<RoleId, SpeakerRole>> = {
   agent: {
     id: 'agent',
     name: 'Agent under test',
-    definition: 'The AI agent being red-teamed.',
+    definition: 'The AI agent this run tests.',
   },
   detector: {
     id: 'detector',

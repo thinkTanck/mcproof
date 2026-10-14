@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import type { Step } from '@/contract';
+import { stepLabel } from '@/lib/display/dates';
 import { stepMeta, stepPayload } from './step-meta';
 
 /**
@@ -29,7 +30,7 @@ export function StepDetail({
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-2.5">
         <span className="font-mono text-[13px] tabular-nums text-ink-faint">
-          {String(index + 1).padStart(2, '0')}
+          {stepLabel(index + 1)}
         </span>
         <span
           className={cn(

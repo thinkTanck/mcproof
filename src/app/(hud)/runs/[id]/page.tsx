@@ -69,5 +69,5 @@ export default async function RunReplay({ params }: Props) {
       />
     );
   }
-  return <Replay run={view.run} routeId={id} provenance={view.provenance} />;
+  return <Replay run={view.run} routeId={id} provenance={view.displayProvenance} />;
 }

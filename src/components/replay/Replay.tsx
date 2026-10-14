@@ -32,9 +32,9 @@ import { useReplayLayout } from './phone-layout';
  * width: who each prompt is, then the colour key (`ReplayLegend`). The key was
  * the last thing on the stage, under the step detail, a screen away from the
  * transcript it explains; it is the same component, moved, and the
- * transcript's list still points at it with `aria-describedby`. From 768px up
- * the legend is an open block across both terminals. On a phone it is a "Key"
- * disclosure, closed when the page opens. Like the transport, the server sends
+ * transcript's list still points at it with `aria-describedby`. At every width
+ * it is a "Key" disclosure, closed when the page opens (owner ruling,
+ * 2026-10-14), so Play stays above the fold at 1280 by 720. Like the transport, the server sends
  * both and CSS shows the one that fits; once the browser has answered only
  * that one is kept, and the id the list points at is on one of them at a time.
  * It is static text and not a live region; the step detail stays the one live

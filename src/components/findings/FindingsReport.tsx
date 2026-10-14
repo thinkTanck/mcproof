@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { AsiLabel, StatusChip } from '@/components/hud';
 import { stepMeta, stepPayload } from '@/components/replay/step-meta';
 import { CoverageIcon } from '@/components/threats/CoverageIcon';
+import { withStepNumber } from '@/lib/display/dates';
 import type { FixReport } from '@/fix-report';
 import { CopyReportButton } from './CopyReportButton';
 
@@ -46,7 +47,21 @@ function SectionHeading({
  * NOT that id for a saved live run, so when the page does not supply one, no
  * replay link is drawn rather than one guessed from the wrong id.
  */
-export function FindingsReport({ report, routeId }: { report: FixReport; routeId?: string }) {
+export function FindingsReport({
+  report,
+  routeId,
+  provenanceLabel,
+}: {
+  report: FixReport;
+  routeId?: string;
+  /**
+   * The provenance as a person reads it, with human dates (2026-10-14). The
+   * report keeps its ISO line for the copied ticket; without a label the
+   * report's own line is drawn.
+   */
+  provenanceLabel?: string;
+}) {
+  const shownProvenance = provenanceLabel ?? report.provenance;
   const finding = report.finding;
   const step = finding?.step;
   const classification = finding?.classification;
@@ -120,8 +135,8 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
             <span aria-hidden="true"> · </span>
             model <span className="text-readout">{report.model}</span>
           </p>
-          {report.provenance ? (
-            <p className="instrument mt-(--instrument-stack) text-ink-faint">{report.provenance}</p>
+          {shownProvenance ? (
+            <p className="instrument mt-(--instrument-stack) text-ink-faint">{shownProvenance}</p>
           ) : null}
         </div>
         <CopyReportButton report={report} />
@@ -166,7 +181,9 @@ export function FindingsReport({ report, routeId }: { report: FixReport; routeId
             >
               <SectionHeading>Summary</SectionHeading>
               <p data-asi-quoted="generated-report" className="reading measure mt-2">
-                {report.summary}
+                {/* "Offending step: s2." reads "#2" on screen (2026-10-14); the
+                    copied ticket keeps the generator's own text. */}
+                {withStepNumber(report.summary, finding.stepId, finding.stepIndex)}
               </p>
             </section>
           </div>

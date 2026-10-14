@@ -675,12 +675,16 @@ for (const viewport of VIEWPORTS) {
       expect(id, 'the timeline is described by a key').toBeTruthy();
       const key = page.locator(`#${id}`);
       await expect(key).toHaveCount(1);
-      // Batch G (2026-10-13, the owner's instruction): on a phone the key is
-      // inside the "Key" disclosure above the terminal, closed when the page
-      // opens. It is opened here, so everything below measures the key as the
-      // reader who asked for it sees it. From 768px up there is no disclosure.
-      const disclosure = page.locator('details[data-replay-legend] > summary');
-      if (await disclosure.isVisible()) await disclosure.click();
+      // Batch G (owner ruling 2026-10-14): at every width the key is inside the
+      // "Key" disclosure above the terminal, closed when the page opens. Open
+      // the Key first, so everything below measures the key as the reader who
+      // asked for it sees it.
+      const disclosure = page
+        .locator('details[data-replay-legend] > summary')
+        .filter({ visible: true });
+      await expect(disclosure).toHaveCount(1);
+      await expect(page.locator('details[data-replay-legend][open]')).toHaveCount(0);
+      await disclosure.click();
       await expect(key).toBeVisible();
       await expect(key).toHaveAttribute('data-replay-key', '');
 

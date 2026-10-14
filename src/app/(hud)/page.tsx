@@ -7,7 +7,7 @@ import { HomeCtas } from '@/components/home/HomeCtas';
 import { HowATestWorks } from '@/components/home/HowATestWorks';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
-import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 import {
   MEASURED_CLASSIFICATION,
   MEASURED_CLASSIFICATION_PROVENANCE,
@@ -302,7 +302,7 @@ export default async function Home() {
                  badges a breach dot, and a breach dot on the front door reads as a
                  captured agent unless the label says otherwise. It is a constructed
                  trace with a recorded verdict, and it never travels without saying so. */
-              provenance={SAMPLE_VERDICT_PROVENANCE}
+              provenance={sampleDisplayProvenance()}
             />
           </section>
 

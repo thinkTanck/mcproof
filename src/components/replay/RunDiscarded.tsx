@@ -1,5 +1,6 @@
 import { ConnectCta } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
+import { humanDate } from '@/lib/display/dates';
 import { asiLabel } from '@/lib/owasp/asi';
 import {
   DISCARD_STILL_COUNTS_SENTENCE,
@@ -44,7 +45,8 @@ export function RunDiscarded({
   discardedAt?: string;
 }) {
   const at = discardedAt === undefined ? Number.NaN : Date.parse(discardedAt);
-  const day = Number.isNaN(at) ? null : new Date(at).toISOString().slice(0, 10);
+  // A human date (2026-10-14), dropped if unreadable.
+  const day = Number.isNaN(at) ? null : humanDate(new Date(at).toISOString());
 
   return (
     <section aria-labelledby="run-discarded-heading" className="mx-auto max-w-[720px] px-6 py-16">

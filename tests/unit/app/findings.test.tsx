@@ -5,6 +5,7 @@ import { FindingsReport } from '@/components/findings';
 import { SAMPLE_RUN_ID, sampleRun } from '@/data/source';
 import { MEASURED_CLASSIFICATION } from '@/eval/measured';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 import { RunResultSchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { generateFixReport, type FixReport } from '@/fix-report';
@@ -122,7 +123,16 @@ describe('Findings / fix report screen', () => {
 
   it('labels the sample verdict with its recorded provenance (never implies a live capture)', async () => {
     await renderPage('sample');
-    expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
+    // Human dates on screen (2026-10-14); the ISO line stays in the report data.
+    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
+    expect(screen.queryByText(SAMPLE_VERDICT_PROVENANCE)).not.toBeInTheDocument();
+  });
+
+  it('names the offending step as "#N" in the summary, never by its trace id', async () => {
+    await renderPage('sample');
+    const summary = screen.getByRole('region', { name: 'Summary' });
+    expect(summary.textContent).toMatch(/Offending step: #\d+\./);
+    expect(summary.textContent).not.toMatch(/Offending step: s\d+/);
   });
 
   it('shows a COMPROMISED status chip with a text label (never color-only)', async () => {
