@@ -5,7 +5,11 @@ import { redirect } from 'next/navigation';
 import { sanitizeNext } from './next';
 import { createOtpSenderSupabase, createServerSupabase } from '@/lib/supabase/server';
 import { readableAuthError } from '@/lib/auth/errors';
-import { clientIpFromHeaders, otpRateLimiter } from '@/lib/auth/otp-rate-limit';
+import {
+  clientIpFromHeaders,
+  otpRateLimiter,
+  otpVerifyRateLimiter,
+} from '@/lib/auth/otp-rate-limit';
 
 /** Result the sign-in UI renders. `error` is always human copy, never provider
  *  machine text (auth-js will hand us `"{}"` given an empty GoTrue body). */
@@ -89,6 +93,15 @@ export async function verifyEmailCode(
   token: string,
   next?: string,
 ): Promise<AuthResult> {
+  // Counted before Supabase is asked anything, so a refused attempt costs the
+  // shared provider limit nothing (S1e). The refusal is the same one sentence
+  // the code-request limit gives, and never says which count is full.
+  const decision = await otpVerifyRateLimiter.check({
+    email,
+    ip: clientIpFromHeaders(await headers()),
+  });
+  if (!decision.allowed) return { ok: false, error: decision.error.message };
+
   const supabase = await createServerSupabase();
   if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
 
