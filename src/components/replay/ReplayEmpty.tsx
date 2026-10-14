@@ -21,7 +21,7 @@ export function ReplayEmpty({ id }: { id: string }) {
       </p>
       <Link
         href="/runs/sample"
-        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-readout glow-accent transition-colors hover:bg-nominal/20"
       >
         Play the sample run
       </Link>

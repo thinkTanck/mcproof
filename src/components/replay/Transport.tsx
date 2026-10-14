@@ -93,10 +93,7 @@ export function Transport({
       <button
         type="button"
         onClick={onPlayToggle}
-        className={cn(
-          ctrlClass(),
-          'border-nominal bg-nominal/10 px-4 text-readout shadow-glow-nominal',
-        )}
+        className={cn(ctrlClass(), 'border-nominal bg-nominal/10 px-4 text-readout glow-accent')}
         aria-label={playing ? 'Pause' : 'Play'}
       >
         {playing ? (

@@ -11,7 +11,7 @@ colors:
   inert-slate: '#708c9e'
   navy-base: '#05080b'
   navy-panel: '#101823'
-  navy-raised: '#17212d'
+  navy-raised: '#121a26'
   line: '#1c2a36'
   ink-hi: '#d3e2ea'
   ink-body: '#99b8c7'
@@ -158,7 +158,7 @@ A near-black navy field carrying a single functional accent trio (cyan, amber, r
 ### Neutral
 
 - **Navy Base** (#05080b): the app background. Deep blue-black, never pure black.
-- **Navy Panel** (#101823) / **Navy Raised** (#17212d): translucent panel fills and raised surfaces; elevation is earned, not default.
+- **Navy Panel** (#101823) / **Navy Raised** (#121a26, `--surface-raised`): translucent panel fills and the surface a card is painted on; elevation is earned, not default. Raised is one step lighter than the panel and no more: every text tone has to hold 4.5:1 on it, and the faint tone has the least to spare (4.60:1 here; it was 4.28:1 on the #17212d this token named until 2026-10-13).
 - **Line** (#1c2a36): the hairline border and divider.
 - **Ink Hi** (#d3e2ea, 13.7:1): primary reading text and headings. **Ink Body** (#99b8c7, 8.7:1): body prose. **Ink Muted** (#708c9e, 5.7:1) / **Ink Faint** (#6a8798, 5.3:1): the AA-safe instrument label tiers.
 
@@ -198,17 +198,21 @@ The system runs on THREE deliberately non-interchangeable roles. Prose never ren
 
 ## 4. Elevation
 
-Flat by default. Depth on the navy field is conveyed by tonal layering (base to panel to raised) and by a functional glow, not by drop shadows. There is no ambient drop-shadow vocabulary; the only "shadow" tokens are colored status glows, which are signal, not depth.
+Flat by default. Depth on the navy field is conveyed first by tonal layering (base to panel to raised). The colored status glows are signal, not depth.
+
+**Depth, from four tokens (2026-10-13, UI audit batch F, owner-approved).** A small, fixed set of boxes is lifted: the Home replay card, the Home figures card and the report summary card take the raised surface and `--elev-1`; the two replay terminals and the phone drawer take `--elev-2` over the surface they already have. An elevation is a `box-shadow` and nothing else: a one-pixel line of light inside the top edge, a tight shadow and a soft one, in an ink darker than the page at an alpha. On a page this dark a shadow barely reads, so the lighter surface and the top line do the lifting and the shadow only seats the box. Under 768px both elevations are redefined with about half the blur and less ink. A box asks for one with `data-elev="1"` or `data-elev="2"`; a lifted box inside a lifted box casts nothing. No component writes a shadow of its own, no text casts one, and no `filter` blur or `backdrop-filter` is added for depth.
 
 ### Shadow Vocabulary
 
 - **Nominal glow** (`box-shadow: 0 0 12px color-mix(in srgb, #54d4e6 35%, transparent)`): a nominal-state accent (an active node, a focus emphasis).
 - **Caution glow** (`box-shadow: 0 0 12px color-mix(in srgb, #ebb561 35%, transparent)`): an elevated/caution accent.
 - **Breach glow** (`box-shadow: 0 0 16px color-mix(in srgb, #ed576e 45%, transparent)`): a breach accent; the only glow allowed the extra radius, because breach is the one thing the eye must find first.
+- **Elevation 1** (`--elev-1`) and **Elevation 2** (`--elev-2`): the two depth shadows described above. Values live in `src/app/globals.css`, with their lighter phone pair.
+- **Accent glow** (`--glow-accent`, `box-shadow: 0 0 14px color-mix(in srgb, #54d4e6 45%, transparent)`): a primary or outlined button while the pointer or the keyboard is on it. Never at rest, never disabled, never animated.
 
 ### Named Rules
 
-**The Glow-is-Signal Rule.** A glow is never decoration. If an element glows, its glow encodes a status, and it is accompanied by a label or icon carrying the same meaning. No element glows "for atmosphere."
+**The Glow-is-Signal Rule.** A glow is never decoration. If an element glows, its glow encodes a status, and it is accompanied by a label or icon carrying the same meaning. No element glows "for atmosphere." The accent glow is the one glow that is not a status: it says "this control is under your hand", it shows only on hover and keyboard focus, and under the keyboard it is drawn together with the focus ring, never in place of it. A filled button no longer glows at rest (2026-10-13); a pressed toggle and a live indicator still carry the nominal glow, because there it is the state.
 
 ## 5. Components
 
@@ -216,7 +220,7 @@ Flat by default. Depth on the navy field is conveyed by tonal layering (base to 
 
 - **Shape:** small radius (4px); pills (999px) only for status chips.
 - **Primary:** a navy-panel fill with readout-cyan mono label and a thin nominal border; padding 12px 24px. The primary CTA (play the sample, connect the agent) reads as an instrument control, not a marketing button.
-- **Hover / Focus:** hover lifts the fill to navy-raised; focus shows the single 2px cyan focus ring at 2px offset (keyboard only, via `:focus-visible`).
+- **Hover / Focus:** hover deepens the fill and adds the accent glow (`glow-accent`); focus shows the single 2px cyan focus ring at 2px offset (keyboard only, via `:focus-visible`) with the same glow beside it. The glow fades in over `--glow-accent-duration` (120ms) and does not fade at all under reduced motion.
 - **Ghost:** a mono link in nominal cyan with an arrow glyph, underline on hover.
 
 ### Chips
@@ -228,7 +232,7 @@ Flat by default. Depth on the navy field is conveyed by tonal layering (base to 
 
 - **Corner Style:** 8px radius.
 - **Background:** translucent navy-panel over the base field.
-- **Shadow Strategy:** none at rest (see Elevation); a status glow appears only to signal state.
+- **Shadow Strategy:** none for a panel. The few boxes that are cards take `--elev-1` on the raised surface (see Elevation); a status glow appears only to signal state.
 - **Border:** a single hairline (#1c2a36); never nested, never a stack of identical bordered cards.
 - **Internal Padding:** 16px.
 

@@ -41,10 +41,12 @@
   /* ---- Tier 1 · primitives ------------------------------------------- */
 
   /* Navy / surface — deep blue-black, never pure black */
+  --navy-1000: #020406; /* shadow ink: under the base, never a surface */
   --navy-950: #05080b; /* app base   */
   --navy-900: #0a0f15;
   --navy-850: #101823; /* panel fill */
-  --navy-800: #17212d; /* raised     */
+  --navy-825: #121a26; /* raised: a card (batch F) */
+  --navy-800: #17212d; /* top of the ramp: too light for the faint text tone */
   --line-base: #1c2a36; /* hairline  */
 
   /* Cyan — nominal */
@@ -82,7 +84,15 @@
   --surface-base: var(--navy-950);
   --surface-panel: color-mix(in srgb, var(--navy-850) 90%, transparent);
   --surface-solid: var(--navy-850);
-  --surface-raised: var(--navy-800);
+  /* THE RAISED SURFACE (UI audit 2026-10-13, batch F): what a card is painted
+   * on. One step lighter than the panel fill and no more, because every text
+   * tone has to stay at 4.5:1 on it and the faint tone has the least to spare:
+   * 4.60:1 here, against 4.28:1 on --navy-800, which this token used to name
+   * (only three hover tints used it then, at 70% over the dark shell, which
+   * painted this same colour; they take it at full strength now). On a dark
+   * page it is the lighter surface that reads as "nearer", far more than any
+   * shadow does. Locked in tests/unit/app/tokens.test.tsx. */
+  --surface-raised: var(--navy-825);
   --line: var(--line-base);
   --line-emphasis: var(--cyan-700);
 
@@ -111,6 +121,48 @@
   --glow-nominal: 0 0 12px color-mix(in srgb, var(--cyan-300) 35%, transparent);
   --glow-caution: 0 0 12px color-mix(in srgb, var(--amber-400) 35%, transparent);
   --glow-breach: 0 0 16px color-mix(in srgb, var(--red-400) 45%, transparent);
+  /* The two ends of the breach marker's pulse on the Home replay (the
+   * breach-pulse keyframes): the same signal as --glow-breach, at rest and at
+   * its peak. Named so that no box-shadow in this file is a literal. */
+  --glow-breach-rest: 0 0 8px color-mix(in srgb, var(--red-400) 45%, transparent);
+  --glow-breach-peak: 0 0 22px color-mix(in srgb, var(--red-400) 90%, transparent);
+
+  /* DEPTH AND GLOW (UI audit 2026-10-13, batch F). Four tokens, and every
+   * depth or button-glow effect is built from them and nothing else:
+   * --surface-raised (above), these two elevations and the accent glow. The
+   * three status glows above mean "this is the state", always beside a label
+   * or a mark; these mean "this is nearer" and "this is under your hand".
+   *
+   * An elevation is a box-shadow: a one-pixel line of light along the top
+   * edge, inside the box, then a tight shadow and a soft one under it. The ink
+   * is --navy-1000, darker than the page, at an alpha: on a page this dark a
+   * shadow barely reads, so the lift comes from the raised surface and the top
+   * line, and the shadow only seats the box. Blur is kept small on purpose: a
+   * wide blur under a wide panel is slow to paint.
+   *
+   * A box asks for one with `data-elev="1"` (a card: raised surface and
+   * --elev-1) or `data-elev="2"` (the replay terminals and the drawer:
+   * --elev-2 over the surface they already have). An attribute and not a
+   * class, because the replay's class lists are held to main's by
+   * tests/e2e/replay-wide-unchanged.spec.ts. Under 768px both are redefined
+   * lighter, below, so no component branches by width.
+   * Locked in tests/unit/app/tokens.test.tsx; measured in
+   * tests/e2e/depth-and-glow.spec.ts. */
+  --elev-1:
+    inset 0 1px 0 0 color-mix(in srgb, var(--ink-100) 5%, transparent),
+    0 1px 2px 0 color-mix(in srgb, var(--navy-1000) 60%, transparent),
+    0 8px 20px -6px color-mix(in srgb, var(--navy-1000) 75%, transparent);
+  --elev-2:
+    inset 0 1px 0 0 color-mix(in srgb, var(--ink-100) 7%, transparent),
+    0 2px 4px 0 color-mix(in srgb, var(--navy-1000) 65%, transparent),
+    0 14px 32px -8px color-mix(in srgb, var(--navy-1000) 85%, transparent);
+  /* THE BUTTON GLOW. A primary (filled) or outlined button takes it while the
+   * pointer is over it or the keyboard is on it, and at no other time: never
+   * at rest, never disabled, never animated. It is a box-shadow, so under the
+   * keyboard it is drawn together with the focus ring, which is an outline;
+   * it never stands in for the ring. A button asks for it with the
+   * `glow-accent` class. */
+  --glow-accent: 0 0 14px 0 color-mix(in srgb, var(--cyan-300) 45%, transparent);
 
   /* Fourth state — INERT (neutral/muted, "not measurable"). NOT a tri-state
    * member and NEVER red: red is reserved for an actual breach; an uncovered
@@ -128,7 +180,6 @@
   --scrim-header-bottom: color-mix(in srgb, var(--navy-950) 40%, transparent);
   --scrim-deck-top: color-mix(in srgb, var(--navy-900) 60%, transparent);
   --scrim-deck-bottom: color-mix(in srgb, var(--navy-950) 20%, transparent);
-  --shadow-drawer: 0 0 40px color-mix(in srgb, var(--navy-950) 60%, transparent);
 
   /* Focus — one ring, used everywhere */
   --focus-ring: var(--cyan-300);
@@ -193,6 +244,8 @@
   --motion-base: 200ms;
   --motion-slow: 360ms;
   --motion-sweep: 1200ms;
+  /* How long the button glow takes to fade in and out. 150ms at most. */
+  --glow-accent-duration: var(--motion-fast);
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
 
   /* THE TEXT FLOOR (UI audit 2026-10-12): no text is drawn smaller than this.
@@ -377,6 +430,24 @@
 
   /* The smallest type step, held at the floor (see --text-floor). */
   --text-xs: max(0.75rem, var(--text-floor));
+}
+
+/* THE LIGHTER ELEVATION, UNDER 768px. The same two tokens with about half the
+ * blur and less ink: a phone paints a blurred shadow more slowly than a desk
+ * does, and on a narrow screen a card is nearly as wide as the page, so there
+ * is little around it for a wide shadow to fall on. Redefined here, once, so a
+ * component only ever says which elevation it wants. */
+@media (max-width: 767.98px) {
+  :root {
+    --elev-1:
+      inset 0 1px 0 0 color-mix(in srgb, var(--ink-100) 5%, transparent),
+      0 1px 2px 0 color-mix(in srgb, var(--navy-1000) 50%, transparent),
+      0 4px 10px -4px color-mix(in srgb, var(--navy-1000) 60%, transparent);
+    --elev-2:
+      inset 0 1px 0 0 color-mix(in srgb, var(--ink-100) 7%, transparent),
+      0 1px 3px 0 color-mix(in srgb, var(--navy-1000) 55%, transparent),
+      0 8px 16px -6px color-mix(in srgb, var(--navy-1000) 70%, transparent);
+  }
 }
 
 body {
@@ -638,6 +709,51 @@ html {
   scroll-margin-top: 0;
 }
 
+/* =========================================================================
+ * DEPTH (UI audit 2026-10-13, batch F). See --elev-1 for what the two levels
+ * are. In the components layer, so a box that has a background of its own (the
+ * terminals, the drawer) keeps it. A lifted box inside a lifted box casts
+ * nothing: two shadows stacked read as a smudge, not as two levels.
+ * ========================================================================= */
+@layer components {
+  [data-elev='1'] {
+    background-color: var(--surface-raised);
+    box-shadow: var(--elev-1);
+  }
+  [data-elev='2'] {
+    box-shadow: var(--elev-2);
+  }
+  [data-elev] [data-elev] {
+    box-shadow: none;
+  }
+}
+
+/* =========================================================================
+ * THE BUTTON GLOW (UI audit 2026-10-13, batch F). See --glow-accent.
+ *
+ * UNLAYERED, like the focus ring: the `transition-colors` utility beside the
+ * button names its own list of properties, and this has to add the shadow to
+ * that list. Only the shadow and the three colours a button changes on hover
+ * are moved, over --glow-accent-duration.
+ *
+ * The hover half is inside `(hover: hover)`, so a tap on a phone does not
+ * leave a button glowing until the next tap. A disabled button is left out of
+ * both halves. Reduced motion switches the fade off (in the block below); the
+ * glow itself stays, because it is a state and not a movement.
+ * ========================================================================= */
+.glow-accent {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: var(--glow-accent-duration);
+}
+@media (hover: hover) {
+  .glow-accent:hover:not(:disabled, [aria-disabled='true']) {
+    box-shadow: var(--glow-accent);
+  }
+}
+.glow-accent:focus-visible:not(:disabled, [aria-disabled='true']) {
+  box-shadow: var(--glow-accent);
+}
+
 /* Native popover (mobile command deck) backdrop — dim + slight blur. */
 #mobile-deck::backdrop {
   background: rgba(3, 5, 7, 0.6);
@@ -691,10 +807,10 @@ html {
 @keyframes breach-pulse {
   0%,
   100% {
-    box-shadow: 0 0 8px color-mix(in srgb, var(--red-400) 45%, transparent);
+    box-shadow: var(--glow-breach-rest);
   }
   50% {
-    box-shadow: 0 0 22px color-mix(in srgb, var(--red-400) 90%, transparent);
+    box-shadow: var(--glow-breach-peak);
   }
 }
 
@@ -894,6 +1010,10 @@ html {
    * motion off the frame accent is not drawn at all. */
   .hero-frame-accent {
     display: none;
+  }
+  /* The button glow appears and goes at once; it does not fade. */
+  .glow-accent {
+    transition: none;
   }
   *,
   *::before,

@@ -154,14 +154,17 @@ describe('where DISCARD RUN is offered', () => {
     expect(within(dock()).queryByRole('button', { name: /end run/i })).not.toBeInTheDocument();
   });
 
-  it('is the secondary control: END RUN keeps the glow and the fill, DISCARD has neither', async () => {
+  it('is the secondary control: END RUN keeps the fill and the hover glow, DISCARD has neither', async () => {
     await issue(portWith('connected'), 'AGENT CONNECTED');
     const end = within(dock()).getByRole('button', { name: 'End run and judge' });
 
-    expect(end.className).toMatch(/shadow-glow-nominal/);
+    // Since batch F the glow is for the pointer and the keyboard only
+    // (`glow-accent`); nothing glows at rest.
+    expect(end.className).toMatch(/glow-accent/);
+    expect(end.className).not.toMatch(/shadow-glow/);
     expect(end.className).toMatch(/bg-nominal/);
     for (const control of [trigger(), narrowTrigger()]) {
-      expect(control.className).not.toMatch(/shadow-glow|bg-nominal/);
+      expect(control.className).not.toMatch(/shadow-glow|glow-accent|bg-nominal/);
       // Not a breach, so never the breach red.
       expect(control.className).not.toMatch(/breach/);
       expect(control.className).toMatch(/\bmin-h-11\b/);

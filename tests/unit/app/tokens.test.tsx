@@ -712,6 +712,353 @@ describe('DTCG token layer (globals.css)', () => {
       expect(read(file)).toMatch(/\b(?:max-)?header-wide:/);
     });
   });
+
+  describe('DEPTH AND GLOW: four tokens, and nothing else casts a shadow (UI audit 2026-10-13, batch F)', () => {
+    // A card is lifted by a slightly lighter surface and a soft shadow, the
+    // replay terminal by a deeper one, and a primary or outlined button glows
+    // while the pointer or the keyboard is on it. All of it is built from
+    // --surface-raised, --elev-1, --elev-2 and --glow-accent. The status glows
+    // (--glow-nominal, --glow-caution, --glow-breach) and the header's ambient
+    // pulse are older, mean something else, and keep their own tokens.
+
+    /** Replace every `var(--x)` with what it is defined as, all the way down. */
+    const expand = (value: string): string => {
+      let out = value;
+      for (let i = 0; i < 12 && /var\(/.test(out); i += 1) {
+        out = out.replace(/var\(\s*(--[\w-]+)\s*\)/g, (_, name: string) =>
+          must(vars.get(name), `${name} is not defined`),
+        );
+      }
+      return out;
+    };
+
+    interface Layer {
+      inset: boolean;
+      /** offset-x, offset-y, blur, spread, in px. */
+      lengths: number[];
+      /** The colour's alpha, 0 to 1. */
+      alpha: number;
+    }
+
+    /** One box-shadow value as its layers. Throws on anything that is not one. */
+    const layersOf = (value: string): Layer[] => {
+      const expanded = expand(value);
+      const parts: string[] = [];
+      let depth = 0;
+      let start = 0;
+      [...expanded].forEach((ch, i) => {
+        if (ch === '(') depth += 1;
+        if (ch === ')') depth -= 1;
+        if (ch === ',' && depth === 0) {
+          parts.push(expanded.slice(start, i));
+          start = i + 1;
+        }
+      });
+      parts.push(expanded.slice(start));
+      return parts.map((part) => {
+        const colour = must(
+          part.match(
+            /color-mix\(\s*in srgb\s*,\s*(#[0-9a-f]{6})\s+([\d.]+)%\s*,\s*transparent\s*\)/i,
+          ),
+          `a shadow layer whose colour is not a primitive at an alpha: ${part}`,
+        );
+        const rest = part.replace(colour[0], ' ');
+        const lengths = (rest.match(/-?\d*\.?\d+(?:px)?(?=\s|$)/g) ?? []).map(parseFloat);
+        if (lengths.length < 2 || lengths.length > 4) {
+          throw new Error(`not a box-shadow layer: ${part}`);
+        }
+        while (lengths.length < 4) lengths.push(0);
+        return {
+          inset: /\binset\b/.test(rest),
+          lengths,
+          alpha: parseFloat(must(colour[2], 'alpha')) / 100,
+        };
+      });
+    };
+
+    /** The shadows a layer list casts outward, which is what is heavy to paint. */
+    const cast = (layers: Layer[]) => layers.filter((layer) => !layer.inset);
+    const deepestBlur = (layers: Layer[]) =>
+      Math.max(...cast(layers).map((l) => l.lengths[2] ?? 0));
+    const darkest = (layers: Layer[]) => Math.max(...cast(layers).map((l) => l.alpha));
+
+    /** The `:root` block inside the phone media query, as a token table. */
+    const phoneVars = (): Map<string, string> => {
+      const block = cssNoComments.match(
+        /@media\s*\(max-width:\s*767\.98px\)\s*\{\s*:root\s*\{([^}]*)\}\s*\}/,
+      );
+      const table = new Map<string, string>();
+      for (const decl of must(block?.[1], 'no phone block redefines the elevation').split(';')) {
+        const m = decl.match(/^\s*(--[\w-]+)\s*:\s*(.+?)\s*$/s);
+        if (m && m[1] && m[2]) table.set(m[1], m[2].trim());
+      }
+      return table;
+    };
+
+    /** The body of the first rule whose selector is exactly `selector`. */
+    const ruleBody = (selector: string): string => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const m = cssNoComments.match(new RegExp(`(?:^|[}{;,]|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`));
+      return must(m?.[1], `no rule for ${selector}`);
+    };
+
+    const SHADOW_TOKENS = ['--elev-1', '--elev-2', '--glow-accent'] as const;
+
+    it('the four tokens exist, and the three shadows are box-shadow values built from primitives', () => {
+      expect(vars.has('--surface-raised'), '--surface-raised').toBe(true);
+      for (const token of SHADOW_TOKENS) {
+        const value = must(vars.get(token), `${token} is not defined`);
+        // No colour of its own: every layer is a primitive at an alpha.
+        expect(value, `${token} names no literal colour`).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
+        expect(layersOf(value).length, `${token} layers`).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('the terminal is lifted further than a card, and neither casts a wide blur', () => {
+      const one = layersOf(must(vars.get('--elev-1'), '--elev-1'));
+      const two = layersOf(must(vars.get('--elev-2'), '--elev-2'));
+      expect(deepestBlur(two)).toBeGreaterThan(deepestBlur(one));
+      // A big blurred shadow under a big panel is slow to paint: keep it modest.
+      expect(deepestBlur(two)).toBeLessThanOrEqual(40);
+    });
+
+    it('the glow is a soft halo and nothing else: no offset, no inset', () => {
+      const glow = layersOf(must(vars.get('--glow-accent'), '--glow-accent'));
+      for (const layer of glow) {
+        expect(layer.inset).toBe(false);
+        expect(layer.lengths.slice(0, 2)).toEqual([0, 0]);
+        expect(layer.lengths[2]).toBeGreaterThan(0);
+      }
+    });
+
+    it('under 768px both elevations are redefined lighter: less blur and less ink', () => {
+      const phone = phoneVars();
+      for (const token of ['--elev-1', '--elev-2']) {
+        const desk = layersOf(must(vars.get(token), token));
+        const small = layersOf(must(phone.get(token), `${token} is not redefined for a phone`));
+        expect(deepestBlur(small), `${token} blur on a phone`).toBeLessThan(deepestBlur(desk));
+        expect(darkest(small), `${token} alpha on a phone`).toBeLessThan(darkest(desk));
+      }
+    });
+
+    it('the raised surface is lighter than the panel, and every text tone still clears 4.5:1 on it', () => {
+      const raised = resolveColor('var(--surface-raised)', surfaceBase);
+      expect(relativeLuminance(raised)).toBeGreaterThan(relativeLuminance(surfacePanel));
+      expect(relativeLuminance(raised)).toBeGreaterThan(
+        relativeLuminance(resolveColor('var(--surface-solid)', surfaceBase)),
+      );
+      for (const token of [
+        '--text',
+        '--text-hi',
+        '--text-muted',
+        '--text-faint',
+        '--text-readout',
+        '--text-breach',
+        '--status-nominal',
+        '--status-caution',
+        '--status-inert',
+        '--terminal-prompt',
+      ]) {
+        const fg = resolveColor(`var(${token})`, raised);
+        expect(contrast(fg, raised), `${token} on --surface-raised`).toBeGreaterThanOrEqual(4.5);
+      }
+      // What is drawn rather than read: the breach mark and the focus ring.
+      for (const token of ['--status-breach', '--focus-ring']) {
+        const fg = resolveColor(`var(${token})`, raised);
+        expect(contrast(fg, raised), `${token} on --surface-raised`).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it('a card takes the raised surface and --elev-1, the terminal --elev-2, and a nested one casts nothing', () => {
+      const card = ruleBody("[data-elev='1']");
+      expect(card).toMatch(/background-color:\s*var\(--surface-raised\);/);
+      expect(card).toMatch(/box-shadow:\s*var\(--elev-1\);/);
+      expect(ruleBody("[data-elev='2']")).toMatch(/box-shadow:\s*var\(--elev-2\);/);
+      expect(ruleBody('[data-elev] [data-elev]')).toMatch(/box-shadow:\s*none;/);
+    });
+
+    it.each([
+      ['src/components/home/HeroReplay.tsx', '1'],
+      ['src/app/(hud)/page.tsx', '1'],
+      ['src/components/findings/FindingsReport.tsx', '1'],
+      ['src/components/replay/ReplayTerminal.tsx', '2'],
+    ])('%s asks for elevation %s', (file, level) => {
+      expect(read(file)).toMatch(new RegExp(`data-elev="${level}"`));
+    });
+
+    it('every box-shadow in the stylesheet is a token: the four of this batch, or a status glow', () => {
+      const allowed = new Set([
+        'none',
+        'var(--elev-1)',
+        'var(--elev-2)',
+        'var(--glow-accent)',
+        // The breach marker on the Home replay: a status signal, with its mark.
+        'var(--glow-breach-rest)',
+        'var(--glow-breach-peak)',
+      ]);
+      const declared = [...cssNoComments.matchAll(/(?<![\w-])box-shadow:\s*([^;]+);/g)].map((m) =>
+        must(m[1], 'value').trim(),
+      );
+      expect(declared.length).toBeGreaterThan(0);
+      expect(declared.filter((value) => !allowed.has(value))).toEqual([]);
+    });
+
+    it('no component casts a shadow of its own', () => {
+      // Class names: only the three status glows the Tailwind bridge exposes.
+      // `shadow-[...]` and Tailwind's stock `shadow-md` are a component
+      // inventing depth; an inline `boxShadow` is the same thing in a style.
+      const STATUS = /^shadow-glow-(?:nominal|caution|breach)$/;
+      const offenders: string[] = [];
+      for (const file of sourceFiles('src', /\.tsx$/)) {
+        const source = read(file).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+        for (const m of source.matchAll(/(?<![\w-])(?:[\w-]+:)*(shadow-[\w[\]().%/-]+)/g)) {
+          if (!STATUS.test(must(m[1], 'class'))) offenders.push(`${file}: ${m[0]}`);
+        }
+        for (const m of source.matchAll(/boxShadow\s*:\s*([^,}\n]+)/g)) {
+          const value = must(m[1], 'value');
+          const tokens = [...value.matchAll(/'([^']*)'/g)].map((q) => q[1]);
+          if (
+            tokens.length === 0 ||
+            tokens.some((t) => t !== 'none' && !/^var\(--glow-\w+\)$/.test(t!))
+          )
+            offenders.push(`${file}: boxShadow ${value.trim()}`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    it('no text casts a shadow or glows, anywhere', () => {
+      const inCss = [...cssNoComments.matchAll(/text-shadow:\s*([^;]+);/g)]
+        .map((m) => must(m[1], 'value').trim())
+        .filter((value) => value !== 'none');
+      expect(inCss).toEqual([]);
+      const offenders: string[] = [];
+      for (const file of sourceFiles('src', /\.tsx$/)) {
+        const source = read(file).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+        for (const m of source.matchAll(
+          /textShadow|(?<![\w-])(?:[\w-]+:)*text-shadow-[\w[\]().%/-]+/g,
+        ))
+          offenders.push(`${file}: ${m[0]}`);
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    it('no blur or backdrop filter was added: the ones that were here are counted', () => {
+      // Found, not fixed, by this batch: the drawer's backdrop and the header
+      // scrim blur what is behind them, and the header pulse's glint carries a
+      // 3px drop-shadow. A new one fails here.
+      const filters = [
+        ...cssNoComments.matchAll(/(?<![\w-])((?:backdrop-)?filter):\s*([^;]+);/g),
+      ].map((m) => `${m[1]}: ${must(m[2], 'value').trim()}`);
+      expect(filters).toEqual([
+        'backdrop-filter: blur(2px)',
+        'filter: drop-shadow(0 0 3px currentColor)',
+      ]);
+      const inComponents: string[] = [];
+      for (const file of sourceFiles('src', /\.tsx$/)) {
+        const source = read(file).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+        for (const m of source.matchAll(
+          /(?<![\w-])(?:[\w-]+:)*(?:backdrop-(?:blur|filter|brightness|saturate)|blur|drop-shadow)(?:-[\w[\]().%/-]+)?(?![\w-])|backdropFilter|\bfilter\s*:/g,
+        ))
+          inComponents.push(`${file}: ${m[0]}`);
+      }
+      expect(inComponents).toEqual(['src/components/shell/StatusBar.tsx: backdrop-blur-[6px]']);
+    });
+
+    describe('the button glow', () => {
+      it('is nothing at rest: only a hovered or keyboard-focused button takes --glow-accent', () => {
+        expect(ruleBody('.glow-accent')).not.toMatch(/(?<![\w-])box-shadow\s*:/);
+        const rules = [...cssNoComments.matchAll(/([^{}]*\.glow-accent[^{}]*)\{([^}]*)\}/g)]
+          .map((m) => ({ selector: must(m[1], 'selector').trim(), body: must(m[2], 'body') }))
+          .filter((rule) => /(?<![\w-])box-shadow\s*:/.test(rule.body));
+        expect(rules.map((rule) => rule.selector).sort()).toEqual([
+          ".glow-accent:focus-visible:not(:disabled, [aria-disabled='true'])",
+          ".glow-accent:hover:not(:disabled, [aria-disabled='true'])",
+        ]);
+        for (const rule of rules) expect(rule.body).toMatch(/box-shadow:\s*var\(--glow-accent\);/);
+      });
+
+      it('the hover half is only for a pointer that can hover', () => {
+        expect(cssNoComments).toMatch(
+          /@media\s*\(hover:\s*hover\)\s*\{\s*\.glow-accent:hover:not\(:disabled, \[aria-disabled='true'\]\)\s*\{/,
+        );
+      });
+
+      it('fades in over at most 150ms, from a token, and only the shadow and the colours move', () => {
+        const duration = expand(must(vars.get('--glow-accent-duration'), '--glow-accent-duration'));
+        expect(duration).toMatch(/^\d+ms$/);
+        expect(parseFloat(duration)).toBeGreaterThan(0);
+        expect(parseFloat(duration)).toBeLessThanOrEqual(150);
+        const rest = ruleBody('.glow-accent');
+        expect(rest).toMatch(/transition-duration:\s*var\(--glow-accent-duration\);/);
+        const moved = must(
+          rest.match(/transition-property:\s*([^;]+);/)?.[1],
+          'transition-property',
+        )
+          .split(',')
+          .map((p) => p.trim());
+        expect(moved).toContain('box-shadow');
+        expect(
+          moved.filter((p) => !/^(?:box-shadow|color|background-color|border-color)$/.test(p)),
+        ).toEqual([]);
+      });
+
+      it('does not fade at all under prefers-reduced-motion', () => {
+        const reduced = must(
+          cssNoComments.match(
+            /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/,
+          )?.[1],
+          'reduced-motion block',
+        );
+        expect(reduced).toMatch(/\.glow-accent\s*\{\s*transition:\s*none;\s*\}/);
+      });
+
+      it('never pulses: no keyframes touch the glow or the elevation', () => {
+        const frames = [
+          ...cssNoComments.matchAll(/@keyframes\s+([\w-]+)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g),
+        ];
+        expect(frames.length).toBeGreaterThan(3);
+        for (const frame of frames)
+          expect(must(frame[2], 'body'), frame[1]).not.toMatch(/--glow-accent|--elev-/);
+        // One animation moves a box-shadow, and it is older than this batch:
+        // the breach marker on the Home replay, a status signal.
+        expect(
+          frames
+            .filter((frame) => /box-shadow/.test(must(frame[2], 'body')))
+            .map((frame) => frame[1]),
+        ).toEqual(['breach-pulse']);
+        expect(cssNoComments).not.toMatch(/\.glow-accent[^{}]*\{[^}]*animation/);
+      });
+
+      it.each([
+        'src/components/hud/Button.tsx',
+        'src/components/hud/ConnectCta.tsx',
+        'src/components/home/HomeCtas.tsx',
+        'src/components/replay/Transport.tsx',
+        'src/components/replay/ReplayEmpty.tsx',
+        'src/components/connect/ConnectScreen.tsx',
+        'src/components/connect/LiveRunConsole.tsx',
+      ])('%s asks for it by name', (file) => {
+        expect(read(file)).toMatch(/(?<![\w-])glow-accent(?![\w-])/);
+      });
+
+      it('no filled or outlined button still glows at rest', () => {
+        // The status glow beside the filled-button fill means "this one is on":
+        // a pressed toggle keeps it. A link or a button that is not a toggle is
+        // a call to action and glows only under the pointer or the keyboard.
+        const offenders: string[] = [];
+        for (const file of sourceFiles('src', /\.tsx$/)) {
+          for (const m of read(file).matchAll(
+            /['"`]([^'"`\n]*\bshadow-glow-nominal\b[^'"`\n]*)['"`]/g,
+          )) {
+            const classes = must(m[1], 'classes');
+            if (/\bhover:bg-nominal\/20\b/.test(classes)) offenders.push(`${file}: ${classes}`);
+          }
+        }
+        expect(offenders).toEqual([]);
+      });
+    });
+  });
 });
 
 describe('error boundaries consume only defined tokens', () => {

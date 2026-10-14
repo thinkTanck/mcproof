@@ -173,64 +173,74 @@ export default async function Home() {
                 measures: "precision" and "recall" are words a first-time reader
                 has to look up, and which of the two is which is the whole
                 meaning of the pair. */}
+            {/* ONE CARD AROUND BOTH MEASUREMENTS (UI audit 2026-10-13, batch F):
+                the raised surface and `--elev-1`, asked for by `data-elev`. One
+                card and not one for each group, so there is one shadow, and the
+                two groups inside it are still two: each keeps its own name and
+                provenance line, and a rule is drawn between them. */}
             <div
-              role="group"
-              aria-labelledby="metric-compromise-label"
-              data-metric-group="compromise"
-              className="border-t border-line pt-3"
+              data-elev="1"
+              data-metric-card=""
+              className="flex flex-col gap-4 rounded-lg border border-line p-4"
             >
-              <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
-                <span id="metric-compromise-label" className="micro-label text-nominal">
-                  Compromise detection
-                </span>
-                <span data-metric-provenance="" className="instrument-faint">
-                  {MEASURED_COMPROMISE_PROVENANCE}
-                </span>
+              <div
+                role="group"
+                aria-labelledby="metric-compromise-label"
+                data-metric-group="compromise"
+              >
+                <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
+                  <span id="metric-compromise-label" className="micro-label text-nominal">
+                    Compromise detection
+                  </span>
+                  <span data-metric-provenance="" className="instrument-faint">
+                    {MEASURED_COMPROMISE_PROVENANCE}
+                  </span>
+                </div>
+                <dl className="flex flex-col gap-3">
+                  <Metric
+                    id="precision"
+                    label="Precision"
+                    value={MEASURED_COMPROMISE.precision.toFixed(2)}
+                    meaning="Of the runs the detector flagged as compromised, the share that really were."
+                  />
+                  <Metric
+                    id="recall"
+                    label="Recall"
+                    value={MEASURED_COMPROMISE.recall.toFixed(2)}
+                    meaning="Of the runs that really were compromised, the share the detector flagged."
+                  />
+                </dl>
               </div>
-              <dl className="flex flex-col gap-3">
-                <Metric
-                  id="precision"
-                  label="Precision"
-                  value={MEASURED_COMPROMISE.precision.toFixed(2)}
-                  meaning="Of the runs the detector flagged as compromised, the share that really were."
-                />
-                <Metric
-                  id="recall"
-                  label="Recall"
-                  value={MEASURED_COMPROMISE.recall.toFixed(2)}
-                  meaning="Of the runs that really were compromised, the share the detector flagged."
-                />
-              </dl>
-            </div>
 
-            {/* A SECOND measurement, deliberately in its own labelled group. It answers a
+              {/* A SECOND measurement, deliberately in its own labelled group. It answers a
                 different question over a different denominator, so it must not sit in the
                 group above as if it were a third view of one number. Its own name, its own
                 provenance line (which quotes its own denominator, n=22 scored), and a label
                 that says what kind of accuracy it is. The same component at the same size
                 as the two above: what separates them is the group, not the type size. */}
-            <div
-              role="group"
-              aria-labelledby="metric-classification-label"
-              data-metric-group="classification"
-              className="border-t border-line/60 pt-3"
-            >
-              <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
-                <span id="metric-classification-label" className="micro-label">
-                  Category classification
-                </span>
-                <span data-metric-provenance="" className="instrument-faint">
-                  {MEASURED_CLASSIFICATION_PROVENANCE}
-                </span>
+              <div
+                role="group"
+                aria-labelledby="metric-classification-label"
+                data-metric-group="classification"
+                className="border-t border-line/60 pt-3"
+              >
+                <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
+                  <span id="metric-classification-label" className="micro-label">
+                    Category classification
+                  </span>
+                  <span data-metric-provenance="" className="instrument-faint">
+                    {MEASURED_CLASSIFICATION_PROVENANCE}
+                  </span>
+                </div>
+                <dl className="flex flex-col gap-3">
+                  <Metric
+                    id="classification-accuracy"
+                    label="Category classification accuracy"
+                    value={MEASURED_CLASSIFICATION.accuracy.toFixed(2)}
+                    meaning="Of the real compromises the detector caught, the share it filed under the right category."
+                  />
+                </dl>
               </div>
-              <dl className="flex flex-col gap-3">
-                <Metric
-                  id="classification-accuracy"
-                  label="Category classification accuracy"
-                  value={MEASURED_CLASSIFICATION.accuracy.toFixed(2)}
-                  meaning="Of the real compromises the detector caught, the share it filed under the right category."
-                />
-              </dl>
             </div>
 
             {/* THE CONDITION BOTH FIGURES CARRY. Stated once, in prose, because a
