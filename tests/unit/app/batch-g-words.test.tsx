@@ -62,7 +62,7 @@ describe('Home: how a test works', () => {
     expect(items.map(text)).toEqual([
       'Operator gives a task',
       'Agent under test uses tools',
-      'One tool is booby-trapped',
+      'In an attack run, one served tool carries the attack; in a benign control run, none does',
       'Detector watches',
       'You get a report',
     ]);
