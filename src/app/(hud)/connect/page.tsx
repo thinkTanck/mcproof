@@ -12,7 +12,7 @@ import {
   type SampleRunIds,
 } from '@/components/connect/ConnectScreen';
 import { CategorySchema } from '@/contract';
-import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 import { sampleRun } from '@/data/source';
 import { buildHostedSurface } from '@/harness/server/surfaces';
 import { getUser } from '@/lib/auth/user';
@@ -104,7 +104,7 @@ export default async function ConnectPage({
       initialRunId={runId}
       sampleRunIds={sampleRunIds}
       categoryGoals={categoryGoals}
-      sampleProvenance={SAMPLE_VERDICT_PROVENANCE}
+      sampleProvenance={sampleDisplayProvenance()}
       freeRunsNote={describeLiveRunAllowanceNote()}
       liveActions={{
         start: startLiveRun,

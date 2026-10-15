@@ -228,13 +228,15 @@ describe('the discarded state on its own', () => {
     );
 
     expect(screen.getByText('ASI05 Unexpected Code Execution (RCE)')).toBeInTheDocument();
-    expect(screen.getByText('2026-10-09')).toBeInTheDocument();
+    // A human date, as a person reads it (2026-10-14).
+    expect(screen.getByText('Oct 9, 2026')).toBeInTheDocument();
+    expect(screen.queryByText('2026-10-09')).not.toBeInTheDocument();
   });
 
   it('prints neither when it was handed neither, and drops a date it cannot read', async () => {
     const { RunDiscarded } = await import('@/components/replay');
     const { container, rerender } = render(<RunDiscarded surface="report" />);
-    expect(container.textContent).not.toMatch(/SERVED|DISCARDED \d/);
+    expect(container.textContent).not.toMatch(/SERVED|DISCARDED (\d|[A-Z][a-z]{2} \d)/);
 
     rerender(<RunDiscarded surface="report" discardedAt="not a date" />);
     expect(container.textContent).not.toMatch(/Invalid|NaN/);

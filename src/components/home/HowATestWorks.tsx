@@ -1,0 +1,64 @@
+import { ROLES } from '@/lib/replay/roles';
+
+/**
+ * HOW A TEST WORKS, in five steps (Batch G, 2026-10-13).
+ *
+ * The hero replay shows a run; nothing beside it said what the parts of a run
+ * are. Five short steps, in order, as an ordered list. The two role names it
+ * shares with the replay (the operator, the agent under test) come from the
+ * roles lookup, so the front door and the replay's legend use one name for
+ * one thing.
+ *
+ * It describes the MECHANISM of a test and promises nothing about its result:
+ * one tool is booby-trapped in every run, and whether the agent uses it is
+ * what the run measures. So it says "the detector watches", never what the
+ * detector will find (tests/unit/app/framing.test.tsx).
+ *
+ * The arrows are decoration and are hidden from assistive technology: the
+ * list is ordered, and that is what carries the sequence. Right from one step
+ * to the next where the steps sit in a row, down where they are stacked. No
+ * icon, no motion.
+ */
+export const HOW_A_TEST_WORKS: readonly { id: string; text: string }[] = [
+  { id: 'operator', text: `${ROLES.operator.name} gives a task` },
+  { id: 'agent', text: `${ROLES.agent.name} uses tools` },
+  { id: 'tool', text: 'One tool is booby-trapped' },
+  { id: 'detector', text: 'Detector watches' },
+  { id: 'report', text: 'You get a report' },
+];
+
+export function HowATestWorks() {
+  return (
+    <section
+      aria-labelledby="how-a-test-works-title"
+      data-testid="how-a-test-works"
+      className="border-t border-line pt-3"
+    >
+      <h2 id="how-a-test-works-title" className="micro-label text-nominal">
+        How a test works
+      </h2>
+      <ol className="measure mt-(--instrument-stack-rows) flex flex-col gap-x-2 gap-y-1 sm:flex-row sm:flex-wrap sm:items-baseline">
+        {HOW_A_TEST_WORKS.map((step, i) => (
+          <li key={step.id} className="flex items-baseline gap-2">
+            <span aria-hidden="true" className="instrument-faint one-line tabular-nums">
+              {i + 1}
+            </span>
+            <span data-step-text="" className="reading">
+              {step.text}
+            </span>
+            {i < HOW_A_TEST_WORKS.length - 1 && (
+              <span aria-hidden="true" className="instrument-faint one-line">
+                <span data-step-arrow="" className="sm:hidden">
+                  ↓
+                </span>
+                <span data-step-arrow="" className="max-sm:hidden">
+                  →
+                </span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}

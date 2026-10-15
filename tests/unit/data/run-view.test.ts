@@ -6,6 +6,7 @@ import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { getUser } from '@/lib/auth/user';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { liveVerdictProvenance, resolveFixReport, resolveRun } from '@/data/run-view';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 import type { StoredRun } from '@/data/run-repository';
 
 vi.mock('@/lib/auth/user', () => ({ getUser: vi.fn() }));
@@ -87,6 +88,7 @@ describe('resolveRun — the sample library', () => {
     expect(view?.origin).toBe('sample');
     expect(view?.run).toEqual(sampleRun('ASI02'));
     expect(view?.provenance).toBe(SAMPLE_VERDICT_PROVENANCE);
+    expect(view?.displayProvenance).toBe(sampleDisplayProvenance());
   });
 
   it('serves a sample by its canonical run id too', async () => {
@@ -130,6 +132,10 @@ describe('resolveRun — a persisted live run', () => {
     const view = await resolveRun('11111111-1111-4111-8111-111111111234');
     expect(view?.provenance).toMatch(/live run/i);
     expect(view?.provenance).toContain('2026-08-05');
+    // On screen the same verdict reads as the day the run happened.
+    expect(view?.displayProvenance).toBe(
+      'live run · run Aug 5, 2026 · verdict from the locked validated judge',
+    );
     expect(view?.provenance).not.toMatch(/constructed demonstration/i);
     // A live run is UNLABELED, so nothing here may read as a measured figure.
     expect(view?.provenance).not.toMatch(/measured|precision|recall/i);

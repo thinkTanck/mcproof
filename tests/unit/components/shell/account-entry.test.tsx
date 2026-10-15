@@ -433,14 +433,16 @@ describe('the header carries the entry from 1100px, and the rail lets go of it t
 });
 
 /**
- * ON THE REPLAY THE TAG GIVES WAY (batch E). From 1100px the replay's bar holds
- * the run telemetry, the outcome, the chip and now the entry; in the fallback
- * font that left the telemetry no room at all. The "SENTINEL FIELDS" tag is the
- * one thing there that says nothing about the run, so there, and only there,
- * it steps aside from the line up.
+ * THE HEADER TAG (batch E, then Batch G). The bar printed the design's internal
+ * name, "SENTINEL FIELDS", beside the wordmark; batch E made it step aside on
+ * the replay from 1100px. Batch G (2026-10-13, the owner's instruction) removes
+ * that label from every page and width: no screen passes a tag now, so none is
+ * drawn. The slot is still there for a screen that passes one, and on a run
+ * screen such a tag still steps aside from the line up.
  */
 describe('the header tag on a run screen', () => {
-  const tag = () => screen.getByText('SENTINEL FIELDS');
+  const TAG = 'SOME TAG';
+  const tag = () => screen.getByText(TAG);
   const RUN = {
     runId: 'x',
     model: 'some-model',
@@ -449,19 +451,40 @@ describe('the header tag on a run screen', () => {
     compromised: true,
   };
 
-  it('is drawn from 760px on every screen with no run telemetry', () => {
-    render(<StatusBar pathname="/" account={SIGNED_OUT} />);
+  it('"SENTINEL FIELDS" is not drawn, with or without run telemetry', () => {
+    const { unmount } = render(<StatusBar pathname="/" account={SIGNED_OUT} />);
+    expect(screen.queryByText(/sentinel fields/i)).toBeNull();
+    expect(document.querySelector('[data-header-tag]')).toBeNull();
+    unmount();
+
+    render(<StatusBar pathname="/runs/x" mode="sample" account={SIGNED_OUT} runContext={RUN} />);
+    expect(screen.queryByText(/sentinel fields/i)).toBeNull();
+    expect(document.querySelector('[data-header-tag]')).toBeNull();
+  });
+
+  it('a tag a screen passes is drawn from 760px where there is no run telemetry', () => {
+    render(<StatusBar pathname="/" account={SIGNED_OUT} meta={TAG} />);
 
     expect(tag().className.split(/\s+/)).not.toContain('header-wide:hidden');
   });
 
   it('steps aside from the line up where the run telemetry is drawn', () => {
-    render(<StatusBar pathname="/runs/x" mode="sample" account={SIGNED_OUT} runContext={RUN} />);
+    render(
+      <StatusBar
+        pathname="/runs/x"
+        mode="sample"
+        account={SIGNED_OUT}
+        runContext={RUN}
+        meta={TAG}
+      />,
+    );
 
     expect(tag().className.split(/\s+/)).toContain('header-wide:hidden');
-    // And the telemetry that takes its place is drawn from the same line.
-    const telemetry = screen.getByText('some-model').parentElement!;
-    expect(telemetry.className.split(/\s+/)).toContain('header-wide:block');
+    // G option B (owner ruling 2026-10-14): RUN, TARGET and DETECTOR left the
+    // bar for the replay's own header, where they wrap. This read that the
+    // telemetry is drawn in the bar from the same line.
+    expect(screen.queryByText('some-model')).toBeNull();
+    expect(document.querySelector('header')!.textContent).not.toMatch(/DETECTOR/);
   });
 });
 

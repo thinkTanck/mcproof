@@ -2,6 +2,7 @@ import { cache } from 'react';
 import type { RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
 import { getUser } from '@/lib/auth/user';
+import { liveDisplayProvenance, sampleDisplayProvenance } from '@/lib/display/dates';
 import { isRowId } from '@/lib/run-id';
 import { getDiscardedRunStore } from './discarded-run-store.factory';
 import type { StoredDiscardedRun } from './run-repository';
@@ -51,7 +52,10 @@ export type RunOrigin = 'sample' | 'live';
 export interface RunView {
   readonly run: RunResult;
   readonly origin: RunOrigin;
+  /** The label in code and in the exported ticket: ISO dates. */
   readonly provenance: string;
+  /** The same label as a person reads it on screen: human dates (2026-10-14). */
+  readonly displayProvenance: string;
 }
 
 /** A fix report, with the same label. */
@@ -59,6 +63,8 @@ export interface FixReportView {
   readonly report: FixReport;
   readonly origin: RunOrigin;
   readonly provenance: string;
+  /** The label as a person reads it on screen: human dates (2026-10-14). */
+  readonly displayProvenance: string;
 }
 
 /**
@@ -86,7 +92,7 @@ async function sampleView(id: string): Promise<RunView | null> {
   // A verdict travels with its provenance or not at all. A run the port can serve
   // but cannot label is not shown at all, rather than shown unlabelled.
   if (!run || provenance === null) return null;
-  return { run, origin: 'sample', provenance };
+  return { run, origin: 'sample', provenance, displayProvenance: sampleDisplayProvenance() };
 }
 
 /** One of the signed-in user's own persisted runs, or nothing. */
@@ -110,6 +116,7 @@ async function liveView(id: string): Promise<RunView | null> {
     run: stored.run,
     origin: 'live',
     provenance: liveVerdictProvenance(stored.createdAt),
+    displayProvenance: liveDisplayProvenance(stored.createdAt),
   };
 }
 
@@ -156,5 +163,6 @@ export async function resolveFixReport(id: string): Promise<FixReportView | null
     report: generateFixReport(view.run, { provenance: view.provenance }),
     origin: view.origin,
     provenance: view.provenance,
+    displayProvenance: view.displayProvenance,
   };
 }

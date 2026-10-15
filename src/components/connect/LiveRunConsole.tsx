@@ -41,6 +41,7 @@ import {
   type LiveRunTicketView,
 } from './live-run-port';
 import type { Category, VariantKind } from '@/contract';
+import { localDateTime } from '@/lib/display/dates';
 import { asiLabel } from '@/lib/owasp/asi';
 import { FreeRunsNote } from '@/components/hud/FreeRunsNote';
 
@@ -1690,7 +1691,11 @@ function Connection({
           )}
           {status !== null && status.lastSeenAt !== null && (
             <p className="instrument-faint">
-              LAST SEEN <span className="readout">{status.lastSeenAt}</span>
+              {/* The viewer's local time with its zone; ISO stays in datetime. */}
+              LAST SEEN{' '}
+              <time className="readout" dateTime={status.lastSeenAt}>
+                {localDateTime(status.lastSeenAt) ?? status.lastSeenAt}
+              </time>
             </p>
           )}
           {/* A finished run's token is already revoked, so an expiry still to

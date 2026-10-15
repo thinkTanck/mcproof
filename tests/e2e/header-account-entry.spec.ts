@@ -22,7 +22,7 @@ import { suppressBootSplash } from './support/screen';
  * WHAT THE HEADER GIVES UP FOR IT. On the replay the bar already carried the
  * run telemetry, the outcome and the mode chip, and at 1100 in the fallback
  * font it had 140px left. So from 1100 up the replay's bar drops the
- * "SENTINEL FIELDS" tag (it keeps it on every other page), the chip sits to the
+ * "SENTINEL FIELDS" tag (Batch G then removed it from every page), the chip sits to the
  * left of the entry, and nothing in the bar is drawn over anything else: that
  * last part is measured here, at 1100 in the fallback font, the worst case.
  *
@@ -297,14 +297,19 @@ test.describe('1100px: the bar of the replay has room', () => {
   test('the run telemetry is not squeezed out, and the tag gives way to it', async ({ page }) => {
     await open(page, '/runs/sample', 'fallback font');
     const replay = (await measure(page)).header!;
-    // The bar keeps a readable stretch of the run telemetry beside the entry.
-    expect(replay.telemetryWidth ?? 0, 'run telemetry width').toBeGreaterThan(replay.set);
+    // G option B (owner ruling 2026-10-14): RUN, TARGET and DETECTOR left the
+    // bar, where they were cut short, for the replay's own header under the
+    // title. This read that the bar keeps a readable stretch of them.
+    expect(replay.telemetryWidth, 'no run telemetry in the bar').toBeNull();
+    await expect(page.locator('[data-replay-telemetry]')).toBeVisible();
     expect(replay.tag, 'SENTINEL FIELDS on the replay at 1100').toBe(false);
 
-    // Every other page keeps the tag.
+    // Batch G (2026-10-13, the owner's instruction): the tag is gone from every
+    // page, not only the replay. This read `toBe(true)`, "every other page
+    // keeps the tag".
     await page.goto('/findings/sample');
     await settle(page);
-    expect((await measure(page)).header!.tag, 'SENTINEL FIELDS on the report').toBe(true);
+    expect((await measure(page)).header!.tag, 'SENTINEL FIELDS on the report').toBe(false);
   });
 });
 

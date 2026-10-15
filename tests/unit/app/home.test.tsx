@@ -11,6 +11,7 @@ import {
 } from '@/eval/measured';
 import { describeLiveRunAllowance, describeLiveRunAllowanceNote } from '@/runs/allowance';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 
 /**
  * Home (BRAND register front door). Asserts the landmarks, the pitch + the
@@ -342,7 +343,7 @@ describe('Home — sample binding (never literals)', () => {
    */
   it('labels the trailer with the sample provenance, so it never reads as a live capture', async () => {
     await renderHome();
-    expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
+    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
     expect(SAMPLE_VERDICT_PROVENANCE).toMatch(/constructed demonstration/i);
   });
 

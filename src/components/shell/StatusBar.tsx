@@ -20,8 +20,11 @@ export type RunContext = {
 
 /**
  * Top status bar (banner). Server-rendered — the mobile drawer is a native
- * popover, whose only script closes it on navigation (DrawerAutoClose). Dominant MCProof lockup + a one-line
- * condensing meta. On a run screen it also carries the RUN · TARGET · DETECTOR
+ * popover, whose only script closes it on navigation (DrawerAutoClose). Dominant MCProof lockup, and
+ * an optional one-line tag beside it (`meta`), which nothing passes today: the
+ * bar used to print the design's internal name there, "Sentinel Fields", and
+ * that label is gone from every page and width (Batch G, 2026-10-13). On a run
+ * screen it also carries the RUN · TARGET · DETECTOR
  * context and the outcome + severity (desktop only, so it never wraps). From
  * 1100px (`header-wide`) the way in and out sits at its right end: Sign in, or
  * the account entry, the last thing on the right on every page.
@@ -29,7 +32,7 @@ export type RunContext = {
 export function StatusBar({
   pathname,
   mode,
-  meta = 'SENTINEL FIELDS',
+  meta,
   runContext,
   account = { state: 'signed-out' },
 }: {
@@ -41,6 +44,7 @@ export function StatusBar({
   pathname: string;
   /** Where the run on show came from. Absent on a screen that shows no run. */
   mode?: Mode;
+  /** A short tag beside the wordmark, from 760px. Nothing is drawn without one. */
   meta?: ReactNode;
   runContext?: RunContext;
 }) {
@@ -158,38 +162,36 @@ export function StatusBar({
           !mode && 'header-wide:flex-wrap',
         )}
       >
-        {/* THE TAG. On the replay it steps aside from 1100px, where the run
-            telemetry, the outcome, the chip and the account entry all share the
-            bar: in the fallback font that left the telemetry no room at all,
-            and the tag is the one thing there that says nothing about the run.
-            Every other screen keeps it at every width it had it. */}
-        <div
-          className={cn(
-            'hidden h-[26px] w-px shrink-0 bg-line min-[760px]:block',
-            runContext && 'header-wide:hidden',
-          )}
-        />
-        <div
-          className={cn(
-            'hidden shrink-0 font-mono text-[13.5px] tracking-[0.1em] text-ink-faint min-[760px]:block',
-            runContext && 'header-wide:hidden',
-          )}
-        >
-          {meta}
-        </div>
-
-        {runContext && (
+        {/* THE TAG, when a screen passes one, and the rule before it. None
+            does: the label that was printed here by default was the design's
+            internal name and is not shown any more. With no tag there is no
+            rule either, so nothing is left standing beside the wordmark. On a
+            run screen a tag steps aside from 1100px, where the run telemetry,
+            the outcome, the chip and the account entry all share the bar. */}
+        {meta != null && (
           <>
-            <div className="hidden h-[26px] w-px shrink-0 bg-line header-wide:block" />
-            <div className="hidden min-w-0 truncate font-mono text-[13.5px] tracking-[0.06em] text-ink-muted header-wide:block">
-              RUN <span className="text-readout">{runContext.runId}</span>
-              <span aria-hidden="true"> · </span>TARGET{' '}
-              <span className="text-readout">{runContext.model}</span>
-              <span aria-hidden="true"> · </span>DETECTOR{' '}
-              <span className="text-nominal">BLIND</span>
+            <div
+              className={cn(
+                'hidden h-[26px] w-px shrink-0 bg-line min-[760px]:block',
+                runContext && 'header-wide:hidden',
+              )}
+            />
+            <div
+              data-header-tag=""
+              className={cn(
+                'hidden shrink-0 font-mono text-[13.5px] tracking-[0.1em] text-ink-faint min-[760px]:block',
+                runContext && 'header-wide:hidden',
+              )}
+            >
+              {meta}
             </div>
           </>
         )}
+
+        {/* RUN, TARGET and DETECTOR are not printed in this bar (G option B,
+            owner ruling 2026-10-14). Cut to one line here they lost their end
+            behind an ellipsis; they are printed under the replay's title,
+            where they wrap, and this bar keeps one row. */}
 
         <div className="flex-1" />
 

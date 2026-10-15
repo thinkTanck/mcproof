@@ -675,6 +675,16 @@ for (const viewport of VIEWPORTS) {
       expect(id, 'the timeline is described by a key').toBeTruthy();
       const key = page.locator(`#${id}`);
       await expect(key).toHaveCount(1);
+      // Batch G (owner ruling 2026-10-14): at every width the key is inside the
+      // "Key" disclosure above the terminal, closed when the page opens. Open
+      // the Key first, so everything below measures the key as the reader who
+      // asked for it sees it.
+      const disclosure = page
+        .locator('details[data-replay-legend] > summary')
+        .filter({ visible: true });
+      await expect(disclosure).toHaveCount(1);
+      await expect(page.locator('details[data-replay-legend][open]')).toHaveCount(0);
+      await disclosure.click();
       await expect(key).toBeVisible();
       await expect(key).toHaveAttribute('data-replay-key', '');
 
@@ -690,18 +700,16 @@ for (const viewport of VIEWPORTS) {
           };
         });
         const rect = el.getBoundingClientRect();
-        const detail = document.querySelector('section[aria-label="Step detail"]')!;
-        const plays = [...document.querySelectorAll('button[aria-label="Play"]')].filter(
-          (b) => b.getBoundingClientRect().height > 0,
-        );
+        const terminal = document.querySelector(
+          'ol[aria-label="Attack replay step timeline"]',
+        )!.parentElement!;
         const drawn = document.querySelector('[data-breach-mark] svg path')?.getAttribute('d');
         const keyed = el.querySelector('[data-key-mark="breach"] svg path')?.getAttribute('d');
         return {
           entries,
           live: el.matches(live) || el.querySelector(live) !== null || el.closest(live) !== null,
           focusable: el.querySelector('a, button, [tabindex]') !== null,
-          afterDetail: rect.top >= detail.getBoundingClientRect().bottom - 1,
-          afterPlay: rect.top >= plays[0]!.getBoundingClientRect().bottom - 1,
+          aboveTerminal: rect.bottom <= terminal.getBoundingClientRect().top + 1,
           sameMark: Boolean(drawn) && drawn === keyed,
           wide: rect.right <= document.documentElement.clientWidth + 1,
         };
@@ -718,9 +726,9 @@ for (const viewport of VIEWPORTS) {
       expect(m.sameMark, 'the same breach mark as the transcript').toBe(true);
       expect(m.live, 'the key is not a live region').toBe(false);
       expect(m.focusable, 'the key is not a control').toBe(false);
-      // It comes after the controls and the step detail: it pushes nothing down.
-      expect(m.afterPlay).toBe(true);
-      expect(m.afterDetail).toBe(true);
+      // Batch G (2026-10-13, the owner's instruction): it is directly above the
+      // terminal it explains. It came after the controls and the step detail.
+      expect(m.aboveTerminal).toBe(true);
       expect(m.wide).toBe(true);
     });
 

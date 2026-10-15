@@ -43,6 +43,9 @@ describe('Account page (gated · your runs)', () => {
     expect(screen.getByText(asiLabel(run.category))).toBeInTheDocument();
     expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.queryByText(/no runs yet/i)).not.toBeInTheDocument();
+    // The day it ran, as a person reads it, labelled (2026-10-14).
+    expect(screen.getByText('run Jan 1, 2026')).toBeInTheDocument();
+    expect(screen.queryByText('2026-01-01')).not.toBeInTheDocument();
   });
 
   it('opens each run in the replay, by its ROW id (the address a run is fetched by)', async () => {

@@ -62,5 +62,7 @@ export default async function FindingsScreen({ params }: Props) {
       />
     );
   }
-  return <FindingsReport report={view.report} routeId={id} />;
+  return (
+    <FindingsReport report={view.report} routeId={id} provenanceLabel={view.displayProvenance} />
+  );
 }

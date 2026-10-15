@@ -145,6 +145,12 @@ export const NEUTRALITY_TELLS: readonly string[] = [
   'asi08',
   'asi09',
   'asi10',
+  // The product's name for its test environment, and the phrase its glossary
+  // explains it with (2026-10-13). Both are words a reader of the product now
+  // sees, so either one on the wire says where the agent is. Neither is
+  // served; this keeps it so.
+  'sentinel',
+  'proving ground',
 ];
 
 /**

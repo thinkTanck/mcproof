@@ -132,8 +132,12 @@ export function ReplayKey({
   entries,
   className,
 }: {
-  /** The id the explained element names in `aria-describedby`. */
-  id: string;
+  /**
+   * The id the explained element names in `aria-describedby`. Left out for a
+   * copy that is not the one pointed at: the replay sends its legend twice
+   * until the browser says which fits, and an id is on one element only.
+   */
+  id?: string;
   entries: ReplayKeyEntry[];
   className?: string;
 }) {

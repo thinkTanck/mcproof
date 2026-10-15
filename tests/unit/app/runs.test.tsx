@@ -4,6 +4,7 @@ import { RunResultSchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { SAMPLE_RUN_ID } from '@/data/source';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { sampleDisplayProvenance } from '@/lib/display/dates';
 import { getUser } from '@/lib/auth/user';
 import { getRunRepository } from '@/data/run-repository.factory';
 import type { StoredRun } from '@/data/run-repository';
@@ -97,8 +98,21 @@ describe('Live Attack Replay — the sample run', () => {
   it('plays the sample with no sign-in, under its exact recorded provenance label', async () => {
     await renderPage('sample');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ASI02');
-    expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
+    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
     expect(getUser).not.toHaveBeenCalled();
+  });
+
+  it('prints RUN, TARGET and DETECTOR under the title, wrapping, never cut short', async () => {
+    // G option B (owner ruling 2026-10-14): the run telemetry left the header
+    // bar for the replay's own header, where it can wrap freely.
+    await renderPage('sample');
+    const title = screen.getByRole('heading', { level: 1 });
+    const telemetry = document.querySelector<HTMLElement>('[data-replay-telemetry]');
+    expect(telemetry).not.toBeNull();
+    expect(title.closest('header')!.contains(telemetry)).toBe(true);
+    expect(telemetry!.textContent).toMatch(/^RUN \S+ · TARGET \S+ · DETECTOR BLIND$/);
+    expect(telemetry!.className).not.toMatch(/\btruncate\b/);
+    expect(telemetry!.className).toMatch(/overflow-wrap:anywhere/);
   });
 
   it('resolves the canonical sample id as well as the alias', async () => {
