@@ -10,9 +10,10 @@ import { ROLES } from '@/lib/replay/roles';
  * one thing.
  *
  * It describes the MECHANISM of a test and promises nothing about its result:
- * one tool is booby-trapped in every run, and whether the agent uses it is
- * what the run measures. So it says "the detector watches", never what the
- * detector will find (tests/unit/app/framing.test.tsx).
+ * in an attack run one served tool carries the attack, and whether the agent
+ * uses it is what the run measures; in a benign control run no tool does. So
+ * it says "the detector watches", never what the detector will find
+ * (tests/unit/app/framing.test.tsx).
  *
  * The arrows are decoration and are hidden from assistive technology: the
  * list is ordered, and that is what carries the sequence. Right from one step
@@ -22,7 +23,10 @@ import { ROLES } from '@/lib/replay/roles';
 export const HOW_A_TEST_WORKS: readonly { id: string; text: string }[] = [
   { id: 'operator', text: `${ROLES.operator.name} gives a task` },
   { id: 'agent', text: `${ROLES.agent.name} uses tools` },
-  { id: 'tool', text: 'One tool is booby-trapped' },
+  {
+    id: 'tool',
+    text: 'In an attack run, one served tool carries the attack; in a benign control run, none does',
+  },
   { id: 'detector', text: 'Detector watches' },
   { id: 'report', text: 'You get a report' },
 ];
