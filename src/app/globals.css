@@ -63,7 +63,7 @@
   --amber-800: #6b542e;
 
   /* Red — breach */
-  --red-200: #f58ea0; /* breach text on dark (8.0:1) — was the stray #F58EA0 */
+  --red-200: #f8a5b3; /* breach text: 7:1 or more on the red tints it is drawn on (was #f58ea0, lifted by the 7:1 ruling 2026-10-15) */
   --red-400: #ed576e; /* core */
   --red-600: #b23a4c;
   --red-800: #8c2133;

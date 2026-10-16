@@ -173,8 +173,8 @@ export function FindingsReport({
               `auto`, so one unbreakable token in the payload (a long path) set
               the column wider than a phone screen and the page clipped it. */}
           <div className="mt-8 grid grid-cols-1 gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <section aria-label="Step where it happened">
-              <SectionHeading>Step where it happened</SectionHeading>
+            <section aria-label="Step where it was compromised">
+              <SectionHeading>Step where it was compromised</SectionHeading>
               <p className="readout mt-(--instrument-stack-rows) text-breach-text">
                 {`#${finding.stepIndex} · ${stepMeta(step.type).label}`}
               </p>
@@ -222,7 +222,7 @@ export function FindingsReport({
               and the code is named in the page's own text around it (the
               header line, and the tally under a withheld remediation). */}
           <section aria-label="Detector's reasons" className="mt-7 border-t border-breach/30 pt-5">
-            <SectionHeading tone="breach">Detector&apos;s reasons</SectionHeading>
+            <SectionHeading>Detector&apos;s reasons</SectionHeading>
             <p data-asi-quoted="judge-rationale" className="reading measure mt-2">
               {finding.rationale}
             </p>

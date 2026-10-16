@@ -93,7 +93,7 @@ const SCREENS: Screen[] = [
       // The engineer-facing sections are the point of the screen. Asserted as
       // headings (the document outline), which survive a markup rework.
       for (const section of [
-        'Step where it happened',
+        'Step where it was compromised',
         'Summary',
         "Detector's reasons",
         'How to fix it',
@@ -114,7 +114,9 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('article', { name: 'Fix report' })).toBeVisible();
       // What IS reliable still renders: the compromise and its anchored step.
       await expect(page.getByText('COMPROMISED').first()).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Step where it happened' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Step where it was compromised' }),
+      ).toBeVisible();
       // What is not is withheld, in words, with no remediation list to work.
       await expect(page.getByText('ATTACK TYPE UNRELIABLE')).toBeVisible();
       await expect(

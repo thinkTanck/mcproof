@@ -64,7 +64,7 @@ describe('ASI10, remediation withheld: where the offending step is', () => {
 
   it('on screen the offending step is drawn before the note, and the note says above', () => {
     render(<FindingsReport report={withheld} />);
-    const step = screen.getByRole('region', { name: 'Step where it happened' });
+    const step = screen.getByRole('region', { name: 'Step where it was compromised' });
     const note = screen.getByTestId('classification-unreliable');
 
     expect(follows(step, note), 'the note comes after the offending step').toBe(true);

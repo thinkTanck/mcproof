@@ -161,7 +161,9 @@ describe('DTCG token layer (globals.css)', () => {
       '--cyan-300': '#54d4e6',
       '--cyan-700': '#2b6b7d',
       '--amber-400': '#ebb561',
-      '--red-200': '#f58ea0',
+      // Lifted from #f58ea0 by the 7:1 ruling (2026-10-15): breach text holds
+      // 7:1 on the red tints it is drawn on.
+      '--red-200': '#f8a5b3',
       '--red-400': '#ed576e',
       '--ink-100': '#d3e2ea',
       // Lifted from the v2 values (#99b8c7, #708c9e, #6a8798) by the owner's

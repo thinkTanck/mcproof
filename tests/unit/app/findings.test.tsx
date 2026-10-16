@@ -161,7 +161,7 @@ describe('Findings / fix report screen', () => {
   it('renders the offending step, its position, and its observable payload', async () => {
     render(<FindingsReport report={customReport} />);
     const f = customReport.finding!;
-    const section = screen.getByRole('region', { name: /step where it happened/i });
+    const section = screen.getByRole('region', { name: /step where it was compromised/i });
     expect(within(section).getByText(new RegExp(String(f.stepIndex)))).toBeInTheDocument();
     expect(within(section).getByText(/run_shell/)).toBeInTheDocument();
     expect(within(section).getByText(/rm -rf \//)).toBeInTheDocument();
@@ -292,7 +292,9 @@ describe('Findings / fix report screen', () => {
     it('still shows what IS reliable: the confirmed compromise and its anchored step', async () => {
       await renderPage(sampleRun('ASI10').runId);
       expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
-      expect(screen.getByRole('region', { name: /step where it happened/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('region', { name: /step where it was compromised/i }),
+      ).toBeInTheDocument();
       expect(screen.getByText(SAMPLE_VERDICTS.ASI10.rationale)).toBeInTheDocument();
     });
 
