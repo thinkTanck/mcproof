@@ -54,7 +54,7 @@ export function OwaspExplainer({ className }: { className?: string }) {
   const inert = THREATS.length - covered;
   return (
     <details data-testid="owasp-explainer" className={`group min-w-0 ${className ?? ''}`.trim()}>
-      <summary className="target-min inline-flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] tracking-[0.04em] text-nominal [&::-webkit-details-marker]:hidden">
+      <summary className="target-min inline-flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] tracking-[0.04em] text-ink [&::-webkit-details-marker]:hidden">
         {/* The state, drawn: the chevron points right when closed and down
             when open. It turns at once, with no transition. */}
         <svg
@@ -78,17 +78,17 @@ export function OwaspExplainer({ className }: { className?: string }) {
       </summary>
       <div data-testid="owasp-explainer-body" className="pb-2 pt-1">
         <p className="reading measure text-ink-muted">
-          OWASP is a nonprofit that publishes widely used lists of security risks, and its Top 10
-          for Agentic Applications (2026) names the ten most serious risks for AI agents that use
-          tools. MCProof tests {covered} of the {THREATS.length}; the other {inert} cannot be
-          measured from a single recorded run, and the{' '}
+          OWASP is a nonprofit that publishes widely used lists of security risks. Its Top 10 for
+          Agentic Applications (2026) names the ten most serious risks for AI agents that use tools.
+          MCProof tests {covered} of the {THREATS.length}. The other {inert} cannot be seen in a
+          single run, and the{' '}
           <Link
             href={OWASP_COVERAGE_HREF}
             className="text-nominal underline underline-offset-4 hover:text-readout"
           >
-            coverage board
+            Threat Model page
           </Link>{' '}
-          says why.
+          explains why.
         </p>
       </div>
     </details>

@@ -45,7 +45,7 @@ for (const width of [320, 390, 1100, 1280]) {
           };
         });
         expect(m, 'the telemetry is drawn').not.toBeNull();
-        expect(m!.text).toMatch(/^RUN \S+ · TARGET \S+ · DETECTOR BLIND$/);
+        expect(m!.text).toMatch(/^RUN \S+ · AGENT \S+ · DETECTOR BLIND TO THE ATTACK$/);
         expect(m!.ellipsis, 'no ellipsis').toBe(false);
         expect(m!.cut, 'nothing in it is clipped').toBe(false);
         expect(m!.left).toBeGreaterThanOrEqual(-1);

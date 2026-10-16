@@ -38,7 +38,7 @@ describe('describeLiveRunAllowanceNote: the sentence, or nothing', () => {
   });
 
   it('says a single run in the singular', () => {
-    expect(describeLiveRunAllowanceNote(env('1'))).toContain('1 free live run.');
+    expect(describeLiveRunAllowanceNote(env('1'))).toContain('1 free live run in total.');
   });
 
   it.each([
@@ -71,12 +71,10 @@ describe('describeLiveRunAllowanceNote: the sentence, or nothing', () => {
     }
   });
 
-  it('says the count is for the life of the account and never promises a daily one', () => {
+  it('says the count is a total that never resets, and never promises a daily one', () => {
     const note = describeLiveRunAllowanceNote(env('3'))!;
-    expect(note).toMatch(/life of the account/i);
-    // A daily count is named only to be denied.
-    expect(note).toMatch(/not a daily allowance/i);
-    expect(note.replace(/not a daily allowance/i, '')).not.toMatch(/daily|per day|a day|each day/i);
+    expect(note).toMatch(/in total. The count does not reset./);
+    expect(note).not.toMatch(/daily|per day|a day|each day/i);
     // It states the limit for any account, never what this reader has left.
     expect(note).not.toMatch(/\b(you have|your|left|remaining|used)\b/i);
     expect(note).not.toContain('—');

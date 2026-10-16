@@ -161,12 +161,16 @@ describe('DTCG token layer (globals.css)', () => {
       '--cyan-300': '#54d4e6',
       '--cyan-700': '#2b6b7d',
       '--amber-400': '#ebb561',
-      '--red-200': '#f58ea0',
+      // Lifted from #f58ea0 by the 7:1 ruling (2026-10-15): breach text holds
+      // 7:1 on the red tints it is drawn on.
+      '--red-200': '#f8a5b3',
       '--red-400': '#ed576e',
       '--ink-100': '#d3e2ea',
-      '--ink-300': '#99b8c7',
-      '--ink-500': '#708c9e',
-      '--ink-700': '#6a8798',
+      // Lifted from the v2 values (#99b8c7, #708c9e, #6a8798) by the owner's
+      // 7:1 ruling (UI and copy PR, 2026-10-15): same hue, more light.
+      '--ink-300': '#9fbcca',
+      '--ink-500': '#9eb1bd',
+      '--ink-700': '#9aaeb9',
     };
     for (const [name, hex] of Object.entries(approved)) {
       expect(vars.get(name)?.toLowerCase(), name).toBe(hex);
@@ -184,7 +188,9 @@ describe('DTCG token layer (globals.css)', () => {
     }
   });
 
-  it('every active text role clears WCAG 2.2 AA (>=4.5:1) on base AND panel', () => {
+  // 7:1, not 4.5:1 (UI and copy PR, owner ruling 2026-10-15): every active
+  // text role, faint included, holds the enhanced ratio on every surface.
+  it('every active text role clears 7:1 on base AND panel', () => {
     // --text-pending is inactive-only (WCAG 1.4.3 exempts not-reached/disabled), excluded.
     for (const token of [
       '--text',
@@ -200,23 +206,23 @@ describe('DTCG token layer (globals.css)', () => {
       '--display-color',
     ]) {
       const fg = resolveColor(`var(${token})`, surfaceBase);
-      expect(contrast(fg, surfaceBase), `${token} on --surface-base`).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(fg, surfacePanel), `${token} on --surface-panel`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(fg, surfaceBase), `${token} on --surface-base`).toBeGreaterThanOrEqual(7);
+      expect(contrast(fg, surfacePanel), `${token} on --surface-panel`).toBeGreaterThanOrEqual(7);
     }
   });
 
-  it('the INERT fourth state clears AA on base AND panel and is never the breach red', () => {
+  it('the INERT fourth state clears 7:1 on base AND panel and is never the breach red', () => {
     // --status-inert labels "not measurable" categories (ASI07/08/09 on /threats).
     // It carries icon + label + text, so it must clear AA as text, and it must
     // never be red (ADR-0003: red is reserved for an actual breach).
     const inert = resolveColor('var(--status-inert)', surfaceBase);
     expect(contrast(inert, surfaceBase), '--status-inert on --surface-base').toBeGreaterThanOrEqual(
-      4.5,
+      7,
     );
     expect(
       contrast(inert, surfacePanel),
       '--status-inert on --surface-panel',
-    ).toBeGreaterThanOrEqual(4.5);
+    ).toBeGreaterThanOrEqual(7);
     const breach = resolveColor('var(--status-breach)', surfaceBase);
     expect(inert, '--status-inert must not be the breach red').not.toEqual(breach);
   });
@@ -841,7 +847,7 @@ describe('DTCG token layer (globals.css)', () => {
       }
     });
 
-    it('the raised surface is lighter than the panel, and every text tone still clears 4.5:1 on it', () => {
+    it('the raised surface is lighter than the panel, and every text tone still clears 7:1 on it', () => {
       const raised = resolveColor('var(--surface-raised)', surfaceBase);
       expect(relativeLuminance(raised)).toBeGreaterThan(relativeLuminance(surfacePanel));
       expect(relativeLuminance(raised)).toBeGreaterThan(
@@ -860,7 +866,7 @@ describe('DTCG token layer (globals.css)', () => {
         '--terminal-prompt',
       ]) {
         const fg = resolveColor(`var(${token})`, raised);
-        expect(contrast(fg, raised), `${token} on --surface-raised`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(fg, raised), `${token} on --surface-raised`).toBeGreaterThanOrEqual(7);
       }
       // What is drawn rather than read: the breach mark and the focus ring.
       for (const token of ['--status-breach', '--focus-ring']) {

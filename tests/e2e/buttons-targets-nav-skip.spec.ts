@@ -17,7 +17,7 @@ import {
  *  1. "CONNECT YOUR AGENT" IS ONE OUTLINED BUTTON. Wherever that call to action
  *     is drawn it is the same control: no fill, a solid border on all four
  *     sides that is at least 3:1 against what is around it, a label at least
- *     4.5:1, no shadow, the same classes, the same words, the same place to go.
+ *     7:1, no shadow, the same classes, the same words, the same place to go.
  *
  *  2. EVERY POINTER TARGET IS AT LEAST 44 BY 44. On every page and every state
  *     that needs no account. A control passes on its own box, or on a hit area
@@ -46,7 +46,7 @@ import {
 
 const FIXTURES_BUILT = process.env.E2E_FIXTURES === '1';
 const TARGET_MIN = 44;
-const TEXT_MIN = 4.5;
+const TEXT_MIN = 7; // owner ruling 2026-10-15 (UI and copy PR): 7:1, was 7:1
 const NON_TEXT_MIN = 3;
 const INDICATOR_MIN_WIDTH = 2;
 
@@ -83,7 +83,7 @@ async function open(page: Page, path: string) {
 async function issueRun(page: Page, state: 'waiting' | 'connected' | 'expired') {
   await open(page, `/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(page.locator('section[aria-labelledby="connect-state"]')).toBeVisible();
   await settle(page);
 }
@@ -283,7 +283,7 @@ const SCREENS: Screen[] = [
     fixture: true,
     arrive: async (page) => {
       await issueRun(page, 'connected');
-      await visibleButton(page, /end run and judge/i).click();
+      await visibleButton(page, /end run and get result/i).click();
       await expect(page.getByRole('button', { name: /new run/i }).first()).toBeVisible();
       await settle(page);
     },
@@ -326,7 +326,7 @@ const SCREENS: Screen[] = [
     name: 'Replay, export declined',
     arrive: async (page) => {
       await open(page, '/runs/sample');
-      await page.getByRole('button', { name: 'Decline export' }).click();
+      await page.getByRole('button', { name: 'Not now' }).click();
       await settle(page);
     },
   },
@@ -404,9 +404,9 @@ for (const viewport of VIEWPORTS) {
 const NAV_PAGES: { path: string; active: string | null; fixture?: boolean }[] = [
   { path: '/', active: 'Home' },
   { path: '/connect', active: 'Connect / Run' },
-  { path: '/runs/sample', active: 'Live Replay' },
+  { path: '/runs/sample', active: 'Replay' },
   // A nested route lights the item its section belongs to.
-  { path: '/runs/asi10-goal-drift', active: 'Live Replay' },
+  { path: '/runs/asi10-goal-drift', active: 'Replay' },
   { path: '/leaderboard', active: 'Leaderboard' },
   { path: '/findings/sample', active: 'Findings' },
   { path: '/findings/asi10-goal-drift', active: 'Findings' },
@@ -565,7 +565,7 @@ const SKIP_STATES: SkipState[] = [
     lands: 'bar',
     arrive: async (page) => {
       await issueRun(page, 'connected');
-      await visibleButton(page, /end run and judge/i).click();
+      await visibleButton(page, /end run and get result/i).click();
       await expect(page.getByRole('button', { name: /new run/i }).first()).toBeVisible();
       await settle(page);
     },
@@ -748,7 +748,7 @@ for (const viewport of VIEWPORTS) {
           /status|alert|polite|assertive/,
         );
         // The block that starts a run always holds the control that starts it.
-        // The bar holds END RUN AND JUDGE once an agent has connected; while it
+        // The bar holds END RUN AND GET RESULT once an agent has connected; while it
         // waits, on a phone, it is the reading alone (DISCARD RUN sits in the
         // run column there), and that reading is what the reader came for.
         if (state.lands === 'start') {

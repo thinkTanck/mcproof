@@ -21,7 +21,7 @@ async function openTab(page: Page, name: string | RegExp) {
   await suppressBootSplash(page);
   await page.goto('/e2e/connect-states?state=waiting');
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await page.getByRole('group', { name: 'MCP client' }).getByRole('button', { name }).click();
 }
 

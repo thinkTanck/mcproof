@@ -22,9 +22,7 @@ test.beforeEach(async ({ page }) => {
 test('connect -> replay -> fix report -> clipboard', async ({ page }) => {
   // 1. Run setup. Sample mode needs no key and no sign-in.
   await gotoOk(page, '/connect');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Set up a red-team run.' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Set up a test run.' })).toBeVisible();
 
   // 2. Launch the sample. The CTA is the only route into the replay from here.
   await page.getByRole('link', { name: /play sample run/i }).click();
@@ -45,9 +43,9 @@ test('connect -> replay -> fix report -> clipboard', async ({ page }) => {
   const verdict = page.getByRole('complementary', { name: 'Detector verdict' });
   await expect(verdict).toContainText('COMPROMISED');
 
-  // 4. Export the fix report. The `y` prompt is a real link, so it is keyboard
+  // 4. Open the fix report. "Open fix report" is a real link, so it is keyboard
   //    and screen-reader operable; that is what we click.
-  await page.getByRole('link', { name: 'Export fix report' }).click();
+  await page.getByRole('link', { name: 'Open fix report' }).click();
   await page.waitForURL(/\/findings\//);
 
   // 5. The fix report resolved for this run — an unknown id renders the empty

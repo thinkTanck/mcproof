@@ -4,7 +4,7 @@ import { suppressBootSplash } from './support/screen';
 /**
  * A FINISHED RUN SHOWS ITS RESULT, NOT ITS SETUP (sweep 2026-10-07, C2).
  *
- * After END RUN AND JUDGE the bar said RUN FINISHED while the section under it
+ * After END RUN AND GET RESULT the bar said RUN FINISHED while the section under it
  * was still headed YOUR RUN ENDPOINT and still drew the endpoint, the token, the
  * client tabs and CHECK IT TOOK: instructions for a token the run's end revoked.
  *
@@ -17,17 +17,17 @@ test.skip(
   'NOT COVERED: E2E_FIXTURES=1 is unset, so the fixture route this suite drives is not built.',
 );
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 const result = (page: Page) => page.getByRole('region', { name: 'See the result.' });
 
 async function finished(page: Page) {
   await suppressBootSplash(page);
   await page.goto('/e2e/connect-states?state=connected');
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   // While the run is open the setup is there. This is what has to go.
   await expect(page.getByRole('heading', { name: 'Point your agent here.' })).toBeVisible();
-  await page.getByRole('button', { name: /end run and judge/i }).click();
+  await page.getByRole('button', { name: /end run and get result/i }).click();
   await expect(bar(page).getByText('RUN FINISHED')).toBeVisible();
 }
 
@@ -64,7 +64,7 @@ for (const [width, height] of [
       await finished(page);
 
       await expect(page.getByTestId('run-state-detail')).toContainText(
-        "Ending a run revokes its token, so this run's endpoint no longer accepts connections.",
+        "Ending a run cancels its token, so this run's endpoint no longer works.",
       );
       await expect(result(page).getByRole('link', { name: 'Open the replay' })).toHaveAttribute(
         'href',

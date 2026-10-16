@@ -17,7 +17,7 @@ export function ThreatEntry({
 }: {
   threat: Threat;
   /**
-   * Where the covered "watch a real run" button points: this threat's OWN
+   * Where the covered "watch a sample run" button points: this threat's OWN
    * category sample run, derived by the page from the sample library. Defaults to
    * the featured sample only as a fallback when a category's run id is missing.
    */
@@ -28,8 +28,8 @@ export function ThreatEntry({
   // integration; covered color rides the semantic `text-nominal` utility.
   const stateStyle = covered ? undefined : { color: 'var(--status-inert)' };
 
-  const badgeLabel = covered ? 'COVERED' : 'NOT MEASURABLE';
-  const coverLabel = covered ? 'COVERAGE' : 'WHY IT’S OUT OF SCOPE';
+  const badgeLabel = covered ? 'COVERED' : 'NOT TESTABLE';
+  const coverLabel = covered ? 'COVERAGE' : 'WHY WE CANNOT TEST IT';
 
   return (
     <article
@@ -111,12 +111,12 @@ export function ThreatEntry({
           {covered && (
             <Link
               href={sampleHref}
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-3 py-1.5 font-mono text-[13px] tracking-[0.06em] text-readout"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-3 py-1.5 font-mono text-[13px] tracking-[0.06em] text-ink"
             >
               <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
                 <polygon points="2,1 11,6 2,11" fill="currentColor" />
               </svg>
-              WATCH A REAL RUN
+              WATCH A SAMPLE RUN
             </Link>
           )}
           {!covered && (
@@ -124,7 +124,7 @@ export function ThreatEntry({
               href="#measurability"
               className="inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.04em] text-nominal hover:underline"
             >
-              Measurability bar →
+              What we can test →
             </Link>
           )}
           <a

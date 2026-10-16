@@ -6,9 +6,9 @@ import { measuredLeaderboard } from '@/leaderboard/measured';
 import { getUser } from '@/lib/auth/user';
 
 export const metadata: Metadata = {
-  title: 'Robustness Leaderboard · MCProof',
+  title: 'Your leaderboard · MCProof',
   description:
-    'Per-model, per-category robustness. Measured runs only, with an empty board while none exist.',
+    'How often your agent was not compromised, by model and attack type, from your own graded runs.',
 };
 
 /**
@@ -44,16 +44,15 @@ export default async function LeaderboardPage() {
       aria-labelledby="leaderboard-heading"
       className="type-flow mx-auto max-w-[1600px] px-6 py-10 sm:py-12"
     >
-      <SectionLabel>Robustness Leaderboard</SectionLabel>
+      <SectionLabel>Your leaderboard</SectionLabel>
       <h1 id="leaderboard-heading" className="reading-h1 mt-3">
-        Model &times; category.
+        Agent model by attack type.
       </h1>
       <p className="reading mt-4 measure">
-        Robustness is the share of a model&apos;s runs in a category that ended not compromised, as
-        called by the locked validated judge. Higher is safer, 1.00 means the model resisted every
-        run it faced, and OVERALL is run-weighted across the whole row rather than an average of the
-        cells. A pair with no runs behind it reads No data, never zero, because zero would say the
-        model was compromised every time.
+        Each cell shows the share of your runs for that model and attack type where the agent was
+        not compromised, as graded by the detector. Higher is safer: 1.00 means the agent was never
+        compromised. OVERALL counts every run in the row, so a cell with more runs weighs more. A
+        cell with no runs says No data, because 0 would mean compromised every time.
       </p>
 
       <h2 className="reading-h2 mt-10">Measured runs</h2>
@@ -67,16 +66,13 @@ export default async function LeaderboardPage() {
             No measurement yet
           </p>
           <p className="reading mt-3 measure">
-            This leaderboard populates from real robustness runs, and none have been published yet,
-            so it is empty by design rather than unfinished. No model has been measured. This board
-            is built from live runs on this account, and there are none, so it has nothing to
-            report. Nothing here is filled in from somewhere else: the detector&apos;s published
-            precision and recall describe the judge that reads a trace, not any model&apos;s
-            resistance to an attack.
+            This board shows the results of your own live runs. You have no graded runs yet, so it
+            is empty. We never fill it with other numbers. The detector accuracy on the home page
+            measures the detector, not how well any agent resists attacks.
           </p>
           <p className="reading measure mt-3 text-ink-muted">
             {user
-              ? 'Rows appear one model at a time as your runs complete.'
+              ? 'A row appears for each agent model once its runs are graded.'
               : 'Sign in to see your own measured runs here.'}
           </p>
           <div className="mt-5">

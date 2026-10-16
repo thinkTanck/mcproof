@@ -19,7 +19,7 @@ const CONNECT_ROUTES = ['/connect', '/e2e/connect-states'];
  * each way. Only one can be focused at a time, so they share the one place.
  */
 const SKIP_LINK =
-  'sr-only rounded-md border border-line-em bg-solid px-4 py-2 font-mono text-xs tracking-[0.06em] text-nominal focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[60] focus:target-min focus:inline-flex focus:items-center';
+  'sr-only rounded-md border border-line-em bg-solid px-4 py-2 font-mono text-xs tracking-[0.06em] text-ink focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[60] focus:target-min focus:inline-flex focus:items-center';
 
 /**
  * Move the keyboard to the run's controls WITHOUT letting the browser scroll

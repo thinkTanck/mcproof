@@ -59,7 +59,7 @@ export function SampleTrailer({
         <Link
           href={watchHref}
           aria-label={`Watch the ${asiLabel(category)} sample replay`}
-          className="inline-flex min-h-11 items-center gap-2 font-mono text-[13px] tracking-[0.08em] text-nominal transition-colors hover:underline"
+          className="inline-flex min-h-11 items-center gap-2 font-mono text-[13px] tracking-[0.08em] text-ink transition-colors hover:underline"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
             <polygon points="2,1 11,6 2,11" fill="currentColor" />
@@ -96,10 +96,10 @@ export function SampleTrailer({
         })}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-faint">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-mono text-[13px] tracking-[0.04em] text-ink-faint">
         <span>{`${stepLabel(1)} · ${firstLabel}`}</span>
         <span className="text-breach-text">
-          {`${stepLabel(compromiseIndex)} · ${offendingTool} breach`}
+          {`${stepLabel(compromiseIndex)} · ${offendingTool}, compromised here`}
         </span>
         <span>{`${stepLabel(total)} · ${lastLabel}`}</span>
       </div>

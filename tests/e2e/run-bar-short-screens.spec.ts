@@ -35,9 +35,10 @@ test.skip(
 );
 
 const FIXTURE = '/e2e/connect-states';
-const QUESTION = 'Discard this run? It ends now, its token stops working, and it is not judged.';
+const QUESTION =
+  'Discard this run? It ends now, its token stops working, and the detector does not grade it.';
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 /** Whichever copy of the control this width draws. Exactly one is ever visible. */
 const trigger = (page: Page) =>
   page.getByRole('button', { name: 'DISCARD RUN', exact: true }).filter({ visible: true });
@@ -53,7 +54,7 @@ async function issued(page: Page, state: State) {
   await page.context().route(/\.woff2?(\?|$)/, (route) => route.abort());
   await page.goto(`${FIXTURE}?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(
     bar(page).getByText(state === 'connected' ? 'AGENT CONNECTED' : 'AWAITING AGENT'),
   ).toBeVisible();
@@ -155,7 +156,7 @@ for (const [width, height] of [
         if (state === 'connected') {
           await endRun(page).scrollIntoViewIfNeeded();
           await expectUncovered(endRun(page));
-          await expect(endRun(page)).toHaveAccessibleName('End run and judge');
+          await expect(endRun(page)).toHaveAccessibleName('End run and get result');
         }
         await expect(trigger(page)).toHaveCount(1);
         await expectNoSidewaysScroll(page);

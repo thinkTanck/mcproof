@@ -103,15 +103,20 @@ function refusingPort(code: string, message: string): ConnectLiveRunPort {
  */
 const detail = () => screen.getByTestId('run-state-detail');
 
+/** An expiry as the viewer reads it: "Dec 31, 2098, 6:00 PM CST", never ISO. */
+const LOCAL_TIME = String.raw`[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} (AM|PM) \S+`;
+const EXPIRES_LOCAL = new RegExp(`EXPIRES ${LOCAL_TIME}`);
+const EXPIRED_LOCAL = new RegExp(`EXPIRED ${LOCAL_TIME}`);
+
 /**
  * The run bar's own status reading. The console holds more than one status
  * region (the notices announce into regions of their own), so the bar is reached
  * through the pinned dock that holds it rather than as "the" status.
  */
 const runBar = () =>
-  within(screen.getByRole('region', { name: /what we have actually seen/i })).getByRole('status');
+  within(screen.getByRole('region', { name: /what we have recorded so far/i })).getByRole('status');
 const findRunBar = async () =>
-  within(await screen.findByRole('region', { name: /what we have actually seen/i })).getByRole(
+  within(await screen.findByRole('region', { name: /what we have recorded so far/i })).getByRole(
     'status',
   );
 
@@ -120,13 +125,13 @@ const findRunBar = async () =>
  * second one in its result section, so the bar's is reached through the dock.
  */
 const findReplayLink = async () =>
-  within(await screen.findByRole('region', { name: /what we have actually seen/i })).findByRole(
+  within(await screen.findByRole('region', { name: /what we have recorded so far/i })).findByRole(
     'link',
     { name: /open the replay/i },
   );
 
 const issue = async (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  user.click(screen.getByRole('button', { name: /start a run/i }));
 
 function stubClipboard() {
   const writeText = vi.fn(async () => undefined);
@@ -138,7 +143,7 @@ describe('LiveRunConsole · the inverted model, stated on the screen', () => {
   it('says WE host the endpoint and the agent connects to us, before anything is issued', () => {
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
 
-    expect(screen.getByText(/point your agent at an endpoint we host/i)).toBeInTheDocument();
+    expect(screen.getByText(/connect your agent to an endpoint we host/i)).toBeInTheDocument();
     // The retired model must not survive anywhere in the copy.
     expect(document.body.textContent).not.toMatch(/your agent's (endpoint|api key)/i);
   });
@@ -178,9 +183,9 @@ describe('LiveRunConsole · the inverted model, stated on the screen', () => {
     // so a match on the tail alone would find two elements on the real screen
     // and prove neither.
     expect(
-      screen.getByText(/We serve the same tool surface for the category you picked/i),
+      screen.getByText(/We serve the tools for the attack type you picked, with no attack/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/no attack staged on it/i)).toBeInTheDocument();
+    expect(screen.queryByText(/one of which carries the attack/i)).not.toBeInTheDocument();
   });
 });
 
@@ -255,8 +260,9 @@ describe('LiveRunConsole · the per-run token is a secret shown once', () => {
     await issue(user);
     await screen.findByText(TICKET.endpoint);
 
-    expect(screen.getByText(/shown once/i)).toBeInTheDocument();
-    expect(screen.getByText(/hostile by design/i)).toBeInTheDocument();
+    expect(screen.getByText(/we show this token once/i)).toBeInTheDocument();
+    expect(screen.getByText(/built to attack your agent/i)).toBeInTheDocument();
+    expect(screen.getByText(/only this one test run of made-up content/i)).toBeInTheDocument();
   });
 
   it('never puts the token anywhere the browser would keep it', async () => {
@@ -284,7 +290,7 @@ describe('LiveRunConsole · the task goal travels out of band', () => {
 
     expect(screen.getByText('session_brief')).toBeInTheDocument();
     expect(
-      screen.getByText(/MCP has no message that lets a server tell an agent what its job is/i),
+      screen.getByText(/MCP has no way for a server to tell an agent what its job is/i),
     ).toBeInTheDocument();
   });
 
@@ -334,10 +340,14 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await screen.findByText(/no agent has connected yet/i);
 
     expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getByText(/tool calls/i)).toBeInTheDocument();
-    // The trace count is present but never passes itself off as activity.
-    expect(screen.getByText(/the trace holds 2 steps in total/i)).toBeInTheDocument();
-    expect(screen.getByText(/counts the task goal we sent and the completion step/i)).toBeVisible();
+    expect(screen.getByText(/^tool calls$/i)).toBeInTheDocument();
+    // The trace count is present but never passes itself off as activity: it
+    // counts the principal instruction the recorder seeds first and the
+    // task_complete step it appends on every build (src/harness/server/recorder.ts).
+    expect(screen.getByText(/the run has 2 steps in total/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/two of them are ours: the task we sent, and a last step we add/i),
+    ).toBeVisible();
   });
 
   it('reports the tool calls the agent actually chose to make', async () => {
@@ -356,7 +366,7 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await issue(user);
 
     expect(await screen.findByText('6')).toBeInTheDocument();
-    expect(screen.getByText(/tool calls/i)).toBeInTheDocument();
+    expect(screen.getByText(/^tool calls$/i)).toBeInTheDocument();
     expect(screen.getByText(/your agent is calling tools/i)).toBeInTheDocument();
   });
 
@@ -446,7 +456,7 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
     await screen.findByText(/no agent has connected yet/i);
 
     expect(within(panel()).getByText('AWAITING AGENT')).toBeInTheDocument();
-    expect(detail()).toHaveTextContent(/changes to AGENT CONNECTED the moment your agent reaches/i);
+    expect(detail()).toHaveTextContent(/changes to AGENT CONNECTED as soon as your agent reaches/i);
   });
 
   it('moves the reading to AGENT CONNECTED once the agent is there, and drops the hint', async () => {
@@ -461,14 +471,30 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
     expect(detail()).not.toHaveTextContent(/changes to AGENT CONNECTED/i);
   });
 
-  it('prints when the run expires, beside the state, exactly as issued', async () => {
+  it('prints when the run expires, beside the state, in the viewer local time', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
     await issue(user);
     await screen.findByText(/no agent has connected yet/i);
 
-    expect(detail()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
+    // Read like LAST SEEN (ruling 2026-10-15): "Dec 31, 2098, 6:00 PM CST" in the
+    // viewer's zone, with the ISO value kept in the <time> element's datetime.
+    expect(detail()).toHaveTextContent(EXPIRES_LOCAL);
+    expect(detail()).not.toHaveTextContent(TICKET.expiresAt);
+    expect(detail().querySelector(`time[datetime="${TICKET.expiresAt}"]`)).toBeInTheDocument();
     expect(panel()).not.toHaveTextContent('RUN EXPIRED');
+  });
+
+  it('prints the ticket expiry in the viewer local time as well', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={BEFORE} />);
+    await issue(user);
+    await screen.findByText(/no agent has connected yet/i);
+
+    const ticketExpiry = screen.getByTestId('ticket-expires');
+    expect(ticketExpiry).toHaveTextContent(EXPIRES_LOCAL);
+    expect(ticketExpiry).not.toHaveTextContent(TICKET.expiresAt);
+    expect(ticketExpiry.querySelector('time')).toHaveAttribute('dateTime', TICKET.expiresAt);
   });
 
   it('says RUN EXPIRED once the clock passes the expiry, instead of waiting for ever', async () => {
@@ -478,9 +504,9 @@ describe('LiveRunConsole · a quiet run is told apart from a dead one', () => {
 
     expect(await within(panel()).findByText('RUN EXPIRED')).toBeInTheDocument();
     expect(within(panel()).queryByText('AWAITING AGENT')).toBeNull();
-    expect(detail()).toHaveTextContent(/no longer accept connections/i);
-    expect(detail()).toHaveTextContent(/issue a new run/i);
-    expect(detail()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(/no longer work/i);
+    expect(detail()).toHaveTextContent(/start a new run/i);
+    expect(detail()).toHaveTextContent(EXPIRED_LOCAL);
   });
 
   it('never calls a finished run expired, however old it is', async () => {
@@ -515,7 +541,9 @@ describe('LiveRunConsole · ending the run and handing off', () => {
     await screen.findByText(/no agent has connected yet/i);
 
     // Ending a run nobody connected to would spend a judge call on nothing.
-    expect(screen.queryByRole('button', { name: /end run and judge/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /end run and get result/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('ends the run for the run that was issued, and hands off to its stored replay', async () => {
@@ -526,7 +554,7 @@ describe('LiveRunConsole · ending the run and handing off', () => {
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
 
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     expect(port.finish).toHaveBeenCalledWith({ runId: 'run-77' });
     // The replay is addressed by the PERSISTED row id, not the hosting run id.
@@ -556,7 +584,7 @@ describe('LiveRunConsole · ending the run and handing off', () => {
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     expect(await screen.findByText('DETECTOR DID NOT ANSWER')).toBeInTheDocument();
     // The run is not lost: what the user needs to reconnect is still there.
@@ -578,9 +606,9 @@ describe('LiveRunConsole · ending the run and handing off', () => {
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
-    expect(await screen.findByText('RUN RESULT UNUSABLE')).toBeInTheDocument();
+    expect(await screen.findByText('RUN RESULT INVALID')).toBeInTheDocument();
   });
 });
 
@@ -637,7 +665,7 @@ describe('LiveRunConsole · refusals fail closed and say so calmly', () => {
 
     await issue(user);
 
-    expect(await screen.findByText('ALLOWANCE CHECK UNAVAILABLE')).toBeInTheDocument();
+    expect(await screen.findByText('FREE-RUN CHECK FAILED')).toBeInTheDocument();
     expect(screen.getByText(sentence)).toBeInTheDocument();
   });
 
@@ -693,7 +721,7 @@ describe('LiveRunConsole · the sign-in gate', () => {
   it('offers no issue control at all when signed out', () => {
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn={false} />);
 
-    expect(screen.queryByRole('button', { name: /issue run endpoint/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start a run/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
       'href',
       '/sign-in?next=%2Fconnect',
@@ -720,7 +748,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
 
     expect(await screen.findByText('AGENT CONNECTED')).toBeVisible();
     expect(screen.getByText('3')).toBeVisible();
-    expect(screen.getByRole('button', { name: /end run and judge/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /end run and get result/i })).toBeVisible();
     expect(port.reattach).toHaveBeenCalledWith({ runId: 'run-77' });
     expect(port.readState).toHaveBeenCalledWith({ runId: 'run-77' });
     expect(port.start).not.toHaveBeenCalled();
@@ -760,7 +788,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     const port = reattached();
     render(<LiveRunConsole port={port} category="ASI01" signedIn reattachRunId="run-77" />);
 
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     expect(port.finish).toHaveBeenCalledWith({ runId: 'run-77' });
     expect(await findReplayLink()).toHaveAttribute('href', '/runs/stored-77');
@@ -780,11 +808,11 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     );
 
     expect(await screen.findByText('AWAITING AGENT')).toBeVisible();
-    expect(screen.getByText(/cannot be registered with a client now/i)).toBeVisible();
+    expect(screen.getByText(/you cannot set it up now/i)).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: /issue a fresh run/i }));
+    await user.click(screen.getByRole('button', { name: /start a new run/i }));
 
-    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /start a run/i })).toBeVisible();
     expect(onRunChange).toHaveBeenLastCalledWith(null);
   });
 
@@ -792,7 +820,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
     render(<LiveRunConsole port={reattached()} category="ASI01" signedIn reattachRunId="run-77" />);
 
     await screen.findByText('AGENT CONNECTED');
-    expect(screen.queryByRole('button', { name: /issue a fresh run/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start a new run/i })).not.toBeInTheDocument();
   });
 
   it('links a run that had already finished to its saved replay', async () => {
@@ -811,7 +839,9 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
       'href',
       '/runs/stored-77',
     );
-    expect(screen.queryByRole('button', { name: /end run and judge/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /end run and get result/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('says plainly when a finished run has no saved result, and links nowhere', async () => {
@@ -850,7 +880,7 @@ describe('LiveRunConsole · reattaching to a run by its id', () => {
 
     expect(await screen.findByText('RUN NOT FOUND')).toBeVisible();
     expect(screen.getByText(/that run was not found/i)).toBeVisible();
-    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /start a run/i })).toBeVisible();
     expect(port.readState).not.toHaveBeenCalled();
   });
 
@@ -925,7 +955,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
       readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3, steps: 8 })),
     });
 
-  const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+  const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 
   it('puts the run state before the endpoint and the setup', async () => {
     const user = userEvent.setup();
@@ -945,7 +975,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
     await issue(user);
 
-    const button = await screen.findByRole('button', { name: /end run and judge/i });
+    const button = await screen.findByRole('button', { name: /end run and get result/i });
     expect(dock()).toContainElement(runBar());
     expect(dock()).toContainElement(button);
     // Pinned below the 72px header at EVERY width, by class: sticky with a top
@@ -978,7 +1008,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     await screen.findByText('AGENT CONNECTED');
 
     expect(within(dock()).getAllByRole('status')).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: /end run and judge/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /end run and get result/i })).toHaveLength(1);
     expect(screen.getAllByText('AGENT CONNECTED', { selector: 'span' })).toHaveLength(1);
   });
 
@@ -986,7 +1016,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={connected()} category="ASI01" signedIn />);
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     const link = await findReplayLink();
     expect(dock()).toContainElement(link);
@@ -995,7 +1025,7 @@ describe('LiveRunConsole · status and END RUN lead the active run', () => {
   it('leads a reopened run with the same dock', async () => {
     render(<LiveRunConsole port={connected()} category="ASI01" signedIn reattachRunId="run-77" />);
 
-    const button = await screen.findByRole('button', { name: /end run and judge/i });
+    const button = await screen.findByRole('button', { name: /end run and get result/i });
     expect(dock()).toContainElement(button);
   });
 });
@@ -1096,10 +1126,10 @@ describe('LiveRunConsole · a run that is ended but whose result is not saved ye
       <LiveRunConsole port={port} category="ASI01" signedIn now={LONG_AFTER} pollIntervalMs={10} />,
     );
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
     pressed = true;
 
-    expect(await screen.findByText(/is being judged/i)).toBeVisible();
+    expect(await screen.findByText(/the detector is grading it/i)).toBeVisible();
     expect(screen.queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
   });
 });
@@ -1182,7 +1212,7 @@ describe('LiveRunConsole · audit fixes', () => {
  */
 describe('LiveRunConsole · the selection and the issued run can disagree, and the screen says so', () => {
   const notice = () => screen.queryByTestId('run-selection-notice');
-  const fresh = { name: /issue a fresh run/i };
+  const fresh = { name: /start a new run/i };
 
   it('says nothing while the selection matches the run', async () => {
     const user = userEvent.setup();
@@ -1260,7 +1290,7 @@ describe('LiveRunConsole · the selection and the issued run can disagree, and t
 
 describe('LiveRunConsole · an expired run that still holds its token is not a dead end', () => {
   const AFTER = () => new Date('2099-01-01T00:00:01.000Z');
-  const fresh = { name: /issue a fresh run/i };
+  const fresh = { name: /start a new run/i };
 
   it('draws the control its own sentence tells the reader to use', async () => {
     const user = userEvent.setup();
@@ -1277,10 +1307,10 @@ describe('LiveRunConsole · an expired run that still holds its token is not a d
     await issue(user);
     await screen.findByText('RUN EXPIRED');
 
-    expect(detail()).toHaveTextContent(/issue a new run/i);
+    expect(detail()).toHaveTextContent(/start a new run/i);
     await user.click(within(detail()).getByRole('button', fresh));
 
-    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /start a run/i })).toBeVisible();
     expect(onRunChange).toHaveBeenLastCalledWith(null);
   });
 
@@ -1315,8 +1345,8 @@ describe('LiveRunConsole · an expired run that still holds its token is not a d
 });
 
 describe('LiveRunConsole · a finished run can be followed by another without a reload', () => {
-  const fresh = { name: /issue a fresh run/i };
-  const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+  const fresh = { name: /start a new run/i };
+  const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
   const connected = () =>
     portWith({ readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 3 })) });
 
@@ -1326,12 +1356,12 @@ describe('LiveRunConsole · a finished run can be followed by another without a 
     const port = connected();
     render(<LiveRunConsole port={port} category="ASI01" signedIn onRunChange={onRunChange} />);
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     expect(await within(dock()).findByRole('link', { name: /open the replay/i })).toBeVisible();
     await user.click(within(dock()).getByRole('button', fresh));
 
-    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /start a run/i })).toBeVisible();
     expect(onRunChange).toHaveBeenLastCalledWith(null);
     // Letting the finished run go ends nothing and judges nothing twice.
     expect(port.finish).toHaveBeenCalledTimes(1);
@@ -1351,11 +1381,11 @@ describe('LiveRunConsole · a finished run can be followed by another without a 
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
-    const end = await screen.findByRole('button', { name: /end run and judge/i });
+    const end = await screen.findByRole('button', { name: /end run and get result/i });
     expect(screen.queryByRole('button', fresh)).not.toBeInTheDocument();
 
     await user.click(end);
-    await screen.findByRole('button', { name: /judging/i });
+    await screen.findByRole('button', { name: /grading/i });
     expect(screen.queryByRole('button', fresh)).not.toBeInTheDocument();
 
     answer({ ok: true, value: SUMMARY });
@@ -1441,11 +1471,11 @@ describe('LiveRunConsole · the sentence under the bar agrees with the bar', () 
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     expect(await within(bar()).findByText('RUN FINISHED')).toBeInTheDocument();
     expect(detail()).not.toHaveTextContent(live);
-    expect(detail()).toHaveTextContent(/ended, judged and saved/i);
+    expect(detail()).toHaveTextContent(/ended, been graded and been saved/i);
   });
 
   it('says the run is being judged when the server reads it ended mid-judgement', async () => {
@@ -1462,11 +1492,11 @@ describe('LiveRunConsole · the sentence under the bar agrees with the bar', () 
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn pollIntervalMs={10} />);
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     expect(await within(bar()).findByText('RUN FINISHED')).toBeInTheDocument();
     expect(detail()).not.toHaveTextContent(live);
-    expect(detail()).toHaveTextContent(/is being judged/i);
+    expect(detail()).toHaveTextContent(/the detector is grading it/i);
   });
 });
 
@@ -1598,9 +1628,9 @@ describe('LiveRunConsole · an expired run drops the setup that can no longer be
     // The token notice, in both of its forms.
     expect(screen.queryByText('RUN TOKEN')).not.toBeInTheDocument();
     expect(screen.queryByText(/RUN REOPENED/)).not.toBeInTheDocument();
-    expect(container.textContent).not.toMatch(/token is shown once|we cannot show it again/i);
+    expect(container.textContent).not.toMatch(/show this token once|we cannot show it again/i);
     // No sentence that says the dead run still works.
-    expect(container.textContent).not.toMatch(/keeps working/i);
+    expect(container.textContent).not.toMatch(/can keep working/i);
     // The client steps and the task to hand over.
     expect(screen.queryByRole('region', { name: /register .* client/i })).not.toBeInTheDocument();
     expect(
@@ -1612,10 +1642,10 @@ describe('LiveRunConsole · an expired run drops the setup that can no longer be
 
   const expectTheWayOn = () => {
     expect(within(runBar()).getByText('RUN EXPIRED')).toBeInTheDocument();
-    expect(detail()).toHaveTextContent(/passed its expiry before it finished/i);
-    expect(detail()).toHaveTextContent(/no longer accept connections/i);
-    expect(detail()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
-    expect(screen.getAllByRole('button', { name: /issue a fresh run/i })).toHaveLength(1);
+    expect(detail()).toHaveTextContent(/expired before it finished/i);
+    expect(detail()).toHaveTextContent(/no longer work/i);
+    expect(detail()).toHaveTextContent(EXPIRED_LOCAL);
+    expect(screen.getAllByRole('button', { name: /start a new run/i })).toHaveLength(1);
   };
 
   it('for a run issued on this page, which still holds its token', async () => {
@@ -1670,7 +1700,7 @@ describe('LiveRunConsole · an expired run drops the setup that can no longer be
     expect(screen.getByText(REATTACH.endpoint)).toBeVisible();
     expect(screen.getByRole('button', { name: /copy run endpoint/i })).toBeVisible();
     expect(screen.getByText(/RUN REOPENED · TOKEN NOT SHOWN/)).toBeVisible();
-    expect(screen.getByText(/an agent that already holds the token keeps working/i)).toBeVisible();
+    expect(screen.getByText(/an agent that already has the token can keep working/i)).toBeVisible();
     expect(screen.getByRole('region', { name: /give your agent its task/i })).toBeVisible();
     expect(screen.getByText(REATTACH.taskGoal)).toBeVisible();
     expect(screen.getByRole('button', { name: /copy task goal/i })).toBeVisible();

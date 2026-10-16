@@ -26,7 +26,7 @@ import type {
  *                        the client's other servers, and the live connection
  *                        reading the console already tracks.
  *   2. Give it the job   the task goal, with a copy control.
- *   3. Finish            "When your agent is done, End run and judge."
+ *   3. Finish            "When your agent is done, End run and get result."
  *
  * What this suite holds down:
  *   - the six tabs, their order, and that none is preselected;
@@ -143,7 +143,7 @@ const steps = () => [...panel().querySelectorAll<HTMLElement>('[data-testid="set
 async function opened(tab?: TabId, phase: LiveRunPhase = 'waiting') {
   const user = userEvent.setup();
   render(<LiveRunConsole port={portWith(phase)} category="ASI01" signedIn />);
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
   await screen.findByText(TICKET.endpoint);
   if (tab) await pick(user, tab);
   return user;
@@ -240,7 +240,8 @@ describe('ClientSetup · six tabs, in order, and none preselected', () => {
 
     const line = within(setup()).getByTestId('chat-apps-line');
     expect(line.textContent).toBe(
-      "Chat apps (Claude, ChatGPT, Gemini) can't carry a run token. Use one of the agents above.",
+      'Chat apps such as Claude, ChatGPT and Gemini generally cannot send a run token, so use ' +
+        'one of the agents above. We have not tested every chat app.',
     );
     expect(line.className).toMatch(/\breading\b/);
     expect(picker().compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -251,7 +252,7 @@ describe('ClientSetup · six tabs, in order, and none preselected', () => {
     await opened();
 
     expect(within(setup()).getByText(/no other tools attached/i)).toBeInTheDocument();
-    expect(within(setup()).getByText(/reach the real thing/i)).toBeInTheDocument();
+    expect(within(setup()).getByText(/could act on those instructions there/i)).toBeInTheDocument();
     const warning = within(setup()).getByText('ATTACH NOTHING ELSE');
     expect(warning.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
     expect(warning.className).toMatch(/caution/);
@@ -332,7 +333,7 @@ describe('ClientSetup · every tab is the same three steps', () => {
     await opened(id);
 
     const sentence = within(steps()[2]!).getByTestId('finish-line');
-    expect(sentence.textContent).toBe('When your agent is done, End run and judge.');
+    expect(sentence.textContent).toBe('When your agent is done, press End run and get result.');
     expect(within(steps()[2]!).queryAllByRole('button')).toHaveLength(0);
   });
 
@@ -357,7 +358,7 @@ describe('ClientSetup · the status under step 1 is the console own reading', ()
     expect(status.outerHTML).toMatch(/nominal/);
     expect(status.outerHTML).not.toMatch(/caution|breach/);
     // The same reading the pinned bar shows, never a second opinion.
-    const bar = screen.getByRole('region', { name: /what we have actually seen/i });
+    const bar = screen.getByRole('region', { name: /what we have recorded so far/i });
     expect(within(bar).getByText('AGENT CONNECTED')).toBeInTheDocument();
   });
 
@@ -365,7 +366,7 @@ describe('ClientSetup · the status under step 1 is the console own reading', ()
     const user = userEvent.setup();
     const port = portWith();
     render(<LiveRunConsole port={port} category="ASI01" signedIn pollIntervalMs={60_000} />);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await screen.findByText(TICKET.endpoint);
     await screen.findAllByText('AWAITING AGENT');
     const before = vi.mocked(port.readState).mock.calls.length;
@@ -570,7 +571,7 @@ describe('ClientSetup · Claude Code keeps the Code panel route under it, not re
     expect(text).toContain(MCP_SERVER_NAME);
     expect(text).toMatch(/compromised/i);
     expect(text).toMatch(/your real connectors/i);
-    expect(text).toMatch(/terminal route/i);
+    expect(text).toMatch(/terminal steps above/i);
     expect(warning().querySelector('p.reading')).not.toBeNull();
   });
 
@@ -594,9 +595,10 @@ describe('ClientSetup · Claude Code keeps the Code panel route under it, not re
     );
     // The JSON form is gone: it was the one command PowerShell broke.
     expect(panel().textContent).not.toMatch(/add-json/);
-    // The panel has no /mcp, so no route step may tell the reader to use it.
-    expect(list.textContent).not.toMatch(/type \/mcp/i);
-    expect(route().textContent).toMatch(/echoes the token/i);
+    // No MCP setting reaches the panel's connectors, so no route step may tell
+    // the reader to check or switch them with /mcp.
+    expect(list.textContent).not.toMatch(/(type|run|use) \/mcp/i);
+    expect(route().textContent).toMatch(/prints the token/i);
   });
 
   it('is on the Claude Code tab only', async () => {
@@ -649,7 +651,7 @@ describe('ClientSetup · Other agent', () => {
     expect(writeText.mock.calls.at(-1)?.[0]).toBe(`Bearer ${TICKET.token}`);
   });
 
-  it('names the frameworks with MCP support, and which need an adapter', async () => {
+  it('names the frameworks with MCP support, and the one that needs an adapter', async () => {
     await opened('other');
     const line = within(panel()).getByTestId('frameworks-line').textContent ?? '';
 
@@ -658,27 +660,31 @@ describe('ClientSetup · Other agent', () => {
       'OpenAI Agents SDK',
       'CrewAI',
       'Microsoft Agent Framework',
+      'Google ADK',
     ]) {
       expect(line).toContain(name);
     }
-    expect(line).toMatch(/LangGraph and Google ADK.*adapter/);
+    // Google ADK has its own McpToolset (adk.dev, read 2026-10-15); only
+    // LangGraph goes through an adapter (LangChain's MCP adapters).
+    expect(line).toMatch(/LangGraph connects through LangChain's MCP adapters/);
+    expect(line).not.toMatch(/Google ADK connect/);
     expect(line.indexOf('Microsoft Agent Framework')).toBeLessThan(line.indexOf('LangGraph'));
   });
 
-  it('explains MCP Inspector to a beginner, and that pressing tools by hand is not a test', async () => {
+  it('explains MCP Inspector to a beginner, and that calling tools yourself is not a test', async () => {
     await opened('other');
     const note = within(panel()).getByRole('note', { name: 'What is MCP Inspector?' });
     const text = note.textContent ?? '';
 
     expect(text).toMatch(/free tool from the MCP project/i);
-    expect(text).toMatch(/by hand/i);
+    expect(text).toMatch(/call its tools yourself/i);
     expect(text).toMatch(/only to check (that )?your endpoint and token work/i);
     for (const part of [/add a server/i, /Streamable HTTP/, /Authorization header/, /list/i]) {
       expect(text).toMatch(part);
     }
     expect(text).toMatch(/not an agent/i);
     expect(text).toMatch(/is not a test/i);
-    expect(text).toMatch(/Discard run instead of End run and judge/);
+    expect(text).toMatch(/Discard run instead of End run and get result/);
     // A beginner note, not a warning: inert, never caution, never breach.
     expect(note.outerHTML).not.toMatch(/caution|breach/);
     // The title is a sentence a person reads, so it is not an INSTRUMENT label.
@@ -832,9 +838,9 @@ describe('ClientSetup · plain words, the right type roles, boxes that stay in t
     await opened();
 
     const body = document.body.textContent ?? '';
-    expect(body).toMatch(/shown once/i);
-    expect(body).toMatch(/hostile by design/i);
-    expect(body).toMatch(/MCP has no message that lets a server tell an agent what its job is/i);
+    expect(body).toMatch(/show this token once/i);
+    expect(body).toMatch(/built to attack your agent/i);
+    expect(body).toMatch(/MCP has no way for a server to tell an agent what its job is/i);
     expect(body).toMatch(/if your client does not support prompts/i);
   });
 });
@@ -865,7 +871,7 @@ describe('ClientSetup · a connection is announced once', () => {
     }));
     const user = userEvent.setup();
     render(<LiveRunConsole port={port} category="ASI01" signedIn pollIntervalMs={20} />);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await screen.findByText(TICKET.endpoint);
     await pick(user, 'code');
     const tabStatus = within(steps()[0]!).getByTestId('agent-status');

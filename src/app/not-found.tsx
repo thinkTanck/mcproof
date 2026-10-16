@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   title: 'Not found · MCProof',
-  description: 'No MCProof route or run at this address.',
+  description: 'There is no MCProof page or run at this address.',
 };
 
 /**
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
  * CSS-only blink, and every line is visible without JS.
  */
 const ROUTES = [
-  { href: '/', cmd: 'home', hint: 'the front door' },
+  { href: '/', cmd: 'home', hint: 'the home page' },
   { href: '/runs/sample', cmd: 'runs/sample', hint: 'watch the sample run' },
   { href: '/connect', cmd: 'connect', hint: 'connect your agent' },
 ] as const;
@@ -69,9 +69,11 @@ export default async function NotFound() {
             className="pl-4 font-mono text-[15px] font-normal"
             style={{ color: 'var(--status-inert)' }}
           >
-            404 · route not found
+            404 · page not found
           </h1>
-          <div className="pl-4 text-ink-muted">no MCProof route or run at this address.</div>
+          <div className="pl-4 text-ink-muted">
+            There is no MCProof page or run at this address.
+          </div>
 
           {/* Suggest routes → the wayfinding, as command output. */}
           <div className="mt-3 break-words">

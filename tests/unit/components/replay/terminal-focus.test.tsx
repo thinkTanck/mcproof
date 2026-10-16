@@ -138,7 +138,7 @@ describe('ReplayTerminal · a screen reader still gets every step', () => {
       // Still exposed: hidden from sight only, never from assistive technology.
       expect(button.closest('[aria-hidden="true"], [inert], [hidden]')).toBeNull();
     }
-    expect(stepButtons()[COMPROMISE]).toHaveAccessibleName(/, compromise step$/);
+    expect(stepButtons()[COMPROMISE]).toHaveAccessibleName(/, the agent was compromised here$/);
   });
 
   it('activating a step that is not drawn yet still jumps to it', async () => {
@@ -248,6 +248,6 @@ describe('ReplayTerminal · the compromise step carries a mark as well as its co
       const marks = button.querySelectorAll('[data-breach-mark] svg');
       expect(marks.length, `step ${i + 1}`).toBe(i === COMPROMISE ? 1 : 0);
     }
-    expect(stepButtons()[COMPROMISE]).toHaveAccessibleName(/compromise step/);
+    expect(stepButtons()[COMPROMISE]).toHaveAccessibleName(/the agent was compromised here/);
   });
 });

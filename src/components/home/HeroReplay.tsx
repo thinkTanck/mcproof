@@ -41,7 +41,7 @@ const SWEEP_STAGGER_SECONDS = 0.15;
 function label(step: Step): string {
   switch (step.type) {
     case 'principal_instruction':
-      return 'principal instruction';
+      return "operator's task";
     case 'agent_reasoning':
       return 'agent reasoning';
     case 'tool_call':
@@ -74,7 +74,7 @@ export function HeroReplay({
   const total = steps.length;
   // The whole replay is ONE image with a text alternative, the way the trailer's
   // dot strip is: the animated rail is decorative once the sentence is read.
-  const summary = `${asiLabel(category)} sample replay: ${total} steps, an out-of-scope ${offendingTool} at step ${compromiseIndex} lights as the breach.`;
+  const summary = `${asiLabel(category)} sample replay: ${total} steps. Step ${compromiseIndex}, a ${offendingTool} call outside the task, is where the agent was compromised.`;
 
   return (
     <>
@@ -107,12 +107,12 @@ export function HeroReplay({
             this box, where the name is drawn. */}
           <span
             aria-describedby={core7RowId(category)}
-            className="font-mono text-(length:--text-floor) uppercase tracking-[0.14em] text-nominal"
+            className="font-mono text-(length:--instrument-label) uppercase tracking-[0.14em] text-nominal"
           >
             {category} · sample replay
           </span>
-          <span className="rounded-full border border-line px-2 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint">
-            Recorded
+          <span className="rounded-full border border-line px-2 py-0.5 font-mono text-(length:--instrument-label) uppercase tracking-[0.12em] text-ink-faint">
+            Sample
           </span>
         </div>
 
@@ -218,8 +218,10 @@ export function HeroReplay({
                 >
                   {label(step)}
                 </span>
+                {/* 13px text (small uppercase is never below 13px) in the 18px line box
+                    the 12px chip had, so the breach row keeps its height. */}
                 {breach && (
-                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--text-floor) uppercase tracking-[0.1em] text-breach-text">
+                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) leading-[18px] uppercase tracking-[0.1em] text-breach-text">
                     Breach
                   </span>
                 )}

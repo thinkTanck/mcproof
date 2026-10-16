@@ -18,11 +18,11 @@ import {
  * report, the sample replay, Sign in) and the states of each that need no
  * account, at a phone width and a desk width:
  *
- *  1. CONTRAST. Every piece of rendered text is at least 4.5:1 against what is
+ *  1. CONTRAST. Every piece of rendered text is at least 7:1 against what is
  *     painted under it. axe's `color-contrast` rule reports zero violations,
  *     and every node axe could not decide (text over a gradient or a
  *     translucent panel, which it marks "incomplete") is computed here and held
- *     to the same 4.5:1. A disabled control is exempt under WCAG 1.4.3; its
+ *     to the same 7:1. A disabled control is exempt under WCAG 1.4.3; its
  *     label is still held to 3:1, so it cannot fade further than it has.
  *     Chromium only: Playwright's Windows WebKit crashes inside this axe rule.
  *
@@ -42,7 +42,7 @@ import {
 
 const FIXTURES_BUILT = process.env.E2E_FIXTURES === '1';
 
-const TEXT_MIN = 4.5;
+const TEXT_MIN = 7; // owner ruling 2026-10-15 (UI and copy PR): 7:1, was 7:1
 /** A disabled label is exempt, but it is not allowed to fade below this. */
 const DISABLED_MIN = 3;
 const TEXT_FLOOR = 12;
@@ -78,7 +78,7 @@ async function open(page: Page, path: string) {
 async function issueRun(page: Page, state: 'waiting' | 'connected') {
   await open(page, `/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(page.getByRole('group', { name: 'MCP client' })).toBeVisible();
   await settle(page);
 }
@@ -156,7 +156,7 @@ const SCREENS: Screen[] = [
     arrive: async (page) => {
       await issueRun(page, 'connected');
       await page
-        .getByRole('button', { name: /end run and judge/i })
+        .getByRole('button', { name: /end run and get result/i })
         .filter({ visible: true })
         .first()
         .click();
@@ -208,7 +208,7 @@ for (const viewport of VIEWPORTS) {
           'NOT COVERED: E2E_FIXTURES=1 is unset, so the fixture route this state needs is not built.',
         );
 
-        test('text is at least 4.5:1 against its background', async ({ page, browserName }) => {
+        test('text is at least 7:1 against its background', async ({ page, browserName }) => {
           test.skip(
             browserName !== 'chromium',
             "Chromium only: Playwright's Windows WebKit crashes inside axe's color-contrast rule.",
@@ -221,19 +221,21 @@ for (const viewport of VIEWPORTS) {
           expect(pairs.length, 'pieces of text measured').toBeGreaterThan(5);
           expect(
             pairs.filter((pair) => !pair.disabled && pair.ratio < TEXT_MIN).map(line),
-            'text under 4.5:1',
+            'text under 7:1',
           ).toEqual([]);
           expect(
             pairs.filter((pair) => pair.disabled && pair.ratio < DISABLED_MIN).map(line),
             'a disabled label that has faded under 3:1',
           ).toEqual([]);
 
-          const axe = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
+          const axe = await new AxeBuilder({ page })
+            .withRules(['color-contrast-enhanced'])
+            .analyze();
           expect(
             axe.violations.flatMap((violation) =>
               violation.nodes.map((node) => node.target.join(' ')),
             ),
-            'axe color-contrast violations',
+            'axe color-contrast-enhanced violations',
           ).toEqual([]);
 
           // What axe could not decide is decided here, one node at a time.
@@ -245,9 +247,7 @@ for (const viewport of VIEWPORTS) {
             else if (own.ratio < (own.disabled ? DISABLED_MIN : TEXT_MIN))
               undecided.push(line(own));
           }
-          expect(undecided, 'nodes axe left incomplete that are not 4.5:1 when computed').toEqual(
-            [],
-          );
+          expect(undecided, 'nodes axe left incomplete that are not 7:1 when computed').toEqual([]);
         });
 
         test('no text is drawn under 12px, and every tab stop shows the shared ring', async ({

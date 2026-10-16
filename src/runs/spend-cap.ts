@@ -75,10 +75,10 @@ export class LiveRunSpendCapError extends Error {
   constructor(reason: LiveRunSpendCapReason, cap: number, used: number | null) {
     super(
       reason === 'CAP_REACHED'
-        ? 'Live runs are paused: the operator budget for this billing period has been reached. ' +
-            'Sample playback stays open to everyone.'
-        : 'Live runs are paused: the spend control could not be read, so we cannot confirm this ' +
-            'run is inside the budget. Sample playback stays open to everyone.',
+        ? 'Live runs are paused until next month because we have reached our budget for this ' +
+            'month. Anyone can still watch the samples.'
+        : 'Live runs are paused because we could not check our budget, so we cannot confirm ' +
+            'this run fits within it. Anyone can still watch the samples.',
     );
     this.name = 'LiveRunSpendCapError';
     this.reason = reason;

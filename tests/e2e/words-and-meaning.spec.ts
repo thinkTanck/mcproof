@@ -83,7 +83,7 @@ async function openHeaderFixture(page: Page, mode: 'live' | 'sample') {
 async function issueRun(page: Page, state: 'waiting' | 'connected' | 'expired') {
   await open(page, `/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(page.locator('section[aria-labelledby="connect-state"]')).toBeVisible();
   await settle(page);
 }
@@ -192,7 +192,7 @@ const SCREENS: Screen[] = [
     fixture: true,
     arrive: async (page) => {
       await issueRun(page, 'connected');
-      await visibleButton(page, /end run and judge/i).click();
+      await visibleButton(page, /end run and get result/i).click();
       await expect(page.getByRole('button', { name: /new run/i }).first()).toBeVisible();
       await settle(page);
     },
@@ -319,7 +319,7 @@ for (const viewport of VIEWPORTS) {
 
     // ── 2. Home: the subhead and the badge ─────────────────────────────────
 
-    test('Home says what the product does, in one sentence under the headline', async ({
+    test('Home says what the product does, in plain words under the headline', async ({
       page,
       browserName,
     }) => {
@@ -343,7 +343,13 @@ for (const viewport of VIEWPORTS) {
       expect(read.afterHeading, 'directly after the headline').toBe(true);
       expect(read.below, 'under the headline').toBe(true);
       expect(read.text).toMatch(/^MCProof /);
-      expect(read.text, 'one sentence').toMatch(/^[^.!?]+\.$/);
+      // Copy pass 2026-10-15: a short paragraph that says what MCP, the detector
+      // and "compromised" mean, ending in a full stop.
+      expect(read.text, 'says what MCP is').toMatch(
+        /over MCP, the protocol agents use to call tools\./,
+      );
+      expect(read.text, 'defines compromised').toMatch(/compromised, meaning /);
+      expect(read.text, 'ends a sentence').toMatch(/\.$/);
       expect(read.text, 'no em dash').not.toMatch(/—/);
       expect(read.text, 'no number that could drift').not.toMatch(/\d/);
       expect(read.family, 'READING role: the sans the headline is set in').toBe(read.headingFamily);

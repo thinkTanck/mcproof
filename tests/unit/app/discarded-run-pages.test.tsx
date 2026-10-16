@@ -84,7 +84,9 @@ describe.each(PAGES)('%s: a discarded run, for its owner', (_route, page, metada
     render(await open(page, discardedId));
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(RUN_DISCARDED_SENTENCE);
-    expect(RUN_DISCARDED_SENTENCE).toBe('This run was discarded and not judged.');
+    expect(RUN_DISCARDED_SENTENCE).toBe(
+      'This run was discarded, so the detector did not grade it.',
+    );
   });
 
   it('sets the sentence in the READING role and the badge as an inert label with an icon', async () => {

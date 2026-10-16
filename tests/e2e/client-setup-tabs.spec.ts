@@ -36,7 +36,7 @@ async function issued(page: Page, state: 'waiting' | 'connected' = 'waiting') {
   await suppressBootSplash(page);
   await page.goto(`/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(picker(page)).toBeVisible();
   // The issued run eases in on a transform. A box measured part way through is
   // scaled, so a 44px target reads a fraction short. Measure the resting state.
@@ -96,7 +96,7 @@ for (const viewport of [
         await expect(panel(page).getByTestId('config-block')).toHaveCount(1);
         await expect(panel(page).getByTestId('agent-status')).toHaveText('AWAITING AGENT');
         await expect(panel(page).getByTestId('finish-line')).toHaveText(
-          'When your agent is done, End run and judge.',
+          'When your agent is done, press End run and get result.',
         );
         expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
         // Every control the tab added is a 44px target too.

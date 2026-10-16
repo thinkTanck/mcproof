@@ -88,13 +88,13 @@ export default function GlobalError({
               System · Critical fault
             </p>
             <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 600, color: '#d3e2ea' }}>
-              The interface went down
+              MCProof stopped working
             </h1>
           </div>
 
           <p style={{ margin: 0, fontSize: '1.0625rem', lineHeight: 1.55, color: '#99b8c7' }}>
-            A critical error took down MCProof. Reloading usually clears it. If it persists, the run
-            may need to be restarted.
+            An error stopped MCProof. Reload the page. If that does not work, you may need to start
+            your run again.
           </p>
 
           {error.digest ? (

@@ -32,7 +32,7 @@ describe('step labels read "#N"', () => {
       />,
     );
     expect(screen.getByText('#1 · task')).toBeInTheDocument();
-    expect(screen.getByText('#6 · read_file breach')).toBeInTheDocument();
+    expect(screen.getByText('#6 · read_file, compromised here')).toBeInTheDocument();
     expect(screen.getByText('#11 · done')).toBeInTheDocument();
   });
 });

@@ -267,7 +267,7 @@ export function ReplayTerminal({
               <button
                 type="button"
                 aria-current={active ? 'step' : undefined}
-                aria-label={`Step ${i + 1}: ${meta.label}${breach ? ', compromise step' : ''}`}
+                aria-label={`Step ${i + 1}: ${meta.label}${breach ? ', the agent was compromised here' : ''}`}
                 // A step that is not drawn is not a tab stop (see the note above).
                 tabIndex={reached ? undefined : -1}
                 onClick={() => onSelect(i)}

@@ -48,7 +48,7 @@ async function siteOrigin(): Promise<string> {
  */
 export async function requestEmailCode(email: string): Promise<AuthResult> {
   const supabase = createOtpSenderSupabase();
-  if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
+  if (!supabase) return { ok: false, error: 'Sign-in is not set up yet.' };
 
   const decision = await otpRateLimiter.check({
     email,
@@ -103,7 +103,7 @@ export async function verifyEmailCode(
   if (!decision.allowed) return { ok: false, error: decision.error.message };
 
   const supabase = await createServerSupabase();
-  if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
+  if (!supabase) return { ok: false, error: 'Sign-in is not set up yet.' };
 
   const address = normalizeEmail(email);
   const code = token.replace(/\s+/g, '');

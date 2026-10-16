@@ -33,12 +33,12 @@ const SCREENS: Screen[] = [
     shell: true,
     content: async (page) => {
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Set up a red-team run.' }),
+        page.getByRole('heading', { level: 1, name: 'Set up a test run.' }),
       ).toBeVisible();
       // The three real choices on the console: mode, the ONE category this run
       // will serve (a radio group under ADR-0006, not a checklist), and the launch.
       await expect(page.getByRole('group', { name: 'Run mode' })).toBeVisible();
-      await expect(page.getByRole('radiogroup', { name: /^Attack category/ })).toBeVisible();
+      await expect(page.getByRole('radiogroup', { name: /^Attack type/ })).toBeVisible();
       await expect(page.getByRole('link', { name: /play sample run/i })).toBeVisible();
       // The retired outbound model asked for an endpoint and a key. Nothing on
       // this screen takes typed input at all now.
@@ -77,7 +77,7 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('complementary', { name: 'Detector verdict' })).toBeVisible();
       await expect(page.getByRole('region', { name: 'Step detail' })).toBeVisible();
       // The fix-report off-ramp the verdict offers.
-      await expect(page.getByRole('link', { name: 'Export fix report' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Open fix report' })).toBeVisible();
       // The sample verdict never travels without its label, and the label never
       // implies a captured live agent.
       await expect(page.getByText(/constructed demonstration/)).toBeVisible();
@@ -92,7 +92,12 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       // The engineer-facing sections are the point of the screen. Asserted as
       // headings (the document outline), which survive a markup rework.
-      for (const section of ['Offending step', 'Summary', 'Detector rationale', 'Remediation']) {
+      for (const section of [
+        'Step where it was compromised',
+        'Summary',
+        "Detector's reasons",
+        'How to fix it',
+      ]) {
         await expect(page.getByRole('heading', { name: section })).toBeVisible();
       }
       await expect(page.getByRole('button', { name: 'Copy report' })).toBeVisible();
@@ -109,23 +114,27 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('article', { name: 'Fix report' })).toBeVisible();
       // What IS reliable still renders: the compromise and its anchored step.
       await expect(page.getByText('COMPROMISED').first()).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Offending step' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Step where it was compromised' }),
+      ).toBeVisible();
       // What is not is withheld, in words, with no remediation list to work.
-      await expect(page.getByText('CLASSIFICATION UNRELIABLE')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Remediation withheld' })).toBeVisible();
-      await expect(page.getByRole('list', { name: 'Remediation' })).toHaveCount(0);
+      await expect(page.getByText('ATTACK TYPE UNRELIABLE')).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'No fix steps for this attack type' }),
+      ).toBeVisible();
+      await expect(page.getByRole('list', { name: 'How to fix it' })).toHaveCount(0);
     },
   },
   {
-    name: 'Robustness Leaderboard',
+    name: 'Your leaderboard',
     path: '/leaderboard',
     shell: true,
     content: async (page) => {
-      await expect(page.getByRole('heading', { level: 1 })).toContainText('Model');
-      // No model has been measured yet (plan.md B4), so the measured board is
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Agent model');
+      // This account has no graded runs (plan.md B4), so the measured board is
       // EMPTY and says so in words. That empty state is the shipped state of
       // this screen, so it is asserted rather than worked around.
-      await expect(page.getByText('No model has been measured')).toBeVisible();
+      await expect(page.getByText('You have no graded runs yet')).toBeVisible();
       // The fabricated "fixture demonstration" board (invented Model A/B/C
       // numbers) was removed: no placeholder board, no fixture label anywhere.
       await expect(page.getByText('Fixture · not a measurement')).toHaveCount(0);
@@ -197,7 +206,7 @@ test('Connect in live mode (signed out) renders the gate and has no WCAG A/AA vi
     '/sign-in?next=%2Fconnect',
   );
   // Gated, so nothing was issued: no run console, and still nothing to type into.
-  await expect(page.getByRole('button', { name: /issue run endpoint/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /start a run/i })).toHaveCount(0);
   await expect(page.locator('input')).toHaveCount(0);
 
   // BOTH RUNS ARE REACHABLE, and the control is not hidden behind anything: it
@@ -215,8 +224,8 @@ test('Connect in live mode (signed out) renders the gate and has no WCAG A/AA vi
     'aria-checked',
     'false',
   );
-  await expect(page.getByText(/same tools, with the same capability/i)).toBeVisible();
-  await expect(page.getByText(/not a safer sandbox/i)).toBeVisible();
+  await expect(page.getByText(/same tools, which can do the same things/i)).toBeVisible();
+  await expect(page.getByText(/serves those tools with no attack/i)).toBeVisible();
 
   await runType.getByRole('radio', { name: /CONTROL RUN/ }).click();
   await expect(runType.getByRole('radio', { name: /CONTROL RUN/ })).toHaveAttribute(

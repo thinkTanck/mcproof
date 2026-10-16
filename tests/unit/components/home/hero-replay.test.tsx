@@ -88,10 +88,10 @@ describe('HeroReplay', () => {
       />,
     );
     // A green "LIVE" indicator on a constructed sample fixture overclaims: this is
-    // recorded, not a live run. The label must say so, and must not read "live".
+    // a constructed sample, not a live run. The label must say so, and must not read "live".
     expect(screen.queryByText(/\blive\b/i)).not.toBeInTheDocument();
     expect(screen.getByText(/sample replay/i)).toBeInTheDocument();
-    expect(screen.getByText(/^recorded$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^sample$/i)).toBeInTheDocument();
   });
 
   it('gives the breach step a distinct graphic marker, not just a red word', async () => {
@@ -292,7 +292,7 @@ describe('HeroReplay · the frame accent', () => {
     const { container } = await renderHero();
 
     expect(container).toHaveTextContent(/sample replay/i);
-    expect(container).toHaveTextContent(/recorded/i);
+    expect(screen.getByText(/^sample$/i)).toBeInTheDocument();
     const breach = container.querySelector('[data-testid="hero-step"][data-breach="true"]')!;
     expect(breach).toHaveTextContent('s6');
     expect(container.querySelectorAll('[data-testid="hero-breach-marker"]')).toHaveLength(1);

@@ -13,9 +13,9 @@ const button = cva(
   {
     variants: {
       variant: {
-        primary: 'border border-nominal bg-nominal/10 text-readout glow-accent hover:bg-nominal/20',
+        primary: 'border border-nominal bg-nominal/10 text-ink glow-accent hover:bg-nominal/20',
         ghost:
-          'border border-line-em bg-transparent text-nominal hover:border-nominal hover:bg-nominal/10',
+          'border border-line-em bg-transparent text-ink hover:border-nominal hover:bg-nominal/10',
         destructive: 'border border-breach bg-breach/10 text-breach-text hover:bg-breach/20',
       },
       size: {

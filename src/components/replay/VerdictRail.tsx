@@ -10,46 +10,59 @@ import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 /**
  * The detector verdict, rendered as a second terminal (same rules as the
  * transcript: bare console, one colour, breach-red for the compromise facts). It
- * prints the verdict summary — outcome, category, severity, offending step — then
- * an interactive `export … ? [y/n]` prompt: `y` opens the report for this run
- * (/findings/[id]); `n` prints `ok` and stays. There is no rationale prose; the
- * summary is the whole of it.
+ * prints the verdict summary (outcome, category, severity, the step it was
+ * compromised at), then an export question with two real buttons under it:
+ * "Open fix report" opens the report for this run (/findings/[id]); "Not now"
+ * closes the question, prints `ok` and opens nothing. There is no rationale
+ * prose; the summary is the whole of it.
  *
- * WHAT THE PROMPT OFFERS DEPENDS ON WHAT WAS FOUND. A compromise exports a FIX
- * REPORT, because there is something to fix. A clean run exports a RUN RESULT:
+ * WHAT THE PROMPT OFFERS DEPENDS ON WHAT WAS FOUND. A compromise opens a FIX
+ * REPORT, because there is something to fix. A clean run opens a RUN RESULT:
  * the same route, the same record, but calling it a fix report would tell the
  * reader their clean run was a failed attempt at one. Both results are
  * first-class, and the noun has to say so.
  *
- * `y` is a real <Link> (accessible name "Export fix report" / "Export run
- * result") so the off-ramp stays keyboard- and screen-reader-operable. While the
- * prompt is still waiting, pressing y/n ANYWHERE answers it (like a real console
- * prompt) — `y` follows the link, `n` prints `ok`.
+ * TWO REAL BUTTONS (owner ruling 2026-10-15 20:26). The answers used to be one
+ * letter each, `[y / n]`. Now each is a labelled control at least
+ * `--target-min` tall (`target-min`), in the tab order for everyone, touch and
+ * desktop. While the question is open, pressing y or n ANYWHERE answers it
+ * (like a real console prompt): `y` follows the link, `n` is "Not now". After
+ * "Not now" focus moves to the prompt line (`tabIndex={-1}`, drawing its ring
+ * inside itself), because the button it was on is gone and focus must not fall
+ * back to the page body.
  *
  * THE FIRST PROMPT OPENS ITS DEFINITION (Batch G, 2026-10-13): who
  * `detector@sentinel` is, from the roles lookup, drawn under that line
  * (`SpeakerHandle`). It is a Tab stop here, the first thing in the rail. The
- * second prompt, on the export line, is printed and not a control: it shares
- * its line with the two answers, and a second target beside them would crowd
- * theirs.
+ * second prompt, on the export line, is printed and not a control.
  */
 const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
 const PROMPT_COLOR = 'var(--terminal-prompt)';
 const PROMPT = `${DETECTOR_HANDLE}:~`;
+/**
+ * The key column: 11 characters, as it has always been, so the short keys
+ * still fit a 320px screen at doubled text. The one longer key ("compromised
+ * at") runs past it by a few characters and keeps one space before its value.
+ */
+const KEY_WIDTH = 11;
+const keyCell = (k: string) => (k.length >= KEY_WIDTH ? `${k} ` : k.padEnd(KEY_WIDTH, ' '));
 
 /**
- * The two answers to the export prompt, `y` and `n`. One letter each, and a
- * box of at least `--target-min` each way around it: at 24px square they were
- * the smallest controls in the app, side by side (UI audit 2026-10-12, batch B).
+ * The two answers to the export question. Each is a real control with a box of
+ * at least `--target-min` each way (`target-min`), drawn as the HUD's filled and
+ * outlined buttons. Neither styles its own focus ring: the global
+ * `:focus-visible` outline is the one ring.
  */
-const ANSWER =
-  'target-min inline-flex items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus-visible:bg-nominal/20';
+const OPEN_ANSWER =
+  'target-min inline-flex items-center justify-center rounded-md border border-nominal bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:bg-nominal/20';
+const NOT_NOW_ANSWER =
+  'target-min inline-flex items-center justify-center rounded-md border border-line-em bg-transparent px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:border-nominal hover:bg-nominal/10';
 
 function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolean }) {
   return (
     <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
-      <span style={{ opacity: 0.85 }}>{k.padEnd(11, ' ')}</span>
+      <span style={{ opacity: 0.85 }}>{keyCell(k)}</span>
       <span style={{ color: breachValue ? BREACH : CYAN }}>{v}</span>
     </div>
   );
@@ -75,8 +88,25 @@ export function VerdictRail({
   const href = `/findings/${routeId}`;
   const compromised = verdict.compromised;
   const exportLabel = compromised ? 'Export fix report' : 'Export run result';
+  const openLabel = compromised ? 'Open fix report' : 'Open run result';
   const [answered, setAnswered] = useState<null | 'n'>(null);
   const yRef = useRef<HTMLAnchorElement>(null);
+  const promptRef = useRef<HTMLDivElement>(null);
+  // Focus follows "Not now" to the prompt line only when someone answered (a
+  // press or a key), never on a first render or a RESET remount.
+  const focusPrompt = useRef(false);
+
+  const decline = () => {
+    focusPrompt.current = true;
+    setAnswered('n');
+  };
+
+  useEffect(() => {
+    if (answered === 'n' && focusPrompt.current) {
+      focusPrompt.current = false;
+      promptRef.current?.focus({ preventScroll: true });
+    }
+  }, [answered]);
 
   // While the prompt is unanswered, y/n typed anywhere answers it — the way a
   // console prompt captures the next keystroke. `y` clicks the link (no router
@@ -93,6 +123,7 @@ export function VerdictRail({
         yRef.current?.click();
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
+        focusPrompt.current = true;
         setAnswered('n');
       }
     };
@@ -139,59 +170,48 @@ export function VerdictRail({
           relabelled: it only gets its name, like any other code. The status
           bar's chip points here for the name it has no room for. */}
       <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
-        <span style={{ opacity: 0.85 }}>{'category'.padEnd(11, ' ')}</span>
+        <span style={{ opacity: 0.85 }}>{keyCell('category')}</span>
         <AsiLabel code={verdict.category} id={RUN_CATEGORY_NAME_ID} />
       </div>
       <Row k="severity" v={verdict.severity.toUpperCase()} breachValue={compromised} />
       {compromised && compromiseStepNumber !== null && (
         <Row
-          k="offending"
+          k="compromised at"
           v={`#${compromiseStepNumber}${offendingLabel ? ` ${offendingLabel}` : ''}`}
           breachValue
         />
       )}
 
-      {/* Interactive export prompt — click y/n, or just type it. The noun follows
-          the verdict: there is no fix report for a run with nothing to fix. */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-1 whitespace-pre-wrap">
-        <span>
-          <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
-          {exportLabel.toLowerCase()}?
-        </span>
-        {/* The brackets and the two answers wrap as ONE piece, so a bracket is
-            never left at the end of a line by itself. */}
-        <span className="inline-flex items-center gap-x-1">
-          <span aria-hidden="true">[</span>
-          <Link
-            ref={yRef}
-            href={href}
-            aria-label={exportLabel}
-            className={ANSWER}
-            style={{ color: CYAN }}
-          >
-            y
-          </Link>
-          <span aria-hidden="true">/</span>
-          <button
-            type="button"
-            onClick={() => setAnswered('n')}
-            aria-label="Decline export"
-            className={ANSWER}
-            style={{ color: CYAN }}
-          >
-            n
-          </button>
-          <span aria-hidden="true">]</span>
-          {answered === null && (
-            <span
-              aria-hidden="true"
-              className="inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
-              style={{ background: CYAN }}
-            />
-          )}
-        </span>
+      {/* The export question, then its two answers as real buttons. The noun
+          follows the verdict: there is no fix report for a run with nothing to
+          fix. The `[y/n]` after the question is a printed hint for the keys:
+          hidden from a screen reader, and on a touch screen, which has no keys
+          to press. After "Not now" this line takes focus and prints `ok`. */}
+      <div
+        ref={promptRef}
+        data-testid="export-prompt"
+        tabIndex={-1}
+        className="focus-inside mt-3 whitespace-pre-wrap"
+      >
+        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
+        {exportLabel.toLowerCase()}?
+        {answered === null && (
+          <span aria-hidden="true" className="pointer-coarse:hidden">
+            {' [y/n]'}
+          </span>
+        )}
+        {answered === 'n' && <div style={{ color: CYAN }}>&gt; ok</div>}
       </div>
-      {answered === 'n' && <div style={{ color: CYAN }}>&gt; ok</div>}
+      {answered === null && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Link ref={yRef} href={href} className={OPEN_ANSWER}>
+            {openLabel}
+          </Link>
+          <button type="button" onClick={decline} className={NOT_NOW_ANSWER}>
+            Not now
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

@@ -94,7 +94,7 @@ beforeEach(() => {
   asMock(getRunRepository).mockResolvedValue(repoWith([]));
 });
 
-describe('Live Attack Replay — the sample run', () => {
+describe('Replay — the sample run', () => {
   it('plays the sample with no sign-in, under its exact recorded provenance label', async () => {
     await renderPage('sample');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ASI02');
@@ -102,7 +102,7 @@ describe('Live Attack Replay — the sample run', () => {
     expect(getUser).not.toHaveBeenCalled();
   });
 
-  it('prints RUN, TARGET and DETECTOR under the title, wrapping, never cut short', async () => {
+  it('prints RUN, AGENT and DETECTOR under the title, wrapping, never cut short', async () => {
     // G option B (owner ruling 2026-10-14): the run telemetry left the header
     // bar for the replay's own header, where it can wrap freely.
     await renderPage('sample');
@@ -110,7 +110,10 @@ describe('Live Attack Replay — the sample run', () => {
     const telemetry = document.querySelector<HTMLElement>('[data-replay-telemetry]');
     expect(telemetry).not.toBeNull();
     expect(title.closest('header')!.contains(telemetry)).toBe(true);
-    expect(telemetry!.textContent).toMatch(/^RUN \S+ · TARGET \S+ · DETECTOR BLIND$/);
+    // The run id is the one in the URL (owner ruling 2026-10-15): /runs/sample.
+    expect(telemetry!.textContent).toMatch(
+      /^RUN sample · AGENT \S+ · DETECTOR BLIND TO THE ATTACK$/,
+    );
     expect(telemetry!.className).not.toMatch(/\btruncate\b/);
     expect(telemetry!.className).toMatch(/overflow-wrap:anywhere/);
   });
@@ -121,7 +124,7 @@ describe('Live Attack Replay — the sample run', () => {
   });
 });
 
-describe('Live Attack Replay — a persisted live run', () => {
+describe('Replay — a persisted live run', () => {
   it('renders the RunResult read from the repository, not the sample', async () => {
     signedInWith(liveRun(true));
     await renderPage('44444444-4444-4444-8444-444444449876');
@@ -135,10 +138,37 @@ describe('Live Attack Replay — a persisted live run', () => {
     // And the fix-report off-ramp points at THIS run, by the STORED ROW id in the
     // URL. `/findings/[id]` resolves a row id, and the live session run id on the
     // verdict is a different string that resolves to nothing there.
-    expect(screen.getByRole('link', { name: /export fix report/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open fix report' })).toHaveAttribute(
       'href',
       '/findings/44444444-4444-4444-8444-444444449876',
     );
+  });
+
+  /**
+   * ONE RUN ID ON SCREEN (owner ruling 2026-10-15). A saved live run has two:
+   * the stored row id (`StoredRun.id`, in the URL) and the hosted MCP run id
+   * (`RunResult.runId`, in the endpoint the agent connected to). The header
+   * printed the second beside the first in the address bar, so one run read as
+   * two. Now the page prints the URL's id and never the hosted one.
+   */
+  it('prints the id in the URL, and never the hosted run id', async () => {
+    signedInWith(liveRun(true));
+    await renderPage('44444444-4444-4444-8444-444444449876');
+    const telemetry = document.querySelector<HTMLElement>('[data-replay-telemetry]')!;
+    expect(telemetry.textContent).toMatch(
+      /^RUN 44444444-4444-4444-8444-444444449876 · AGENT live-model-x · DETECTOR BLIND TO THE ATTACK$/,
+    );
+    expect(document.body.textContent).not.toContain('live-run-0002');
+  });
+
+  it('dates a live run in the viewer’s time zone, inside a <time> carrying the ISO value', async () => {
+    signedInWith(liveRun(true));
+    await renderPage('44444444-4444-4444-8444-444444449876');
+    const time = document.querySelector('header time');
+    expect(time).not.toBeNull();
+    expect(time).toHaveAttribute('dateTime', '2026-08-05T09:41:07.123456+00:00');
+    expect(time).toHaveTextContent('Aug 5, 2026');
+    expect(screen.getByText(/graded by the MCProof detector/)).toBeInTheDocument();
   });
 
   it('labels a live verdict as a live run, never as the constructed demonstration', async () => {
@@ -170,7 +200,9 @@ describe('Live Attack Replay — a persisted live run', () => {
     const verdict = screen.getByRole('complementary', { name: /detector verdict/i });
     expect(within(verdict).getByText('NOT COMPROMISED')).toBeInTheDocument();
     // Nothing is badged as the compromise, because there is no compromise.
-    expect(screen.queryByRole('button', { name: /compromise step/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /the agent was compromised here/i }),
+    ).not.toBeInTheDocument();
     // And it is NOT the not-found state.
     expect(screen.queryByText(/no run to replay/i)).not.toBeInTheDocument();
   });
@@ -180,14 +212,14 @@ describe('Live Attack Replay — a persisted live run', () => {
     await renderPage('44444444-4444-4444-8444-444444449876');
     // The session run id would land a clean run on the missing-report state,
     // which reads as something going wrong for a run that went right.
-    expect(screen.getByRole('link', { name: /export run result/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open run result' })).toHaveAttribute(
       'href',
       '/findings/44444444-4444-4444-8444-444444449876',
     );
   });
 });
 
-describe('Live Attack Replay — an id that resolves to nothing', () => {
+describe('Replay — an id that resolves to nothing', () => {
   it('states plainly that there is no such run, and never substitutes the sample', async () => {
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     // notFound(): a 404, with the empty state drawn by the route's not-found.tsx

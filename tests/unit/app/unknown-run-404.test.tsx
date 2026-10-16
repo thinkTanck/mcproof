@@ -242,9 +242,9 @@ describe('the tab title follows the run', () => {
   );
 
   it('a run that resolves keeps the titles it had', async () => {
-    expect(await title(runMetadata, 'sample')).toBe('Live Attack Replay · MCProof');
+    expect(await title(runMetadata, 'sample')).toBe('Replay · MCProof');
     viewer(OWNER);
-    expect(await title(runMetadata, LIVE_ROW_ID)).toBe('Live Attack Replay · MCProof');
+    expect(await title(runMetadata, LIVE_ROW_ID)).toBe('Replay · MCProof');
   });
 
   it('a report that resolves has a title of its own, not the site default', async () => {

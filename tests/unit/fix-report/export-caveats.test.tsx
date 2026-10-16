@@ -6,6 +6,7 @@ import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { LIVE_VERDICT_PROVENANCE, liveVerdictProvenance, resolveFixReport } from '@/data/run-view';
 import { MEASURED_CLASSIFICATION, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
 import { generateFixReport, toMarkdown } from '@/fix-report';
+import { classificationDisplayProvenance } from '@/lib/display/measured';
 
 /**
  * THE EXPORTED TICKET CARRIES EVERY CAVEAT THE SCREEN SHOWS.
@@ -114,12 +115,15 @@ describe('exported fix report: verdict provenance (sweep F1)', () => {
 });
 
 describe('exported fix report: classification caveat (sweep F2)', () => {
-  const figure = MEASURED_CLASSIFICATION.accuracy.toFixed(2);
+  // The caveat quotes the measured rate as counts (copy pass, 2026-10-15):
+  // "named the right type 15 of 22 times", worked back from the rate and its
+  // scored denominator, never typed into the copy.
+  const named = Math.round(MEASURED_CLASSIFICATION.accuracy * MEASURED_CLASSIFICATION.scored);
+  const figure = `named the right type ${named} of ${MEASURED_CLASSIFICATION.scored} times`;
 
-  it('the published figure this caveat quotes is 0.68', () => {
-    // Read off the measurement, never typed into the copy. Pinned here so a
-    // re-measurement makes this test name wrong out loud.
-    expect(figure).toBe('0.68');
+  it('the published counts this caveat quotes are 15 of 22', () => {
+    // Pinned here so a re-measurement makes this test name wrong out loud.
+    expect(figure).toBe('named the right type 15 of 22 times');
   });
 
   it.each(CLASSIFIED_ABOVE_ZERO)(
@@ -129,7 +133,7 @@ describe('exported fix report: classification caveat (sweep F2)', () => {
       const md = toMarkdown(report);
       const firstStep = md.indexOf(`1. ${report.finding!.remediation!.steps[0]}`);
       const heading = md.indexOf('## Remediation');
-      const caveat = md.indexOf(`Measured accuracy on our labeled set is ${figure}`);
+      const caveat = md.indexOf(figure);
       const provenance = md.indexOf(MEASURED_CLASSIFICATION_PROVENANCE);
 
       expect(firstStep).toBeGreaterThan(-1);
@@ -138,7 +142,7 @@ describe('exported fix report: classification caveat (sweep F2)', () => {
       expect(provenance, 'its provenance line is in the export').toBeGreaterThan(caveat);
       expect(provenance).toBeLessThan(firstStep);
       // It tells the reader what to do about it, as the screen does.
-      expect(md).toMatch(/confirm the category against the offending step/);
+      expect(md).toMatch(/check the type against the step shown above/);
       // Locked copy rule: this text reaches the screen and the ticket.
       expect(md).not.toMatch(/—/);
     },
@@ -152,10 +156,12 @@ describe('exported fix report: classification caveat (sweep F2)', () => {
     const [sentence, line] = shown.map((el) => el.textContent ?? '');
     const md = toMarkdown(report);
 
-    expect(sentence).toMatch(/Measured accuracy on our labeled set is 0\.68/);
+    expect(sentence).toMatch(/named the right type 15 of 22 times/);
     expect(md).toContain(sentence);
-    expect(line).toBe(MEASURED_CLASSIFICATION_PROVENANCE);
-    expect(md).toContain(line);
+    // The provenance is the same measurement in both, in plain words on screen
+    // and as the frozen ISO line in the ticket (copy pass, 2026-10-15).
+    expect(line).toBe(classificationDisplayProvenance());
+    expect(md).toContain(MEASURED_CLASSIFICATION_PROVENANCE);
   });
 
   it('the screen draws the provenance the report carries, with no second copy handed in', () => {
@@ -167,20 +173,20 @@ describe('exported fix report: classification caveat (sweep F2)', () => {
 });
 
 describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
-  it('reads exactly as it did before provenance and the caveat were added, bar one corrected word', () => {
+  it('reads exactly as it did before provenance and the caveat were added, in the plain words of the copy pass', () => {
     // Staged ASI10, returned ASI01: the real misfile. No provenance given, so
-    // this is what the export produced on 2026-10-07, with one word corrected
-    // since: the note said the offending step was "below", and it is above.
+    // this is the shape the export produced on 2026-10-07; its words are the
+    // copy pass's (2026-10-15): no "confirmed", "realizations" or "v2 rubric".
     const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01'), { provenance: null }));
 
     expect(md).toBe(
       [
-        '# Fix report · compromise confirmed · category unresolved',
+        '# Fix report · agent compromised · attack type uncertain',
         '',
         '**Run:** `run-1` · **Target:** acme-mcp · **Model:** model-x',
         '**Severity:** High · **Compromised:** yes',
         '**Offending step:** #2 `s2` (tool_call)',
-        '**Category returned by the detector:** ASI01 · Agent Goal Hijack (classification unreliable for this class)',
+        '**Attack type named by the detector:** ASI01 · Agent Goal Hijack (unreliable for this type)',
         '',
         '## Detector rationale',
         '',
@@ -188,7 +194,7 @@ describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
         '',
         '## Remediation withheld',
         '',
-        'Category classification is unreliable for ASI10 Rogue Agents. On our labeled set the detector filed 0 of 4 ASI10 realizations under that code, reading them as neighbouring categories instead. Remediation is derived from the category, so it is withheld here rather than guessed. What was measured still holds: this compromise is confirmed, the detector missed no compromise in any category (recall 1.0000), and the offending step above is its own anchor. Category specific guidance for this class is pending a category-v2 rubric.',
+        'The detector often names the wrong attack type for ASI10 Rogue Agents. In our tests it named it correctly in 0 of 4 ASI10 runs, and called the others a similar type. Our fix steps depend on the attack type, so we do not list any here rather than guess. The compromise itself still stands: in our tests the detector caught every real compromise of every type, and the step shown above is where it happened. We plan to add fix steps for this type after we improve how the detector names it.',
         '',
         `_Measured:_ ${MEASURED_CLASSIFICATION_PROVENANCE}`,
         '',
@@ -199,7 +205,7 @@ describe('exported fix report: the ASI10 withheld ticket is unchanged', () => {
   it('never gains the above-zero caveat: a withheld list has nothing to be cautious about', () => {
     const md = toMarkdown(generateFixReport(makeRun('ASI10', 'ASI01'), { provenance: null }));
 
-    expect(md).not.toMatch(/Measured accuracy on our labeled set/);
+    expect(md).not.toMatch(/named the right type/);
     expect(md).not.toMatch(/^## Remediation$/m);
   });
 

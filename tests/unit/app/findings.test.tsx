@@ -5,7 +5,7 @@ import { FindingsReport } from '@/components/findings';
 import { SAMPLE_RUN_ID, sampleRun } from '@/data/source';
 import { MEASURED_CLASSIFICATION } from '@/eval/measured';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
-import { sampleDisplayProvenance } from '@/lib/display/dates';
+import { localDate, sampleDisplayProvenance } from '@/lib/display/dates';
 import { RunResultSchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { generateFixReport, type FixReport } from '@/fix-report';
@@ -114,9 +114,11 @@ describe('Findings / fix report screen', () => {
     expect(screen.queryByText('RG-0472')).not.toBeInTheDocument();
   });
 
-  it('renders the sample report through the DataSource with the sample run id', async () => {
+  it('renders the sample report through the DataSource, named by the id in its URL', async () => {
+    // One run id on screen, the URL's (owner ruling 2026-10-15).
     await renderPage('sample');
-    expect(screen.getByText(SAMPLE_RUN_ID)).toBeInTheDocument();
+    expect(screen.getByText('sample')).toBeInTheDocument();
+    expect(screen.queryByText(SAMPLE_RUN_ID)).not.toBeInTheDocument();
     expect(screen.getByText('ASI02')).toBeInTheDocument();
     expect(screen.getByText(SAMPLE_VERDICTS.ASI02.severity)).toBeInTheDocument();
   });
@@ -142,7 +144,7 @@ describe('Findings / fix report screen', () => {
 
   it('renders remediation as an ordered list with one item per step', async () => {
     render(<FindingsReport report={customReport} />);
-    const list = screen.getByRole('list', { name: /remediation/i });
+    const list = screen.getByRole('list', { name: /how to fix it/i });
     const items = within(list).getAllByRole('listitem');
     const steps = customReport.finding!.remediation!.steps;
     expect(items).toHaveLength(steps.length);
@@ -159,7 +161,7 @@ describe('Findings / fix report screen', () => {
   it('renders the offending step, its position, and its observable payload', async () => {
     render(<FindingsReport report={customReport} />);
     const f = customReport.finding!;
-    const section = screen.getByRole('region', { name: /offending step/i });
+    const section = screen.getByRole('region', { name: /step where it was compromised/i });
     expect(within(section).getByText(new RegExp(String(f.stepIndex)))).toBeInTheDocument();
     expect(within(section).getByText(/run_shell/)).toBeInTheDocument();
     expect(within(section).getByText(/rm -rf \//)).toBeInTheDocument();
@@ -183,7 +185,7 @@ describe('Findings / fix report screen', () => {
     expect(screen.getByText('NOT COMPROMISED')).toBeInTheDocument();
     // The run is still identified: this is that run's result, not a placeholder.
     expect(screen.getByText(clean.runId)).toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: /remediation/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: /how to fix it/i })).not.toBeInTheDocument();
     // Nothing may read as a missing report, which is a different state entirely.
     expect(screen.queryByText(/no report for run/i)).not.toBeInTheDocument();
   });
@@ -192,7 +194,7 @@ describe('Findings / fix report screen', () => {
     const clean = generateFixReport(customRun(false), { provenance: null });
     render(<FindingsReport report={clean} />);
     const panel = screen.getByTestId('clean-result');
-    expect(panel).toHaveTextContent(/nothing here to fix/i);
+    expect(panel).toHaveTextContent(/found no compromise, so there is nothing to fix/i);
     expect(panel.textContent ?? '').not.toMatch(/—/);
   });
 
@@ -243,9 +245,15 @@ describe('Findings / fix report screen', () => {
     // say so, with the measured figure rather than a hedge.
     render(<FindingsReport report={customReport} />);
     const note = screen.getByTestId('classification-caveat');
-    expect(note).toHaveTextContent(MEASURED_CLASSIFICATION.accuracy.toFixed(2));
-    expect(note).toHaveTextContent(String(MEASURED_CLASSIFICATION.scored));
-    expect(note).toHaveTextContent(/judge claude-haiku-4-5/);
+    // In counts, not a decimal (copy pass, 2026-10-15): 15 of 22, worked back
+    // from the measured rate and its denominator.
+    const named = Math.round(MEASURED_CLASSIFICATION.accuracy * MEASURED_CLASSIFICATION.scored);
+    expect(note).toHaveTextContent(
+      `named the right type ${named} of ${MEASURED_CLASSIFICATION.scored} times`,
+    );
+    // The provenance line in plain words on screen; the ticket keeps the ISO line.
+    expect(note).toHaveTextContent(/detector claude-haiku-4-5/);
+    expect(note).toHaveTextContent(/attack type measured Aug 24, 2026/);
   });
 
   it('does not claim a classification accuracy on a report with no category to classify', async () => {
@@ -271,7 +279,7 @@ describe('Findings / fix report screen', () => {
   describe('a class whose classification measured zero (ASI10)', () => {
     it('withholds the misfiled category remediation instead of presenting it as authoritative', async () => {
       await renderPage(sampleRun('ASI10').runId);
-      expect(screen.queryByRole('list', { name: /remediation/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: /how to fix it/i })).not.toBeInTheDocument();
       // Not one ASI01 remediation action may reach the screen.
       expect(
         screen.queryByText(/Pin the agent to its authorized objective/i),
@@ -284,22 +292,24 @@ describe('Findings / fix report screen', () => {
     it('still shows what IS reliable: the confirmed compromise and its anchored step', async () => {
       await renderPage(sampleRun('ASI10').runId);
       expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
-      expect(screen.getByRole('region', { name: /offending step/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('region', { name: /step where it was compromised/i }),
+      ).toBeInTheDocument();
       expect(screen.getByText(SAMPLE_VERDICTS.ASI10.rationale)).toBeInTheDocument();
     });
 
-    it('states the class, the measured tally, and the pending category-v2 rubric', async () => {
+    it('states the class, the measured tally, and that fix steps for it are planned', async () => {
       await renderPage(sampleRun('ASI10').runId);
       const note = screen.getByTestId('classification-unreliable');
       expect(note).toHaveTextContent('ASI10');
       expect(note).toHaveTextContent(/0 of 4/);
-      expect(note).toHaveTextContent(/category-v2/i);
+      expect(note).toHaveTextContent(/add fix steps for this type/i);
     });
 
     it('marks the state with an icon AND a text label, in the inert token, never breach red', async () => {
       const { container } = await renderPage(sampleRun('ASI10').runId);
       const badge = screen.getByTestId('classification-badge');
-      expect(badge).toHaveTextContent(/classification unreliable/i);
+      expect(badge).toHaveTextContent(/attack type unreliable/i);
       expect(badge.querySelector('svg')).not.toBeNull();
       expect(badge.getAttribute('style')).toContain('--status-inert');
       expect(badge.className).not.toMatch(/breach/i);
@@ -313,7 +323,7 @@ describe('Findings / fix report screen', () => {
     // customReport is ASI02, which classified 1.0000. Nothing is withheld and no
     // unreliable badge appears: the caveat stays proportionate to the measurement.
     render(<FindingsReport report={customReport} />);
-    expect(screen.getByRole('list', { name: /remediation/i })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /how to fix it/i })).toBeInTheDocument();
     expect(screen.queryByTestId('classification-badge')).not.toBeInTheDocument();
     expect(screen.queryByTestId('classification-unreliable')).not.toBeInTheDocument();
     expect(screen.getByTestId('classification-caveat')).toBeInTheDocument();
@@ -341,9 +351,39 @@ describe('Findings / fix report screen', () => {
       asMock(getRunRepository).mockResolvedValue(repo);
 
       await renderPage('22222222-2222-4222-8222-222222224321');
-      expect(screen.getByText(run.runId)).toBeInTheDocument();
+      // One run id on screen, the URL's row id (owner ruling 2026-10-15); the
+      // hosted run id on the RunResult is never printed on the page.
+      expect(screen.getByText('22222222-2222-4222-8222-222222224321')).toBeInTheDocument();
+      expect(document.body.textContent).not.toContain(run.runId);
       expect(screen.getByText(run.verdict.rationale)).toBeInTheDocument();
       expect(repo.getRun).toHaveBeenCalledWith('user-1', '22222222-2222-4222-8222-222222224321');
+    });
+
+    it('copies a ticket that names the run by its URL id and labels the hosted run id', async () => {
+      const run = customRun();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(run)]));
+
+      await renderPage('22222222-2222-4222-8222-222222224321');
+      await user.click(screen.getByRole('button', { name: /copy report/i }));
+      const copied = writeText.mock.calls[0]![0] as string;
+      expect(copied).toContain(
+        `**Run:** \`22222222-2222-4222-8222-222222224321\` · **Hosted run id:** \`${run.runId}\``,
+      );
+    });
+
+    it('dates the live run in the viewer’s time zone, in a <time> with the ISO value', async () => {
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun())]));
+
+      await renderPage('22222222-2222-4222-8222-222222224321');
+      const time = document.querySelector('header time')!;
+      expect(time).toHaveAttribute('dateTime', '2026-08-05T09:41:07.123456+00:00');
+      expect(time).toHaveTextContent(`run ${localDate('2026-08-05T09:41:07.123456+00:00')}`);
+      expect(screen.getByText(/graded by the MCProof detector/)).toBeInTheDocument();
     });
 
     it('labels the live verdict as a live run, never as the constructed demonstration', async () => {

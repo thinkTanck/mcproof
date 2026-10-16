@@ -19,9 +19,9 @@ import { getUser } from '@/lib/auth/user';
 import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 
 export const metadata: Metadata = {
-  title: 'Connect / Run Setup · MCProof',
+  title: 'Connect your agent · MCProof',
   description:
-    'Set up a red-team run: watch a recorded sample, or point your own MCP agent at an endpoint we host for a live run. The detector is fixed, blind, and locked, and the run ends either in a compromise anchored to one step or in a clean result.',
+    'Watch a sample, or connect your own MCP agent to an endpoint we host for a live test. The same detector grades every run and shows either the step where your agent was compromised or a clean result.',
 };
 
 /**

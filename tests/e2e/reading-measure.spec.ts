@@ -135,8 +135,8 @@ test.describe('reading measure at 1280px, an issued live run', () => {
     await suppressBootSplash(page);
     await page.goto(FIXTURE);
     await page.getByRole('button', { name: /^LIVE/ }).click();
-    await page.getByRole('button', { name: /issue run endpoint/i }).click();
-    await expect(page.getByRole('region', { name: /what we have actually seen/i })).toBeVisible();
+    await page.getByRole('button', { name: /start a run/i }).click();
+    await expect(page.getByRole('region', { name: /what we have recorded so far/i })).toBeVisible();
     await page.getByRole('button', { name: /^claude code/i }).click();
     await page.waitForLoadState('networkidle');
   }
@@ -165,7 +165,7 @@ test.describe('reading measure at 1280px, an issued live run', () => {
         return { name, left: round(r.left), width: round(r.width) };
       });
       const grid = document
-        .querySelector('[role="radiogroup"][aria-label^="Attack category"]')!
+        .querySelector('[role="radiogroup"][aria-label^="Attack type"]')!
         .getBoundingClientRect();
       const endpoint = document.querySelector('section[aria-labelledby="connect-endpoint"]')!;
       const prose = [...endpoint.querySelectorAll(':scope > p')].map((p) => {

@@ -107,7 +107,7 @@ function RailWord({ children }: { children: string }) {
   );
 }
 
-const PREVIEW_NAME = 'Sign in. Preview: sign-in is not set up on this build.';
+const PREVIEW_NAME = 'Sign in. Sign-in is not set up on this preview build.';
 
 /**
  * The neutral fourth state, with an icon and a label: nothing is wrong and

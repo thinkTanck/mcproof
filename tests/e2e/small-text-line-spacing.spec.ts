@@ -87,7 +87,7 @@ async function issueRun(page: Page, state: 'waiting' | 'connected') {
   await prepare(page);
   await page.goto(`/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(page.getByRole('group', { name: 'MCP client' })).toBeVisible();
   await settle(page);
 }

@@ -47,7 +47,7 @@ import { cn } from '@/lib/utils';
  *   - a `secret` box: press its own REVEAL;
  *   - a box with a `display` mask: a SHOW button (`reveal` names what it shows,
  *     e.g. SHOW CONFIG) appears ONLY now, and pressing it draws `value` in the
- *     same box beside "This contains your run token. Don't share it."
+ *     same box beside "This contains your run token. Do not share it."
  *
  * That last case is the one deliberate exception to `display` keeping the real
  * value out of the DOM, and it needs BOTH a failed copy and the reader's own
@@ -172,7 +172,7 @@ export function CopyOut({
               onClick={() => setRevealed((r) => !r)}
               aria-pressed={revealed}
               aria-label={`${revealed ? 'Hide' : 'Reveal'} ${name}`}
-              className="min-h-11 rounded-md border border-line px-3.5 py-2 font-mono text-[13px] tracking-[0.06em] text-ink-muted transition-colors hover:border-line-em hover:text-ink"
+              className="min-h-11 rounded-md border border-line px-3.5 py-2 font-mono text-[13px] tracking-[0.06em] text-ink transition-colors hover:border-line-em hover:text-ink"
             >
               {revealed ? 'HIDE' : 'REVEAL'}
             </button>
@@ -181,7 +181,7 @@ export function CopyOut({
             type="button"
             onClick={copy}
             aria-label={`Copy ${name}`}
-            className="min-h-11 rounded-md border border-line-em px-3.5 py-2 font-mono text-[13px] tracking-[0.06em] text-nominal transition-colors hover:bg-nominal/10"
+            className="min-h-11 rounded-md border border-line-em px-3.5 py-2 font-mono text-[13px] tracking-[0.06em] text-ink transition-colors hover:bg-nominal/10"
           >
             COPY
           </button>
@@ -228,13 +228,13 @@ export function CopyOut({
               <span className="mt-[0.3em] text-caution">
                 <CautionIcon />
               </span>
-              This contains your run token. Don&apos;t share it.
+              This contains your run token. Do not share it.
             </p>
           )}
           <button
             type="button"
             onClick={() => setShown((s) => !s)}
-            className="min-h-11 rounded-md border border-line px-3.5 py-2 font-mono text-[13px] tracking-[0.06em] text-ink-muted transition-colors hover:border-line-em hover:text-ink"
+            className="min-h-11 rounded-md border border-line px-3.5 py-2 font-mono text-[13px] tracking-[0.06em] text-ink transition-colors hover:border-line-em hover:text-ink"
           >
             {shown ? `HIDE ${showLabel}` : `SHOW ${showLabel}`}
           </button>

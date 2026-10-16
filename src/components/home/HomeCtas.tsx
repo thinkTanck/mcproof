@@ -36,7 +36,7 @@ export function HomeCtas({
         <Link
           href="/runs/sample"
           aria-describedby="featured-run-name"
-          className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-6 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20"
+          className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-6 py-3 font-mono text-[14px] tracking-[0.08em] text-ink glow-accent transition-colors hover:bg-nominal/20"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
             <polygon points="2,1 11,6 2,11" fill="currentColor" />
@@ -53,7 +53,7 @@ export function HomeCtas({
           "Connect your agent". */}
       <FreeRunsNote text={freeRunsNote} />
       <p id="featured-run-name" className="instrument-faint">
-        Featured run: {asiLabel(category)}. Pick any of the Core-7 to watch its own attack.
+        Featured sample: {asiLabel(category)}. Pick any of the 7 attack types to watch its sample.
       </p>
     </div>
   );

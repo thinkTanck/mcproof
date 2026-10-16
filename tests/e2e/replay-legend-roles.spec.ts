@@ -352,8 +352,8 @@ test.describe('2. Connect on a phone, with a run open', () => {
     await suppressBootSplash(page);
     await page.goto('/e2e/connect-states?state=connected');
     await page.getByRole('button', { name: /^LIVE/ }).click();
-    await page.getByRole('button', { name: /issue run endpoint/i }).click();
-    const bar = page.getByRole('region', { name: /what we have actually seen/i });
+    await page.getByRole('button', { name: /start a run/i }).click();
+    const bar = page.getByRole('region', { name: /what we have recorded so far/i });
     await expect(bar).toBeVisible();
     await settle(page);
     const m = await page.evaluate(() => {
@@ -829,11 +829,11 @@ for (const viewport of [
       const items = strip.locator('ol > li');
       await expect(items).toHaveCount(5);
       await expect(items.locator('[data-step-text]')).toHaveText([
-        'Operator gives a task',
-        'Agent under test uses tools',
-        'In an attack run, one served tool carries the attack; in a benign control run, none does',
-        'Detector watches',
-        'You get a report',
+        'The operator (the person giving the agent a normal task) gives a task',
+        'The agent uses the served tools (tools we host for the run)',
+        'In an attack run, one served tool carries the attack. In a control run, none does, so you can see how the agent behaves with no attack.',
+        'The detector reads every step',
+        'You get a fix report or a clean result',
       ]);
 
       const m = await strip.evaluate((el) => {

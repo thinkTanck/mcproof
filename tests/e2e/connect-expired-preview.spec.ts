@@ -19,11 +19,11 @@ test.skip(
   'NOT COVERED: E2E_FIXTURES=1 is unset, so the fixture route this suite drives is not built.',
 );
 
-const NO_RUN = 'Issue a run to get your endpoint and token.';
+const NO_RUN = 'Start a run to get your endpoint and token.';
 const RUN_OPEN =
-  'Lined up for your next run. The run you issued keeps its own task, shown in the last step.';
+  'This task is for your next run. The run you already started keeps its own task, shown in the last step.';
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 /** The helper line: the last paragraph of the preview box. */
 const helper = (page: Page) =>
   page.getByRole('group', { name: 'TASK PREVIEW' }).locator('p').last();
@@ -38,7 +38,7 @@ test('an expired run reads as no run: nothing about a last step', async ({ page 
   await liveOn(page, 'expired');
   await expect(helper(page)).toHaveText(NO_RUN);
 
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(bar(page).getByText('RUN EXPIRED')).toBeVisible();
 
   await expect(helper(page)).toHaveText(NO_RUN);
@@ -47,14 +47,14 @@ test('an expired run reads as no run: nothing about a last step', async ({ page 
   await expect(page.getByRole('heading', { name: 'Give your agent its task.' })).toHaveCount(0);
 });
 
-test('after ISSUE A FRESH RUN the line still says to issue one', async ({ page }) => {
+test('after START A NEW RUN the line still says to issue one', async ({ page }) => {
   await liveOn(page, 'expired');
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(bar(page).getByText('RUN EXPIRED')).toBeVisible();
 
-  await page.getByRole('button', { name: /issue a fresh run/i }).click();
+  await page.getByRole('button', { name: /start a new run/i }).click();
 
-  await expect(page.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /start a run/i })).toBeVisible();
   await expect(helper(page)).toHaveText(NO_RUN);
 });
 
@@ -62,7 +62,7 @@ test('a run that is open keeps the run-open wording, with its task on the page',
   page,
 }) => {
   await liveOn(page, 'waiting');
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(bar(page).getByText('AWAITING AGENT')).toBeVisible();
 
   await expect(helper(page)).toHaveText(RUN_OPEN);

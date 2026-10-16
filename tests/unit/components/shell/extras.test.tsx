@@ -44,7 +44,7 @@ describe('runs/[id] replay', () => {
     const ui = await RunReplay({ params: Promise.resolve({ id: 'asi06-run' }) });
     render(ui);
     // Run id is surfaced (bound to the record, not a literal) via the export off-ramp.
-    expect(screen.getByRole('link', { name: /export fix report/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open fix report' })).toHaveAttribute(
       'href',
       '/findings/asi06-run',
     );

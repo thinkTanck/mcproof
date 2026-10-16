@@ -24,15 +24,15 @@ describe('BootSplash', () => {
   it('is absent on first render (Home paints under), then acquires the Core-7 and reaches SYSTEM ONLINE', () => {
     render(<BootSplash />);
     // Absent until the idle kick — Home is never blocked.
-    expect(screen.queryByRole('status', { name: /booting/i })).toBeNull();
+    expect(screen.queryByRole('status', { name: /mcproof is loading/i })).toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(320);
     });
 
-    const status = screen.getByRole('status', { name: /mcproof booting/i });
+    const status = screen.getByRole('status', { name: /mcproof is loading/i });
     // The radar names the Core-7 as the acquisition targets.
-    expect(within(status).getByText(/signatures acquired/i)).toBeInTheDocument();
+    expect(within(status).getByText(/attack types loaded/i)).toBeInTheDocument();
     expect(within(status).getByText('ASI01')).toBeInTheDocument();
     expect(within(status).getByText('ASI06')).toBeInTheDocument();
     expect(within(status).getByText('ASI10')).toBeInTheDocument();
@@ -52,6 +52,6 @@ describe('BootSplash', () => {
     act(() => {
       vi.advanceTimersByTime(600);
     });
-    expect(screen.queryByRole('status', { name: /booting/i })).toBeNull();
+    expect(screen.queryByRole('status', { name: /mcproof is loading/i })).toBeNull();
   });
 });

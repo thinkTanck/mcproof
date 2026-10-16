@@ -1,4 +1,4 @@
-import { readableAuthError } from '@/lib/auth/errors';
+import { RATE_LIMITED_MESSAGE, readableAuthError } from '@/lib/auth/errors';
 
 /**
  * A failed sign-in must always read as words. The provider is not a copywriter:
@@ -43,6 +43,13 @@ describe('readableAuthError', () => {
     [{ message: 'For security purposes, you can only request this after 51 seconds.' }],
   ])('maps rate limiting to a wait-and-retry sentence (%o)', (err) => {
     expect(readableAuthError(err, FALLBACK)).toMatch(/too many|wait/i);
+  });
+
+  it('states the rate refusal as one generic sentence with no window it cannot keep', () => {
+    // Our own limiters use 15-minute and 1-hour windows, so "about a minute" was
+    // false. The sentence names no number, address or bucket (S1e).
+    expect(RATE_LIMITED_MESSAGE).toBe('Too many attempts. Wait a few minutes, then try again.');
+    expect(RATE_LIMITED_MESSAGE).not.toMatch(/\d/);
   });
 
   it('maps a rejected email address to a check-the-address sentence', () => {

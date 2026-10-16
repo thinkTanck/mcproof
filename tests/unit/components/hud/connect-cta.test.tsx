@@ -41,7 +41,9 @@ describe('ConnectCta', () => {
     expect(classes).toContain('border');
     expect(classes).toContain('border-nominal');
     expect(classes).toContain('bg-transparent');
-    expect(classes).toContain('text-nominal');
+    // The label is the main text colour (owner ruling 2026-10-15), never the accent.
+    expect(classes).toContain('text-ink');
+    expect(classes).not.toContain('text-nominal');
     expect(classes).toContain('target-min');
     // Nothing fills it at rest and nothing glows at rest. Under the pointer or
     // the keyboard it takes the shared accent glow (batch F), by name.

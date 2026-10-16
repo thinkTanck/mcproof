@@ -35,7 +35,7 @@ describe('Replay — binding + timeline', () => {
     expect(nodes).toHaveLength(run.trace.steps.length);
     // The ROUTE id binds the export off-ramp to this run's fix report, never the
     // verdict's own run id (a live session id the findings route cannot resolve).
-    const link = screen.getByRole('link', { name: /export fix report/i });
+    const link = screen.getByRole('link', { name: 'Open fix report' });
     expect(link).toHaveAttribute('href', `/findings/${ROUTE_ID}`);
     expect(ROUTE_ID).not.toBe(run.verdict.runId);
   });
@@ -43,7 +43,9 @@ describe('Replay — binding + timeline', () => {
   it('badges exactly the compromise step from verdict.stepId', async () => {
     const run = await sampleRun();
     render(<Replay run={run} routeId={ROUTE_ID} />);
-    const compromiseNodes = screen.getAllByRole('button', { name: /compromise step/i });
+    const compromiseNodes = screen.getAllByRole('button', {
+      name: /the agent was compromised here/i,
+    });
     expect(compromiseNodes).toHaveLength(run.verdict.compromised ? 1 : 0);
   });
 });
@@ -132,7 +134,9 @@ describe('Replay — outcome and provenance', () => {
     render(<Replay run={run} routeId={ROUTE_ID} />);
 
     expect(screen.getByTestId('run-outcome')).toHaveTextContent(/agent resisted/i);
-    expect(screen.queryByRole('button', { name: /compromise step/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /the agent was compromised here/i }),
+    ).not.toBeInTheDocument();
     const verdict = screen.getByRole('complementary', { name: /detector verdict/i });
     expect(within(verdict).getByText('NOT COMPROMISED')).toBeInTheDocument();
     // Still a full replay: the transcript and the transport are unchanged.
@@ -162,15 +166,15 @@ describe('Replay — outcome and provenance', () => {
       },
     };
     const { unmount } = render(<Replay run={clean} routeId={ROUTE_ID} />);
-    expect(screen.getByRole('link', { name: /export run result/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open run result' })).toHaveAttribute(
       'href',
       `/findings/${ROUTE_ID}`,
     );
-    expect(screen.queryByRole('link', { name: /export fix report/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /fix report/i })).not.toBeInTheDocument();
     unmount();
 
     render(<Replay run={compromisedRun} routeId={ROUTE_ID} />);
-    expect(screen.getByRole('link', { name: /export fix report/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open fix report' })).toBeInTheDocument();
   });
 });
 
@@ -183,7 +187,7 @@ describe('sample verdicts — copy hygiene', () => {
 });
 
 describe('Replay — verdict terminal', () => {
-  it('prints the outcome + an export y/n prompt (no rationale prose); n prints ok', async () => {
+  it('prints the outcome + an export question (no rationale prose); Not now prints ok', async () => {
     const run = await sampleRun();
     if (!run.verdict.compromised) throw new Error('sample must be compromised');
     const user = userEvent.setup();
@@ -194,8 +198,8 @@ describe('Replay — verdict terminal', () => {
     expect(within(verdict).getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.queryByText(run.verdict.rationale)).not.toBeInTheDocument();
 
-    // Export is a y/n command: declining (n) prints ok, the y is the fix-report link.
-    await user.click(within(verdict).getByRole('button', { name: /decline export/i }));
+    // "Not now" closes the question and prints ok; "Open fix report" is the link.
+    await user.click(within(verdict).getByRole('button', { name: 'Not now' }));
     expect(within(verdict).getByText(/^>\s*ok$/)).toBeInTheDocument();
   });
 });

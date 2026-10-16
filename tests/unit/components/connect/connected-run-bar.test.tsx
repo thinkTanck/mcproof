@@ -61,40 +61,40 @@ function portWith(phase: LiveRunStatusView['phase'], finish?: ConnectLiveRunPort
   } satisfies ConnectLiveRunPort;
 }
 
-const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 
 async function issue(port: ConnectLiveRunPort, settle: string) {
   const user = userEvent.setup();
   render(<LiveRunConsole port={port} category="ASI01" signedIn />);
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
   await within(dock()).findByText(settle);
   return user;
 }
 
 describe('connected: the end-run control', () => {
-  it('is named "End run and judge", with the same tooltip, at every width', async () => {
+  it('is named "End run and get result", with the same tooltip, at every width', async () => {
     await issue(portWith('connected'), 'AGENT CONNECTED');
-    const button = within(dock()).getByRole('button', { name: 'End run and judge' });
+    const button = within(dock()).getByRole('button', { name: 'End run and get result' });
 
-    expect(button).toHaveAttribute('title', 'End run and judge');
+    expect(button).toHaveAttribute('title', 'End run and get result');
   });
 
   it('shows END RUN below 640px and the full words from 640px up', async () => {
     await issue(portWith('connected'), 'AGENT CONNECTED');
-    const button = within(dock()).getByRole('button', { name: 'End run and judge' });
+    const button = within(dock()).getByRole('button', { name: 'End run and get result' });
 
     const short = within(button).getByText('END RUN', { exact: true });
-    const full = within(button).getByText('END RUN AND JUDGE', { exact: true });
+    const full = within(button).getByText('END RUN AND GET RESULT', { exact: true });
     expect(short.className).toMatch(/\bsm:hidden\b/);
     expect(full.className).toMatch(/\bhidden\b/);
     expect(full.className).toMatch(/\bsm:inline\b/);
     // Label in name (WCAG 2.5.3), for both visible labels.
-    for (const visible of ['END RUN', 'END RUN AND JUDGE']) {
-      expect('End run and judge'.toLowerCase()).toContain(visible.toLowerCase());
+    for (const visible of ['END RUN', 'END RUN AND GET RESULT']) {
+      expect('End run and get result'.toLowerCase()).toContain(visible.toLowerCase());
     }
   });
 
-  it('while judging reads JUDGING, and is named by what it shows', async () => {
+  it('while judging reads GRADING, and is named by what it shows', async () => {
     let answer!: (v: { ok: true; value: LiveRunSummaryView }) => void;
     const finish = vi.fn(
       () =>
@@ -103,10 +103,10 @@ describe('connected: the end-run control', () => {
         }),
     );
     const user = await issue(portWith('connected', finish), 'AGENT CONNECTED');
-    await user.click(within(dock()).getByRole('button', { name: 'End run and judge' }));
+    await user.click(within(dock()).getByRole('button', { name: 'End run and get result' }));
 
-    const judging = within(dock()).getByRole('button', { name: 'JUDGING' });
-    expect(judging).toHaveTextContent('JUDGING');
+    const judging = within(dock()).getByRole('button', { name: 'GRADING' });
+    expect(judging).toHaveTextContent('GRADING');
     expect(judging).not.toHaveAttribute('aria-label');
     answer({ ok: true, value: SUMMARY });
   });
@@ -145,7 +145,7 @@ describe('every other state keeps the bar it had', () => {
     const region = within(dock()).getByRole('status');
 
     expect(region.className).toBe('flex flex-1 flex-wrap items-center gap-x-4 gap-y-2');
-    expect(within(dock()).queryByRole('button', { name: 'End run and judge' })).toBeNull();
+    expect(within(dock()).queryByRole('button', { name: 'End run and get result' })).toBeNull();
   });
 });
 
@@ -162,6 +162,9 @@ describe('every other state keeps the bar it had', () => {
  *
  * The lists below are the class attributes of these five elements on main
  * (8fcdefc), copied from `src/components/connect/LiveRunConsole.tsx` there.
+ * One deliberate change since: the end-run button's label is `text-ink`, not
+ * `text-readout` (control labels take the main text colour, owner ruling
+ * 2026-10-15, UI and copy PR).
  */
 const MAIN_AT_SM_AND_UP = {
   row: 'flex min-h-11 flex-wrap items-center gap-x-5 gap-y-3',
@@ -169,7 +172,7 @@ const MAIN_AT_SM_AND_UP = {
   label: 'font-mono text-[13px] tracking-[0.08em]',
   count: 'flex items-baseline gap-2',
   button:
-    'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20',
+    'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink glow-accent transition-colors hover:bg-nominal/20',
 };
 
 /** The classes that apply at 640px and up: unprefixed ones, plus `sm:` ones without the prefix. */
@@ -197,7 +200,7 @@ describe('connected: from 640px up the bar keeps main classes exactly', () => {
     const row = region.parentElement!;
     const label = within(region).getByText('AGENT CONNECTED');
     const count = within(region).getByText('tool calls').parentElement!;
-    const button = within(dock()).getByRole('button', { name: 'End run and judge' });
+    const button = within(dock()).getByRole('button', { name: 'End run and get result' });
 
     expect(atSmAndUp(row)).toEqual(sorted(MAIN_AT_SM_AND_UP.row));
     expect(atSmAndUp(region)).toEqual(sorted(MAIN_AT_SM_AND_UP.status));

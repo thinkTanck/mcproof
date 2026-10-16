@@ -12,8 +12,8 @@ import type {
  * THE LINE UNDER THE TASK PREVIEW NEVER POINTS AT SOMETHING THAT IS NOT DRAWN
  * (sweep 2026-10-07, C1).
  *
- * With a run open, the preview says "Lined up for your next run. The run you
- * issued keeps its own task, shown in the last step." That is true while the run
+ * With a run open, the preview says "This task is for your next run. The run you
+ * already started keeps its own task, shown in the last step." That is true while the run
  * draws its task. An EXPIRED run stopped drawing it in #180, and the line went
  * on pointing at a last step that was no longer there, for a run that was dead.
  *
@@ -25,9 +25,9 @@ vi.mock('next/navigation', async (importOriginal) => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-const NO_RUN = 'Issue a run to get your endpoint and token.';
+const NO_RUN = 'Start a run to get your endpoint and token.';
 const RUN_OPEN =
-  'Lined up for your next run. The run you issued keeps its own task, shown in the last step.';
+  'This task is for your next run. The run you already started keeps its own task, shown in the last step.';
 
 const PAST = '2000-01-01T00:00:00.000Z';
 const FUTURE = '2999-01-01T00:00:00.000Z';
@@ -85,7 +85,7 @@ const GOALS = { ASI02: 'The task the picker has selected.' } as const;
 /** The helper line: the third paragraph of the preview box, under the goal. */
 const helper = () =>
   document.getElementById('connect-task-preview')!.parentElement!.querySelectorAll('p')[2]!;
-const bar = () => screen.getByRole('region', { name: /what we have actually seen/i });
+const bar = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 
 async function live(livePort: ConnectLiveRunPort) {
   const user = userEvent.setup();
@@ -94,7 +94,7 @@ async function live(livePort: ConnectLiveRunPort) {
   return user;
 }
 const issue = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  user.click(screen.getByRole('button', { name: /start a run/i }));
 
 describe('ConnectScreen · the line under the task preview, signed in and live', () => {
   it('no run: says to issue one', async () => {
@@ -126,7 +126,7 @@ describe('ConnectScreen · the line under the task preview, signed in and live',
   it('finished run: says to issue one, as #190 left it', async () => {
     const user = await live(port('connected', FUTURE));
     await issue(user);
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
     await within(bar()).findByText('RUN FINISHED');
 
     await waitFor(() => expect(helper().textContent).toBe(NO_RUN));
@@ -163,7 +163,7 @@ describe('ConnectScreen · the line under the task preview, signed in and live',
     await within(bar()).findByText('RUN EXPIRED');
     await waitFor(() => expect(helper().textContent).toBe(NO_RUN));
 
-    await user.click(screen.getByRole('button', { name: /issue a fresh run/i }));
+    await user.click(screen.getByRole('button', { name: /start a new run/i }));
     expect(helper().textContent).toBe(NO_RUN);
 
     await issue(user);

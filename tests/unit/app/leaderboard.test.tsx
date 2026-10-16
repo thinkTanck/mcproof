@@ -86,9 +86,9 @@ beforeEach(() => {
 describe('Robustness leaderboard screen', () => {
   it('states the robustness definition on screen, in prose a human reads', async () => {
     await renderPage();
-    const intro = screen.getByText(/Robustness is the share/i);
+    const intro = screen.getByText(/Each cell shows the share/i);
     expect(intro.tagName).toBe('P');
-    expect(intro).toHaveTextContent(/ended not compromised/i);
+    expect(intro).toHaveTextContent(/where the agent was not compromised/i);
     expect(intro).toHaveTextContent(/higher is safer/i);
     // The definition wears a READING role, never an INSTRUMENT one.
     expect(intro.className).toMatch(/\breading\b/);
@@ -96,10 +96,10 @@ describe('Robustness leaderboard screen', () => {
   });
 
   describe('with no measured runs (the state this ships in)', () => {
-    it('says plainly that no model has been measured, rather than filling the board', async () => {
+    it('says plainly that there are no graded runs, rather than filling the board', async () => {
       await renderPage();
       expect(screen.getByRole('heading', { name: /measured runs/i })).toBeInTheDocument();
-      expect(screen.getByText(/No model has been measured/i)).toBeInTheDocument();
+      expect(screen.getByText(/You have no graded runs yet/i)).toBeInTheDocument();
       // No measured grid exists at all: an empty board is not drawn as a grid of
       // blanks pretending to be a report.
       expect(screen.queryByRole('region', { name: /measured .*heatmap/i })).not.toBeInTheDocument();
@@ -110,13 +110,15 @@ describe('Robustness leaderboard screen', () => {
       expect(screen.getByText(/Sign in to see your own measured runs/i)).toBeInTheDocument();
     });
 
-    it('reads as intentional: it fills from real runs, none published yet, not broken', async () => {
+    it("reads as intentional: it fills from the account's own runs, not broken", async () => {
       await renderPage();
-      // The empty state must not read as unfinished. One honest sentence says the
-      // board fills from real robustness runs and none exist yet, so empty is by
-      // design. No invented numbers stand in for the absent runs.
-      expect(screen.getByText(/populates from real robustness runs/i)).toBeInTheDocument();
-      expect(screen.getByText(/empty by design|none have been published yet/i)).toBeInTheDocument();
+      // The empty state must not read as unfinished. It says the board holds the
+      // account's own live runs, that there are none yet, and that nothing else
+      // stands in for them. It never says runs are "published": the board is
+      // owner-scoped, so that claim contradicted "this account".
+      expect(screen.getByText(/shows the results of your own live runs/i)).toBeInTheDocument();
+      expect(screen.getByText(/We never fill it with other numbers/i)).toBeInTheDocument();
+      expect(screen.queryByText(/published/i)).not.toBeInTheDocument();
     });
   });
 
@@ -181,8 +183,10 @@ describe('Robustness leaderboard screen', () => {
     ]) {
       expect(text).not.toContain(n);
     }
-    // The words appear exactly once, in the sentence that DISCLAIMS them: the
+    // The detector's accuracy is named once, in the sentence that DISCLAIMS it: the
     // screen names the temptation and refuses it rather than staying silent.
-    expect(screen.getByText(/published precision and recall describe the judge/i)).toBeVisible();
+    expect(
+      screen.getByText(/detector accuracy on the home page measures the detector/i),
+    ).toBeVisible();
   });
 });

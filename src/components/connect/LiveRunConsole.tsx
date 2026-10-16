@@ -101,10 +101,10 @@ const REFUSAL_HEADINGS: Record<LiveRunRefusalCode, string> = {
   NOT_SIGNED_IN: 'SIGN IN TO RUN LIVE',
   ALLOWANCE_EXHAUSTED: 'FREE LIVE RUNS USED',
   SPEND_CAP_REACHED: 'LIVE RUNS PAUSED',
-  GATE_UNAVAILABLE: 'ALLOWANCE CHECK UNAVAILABLE',
+  GATE_UNAVAILABLE: 'FREE-RUN CHECK FAILED',
   DETECTION_UNAVAILABLE: 'DETECTOR UNAVAILABLE',
   DETECTION_FAILED: 'DETECTOR DID NOT ANSWER',
-  RESULT_INVALID: 'RUN RESULT UNUSABLE',
+  RESULT_INVALID: 'RUN RESULT INVALID',
   INVALID_REQUEST: 'RUN REQUEST REFUSED',
   RUN_NOT_FOUND: 'RUN NOT FOUND',
   RUN_ALREADY_FINISHED: 'RUN ALREADY FINISHED',
@@ -202,7 +202,7 @@ const PHASE_LABELS: Record<LiveRunPhase, string> = {
  */
 function phaseLine(status: LiveRunStatusView, result: RunResultState): string {
   if (status.phase === 'waiting') {
-    return 'No agent has connected yet. Nothing is recorded until one does.';
+    return 'No agent has connected yet. We record nothing until one does.';
   }
   if (status.phase === 'finished') {
     // ENDED IS NOT SAVED. A run reads finished from the moment it is claimed,
@@ -212,13 +212,16 @@ function phaseLine(status: LiveRunStatusView, result: RunResultState): string {
     // for two of them and "it has no replay" is false for a third.
     switch (result) {
       case 'saved':
-        return 'This run is ended, judged and saved. The replay has the whole trace.';
+        return 'This run has ended, been graded and been saved. The replay shows every step.';
       case 'judging':
-        return 'This run is ended and is being judged. The result is saved when the judge answers.';
+        return (
+          'This run has ended and the detector is grading it. We save the result when the ' +
+          'detector answers.'
+        );
       case 'pending':
         return (
-          'This run is ended, and its result is not saved yet. If it is still being judged, ' +
-          'the replay link appears here when the result is saved.'
+          'This run has ended, and its result is not saved yet. If the detector is still grading ' +
+          'it, the replay link appears here once the result is saved.'
         );
       case 'none':
         return 'This run is ended. It was closed without a saved result, so it has no replay.';
@@ -783,15 +786,15 @@ function SignInGate({ freeRunsNote }: { freeRunsNote?: string | null }) {
         <div className="min-w-[220px] flex-1">
           <p className="micro-label text-caution">SIGN IN TO RUN LIVE</p>
           <p className="reading measure mt-1.5">
-            A live run hosts an endpoint for your account and spends operator budget on the judge,
-            so it needs an account. Sample playback needs no sign-in and no key.
+            A live test needs an account, because we host an endpoint for you and pay for the
+            detector to grade your run. Anyone can watch the samples without signing in.
           </p>
         </div>
         {/* Back to this screen afterwards. A bare /sign-in lands on /account,
           and someone who signed in to run live had to find their way back. */}
         <Link
           href="/sign-in?next=%2Fconnect"
-          className="min-h-11 shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] leading-6 tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10"
+          className="min-h-11 shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] leading-6 tracking-[0.08em] text-ink transition-colors hover:bg-nominal/10"
         >
           SIGN IN
         </Link>
@@ -824,24 +827,23 @@ function BeforeIssue({
           sentence on this panel that was not true. */}
       <p className="reading measure">
         {kind === 'benign'
-          ? 'You point your agent at an endpoint we host. We serve the same tool surface for the ' +
-            'category you picked with no attack staged on it, and we record every tool call your ' +
-            'agent chooses to make.'
-          : 'You point your agent at an endpoint we host. We serve the attack surface for the ' +
-            'category you picked, and we record every tool call your agent chooses to make.'}
+          ? 'You connect your agent to an endpoint we host. We serve the tools for the attack ' +
+            'type you picked, with no attack, and record every tool call your agent makes.'
+          : 'You connect your agent to an endpoint we host. We serve the tools for the attack ' +
+            'type you picked, one of which carries the attack, and record every tool call your ' +
+            'agent makes.'}
       </p>
       <p className="reading measure text-ink-muted">
-        We never ask you for an endpoint or a key, because we never call out to anything. Everything
-        our endpoint serves is fabricated attack content in a sandbox, and nothing real sits behind
-        it.
+        We never ask for your endpoint or your keys, and our server never connects to your systems.
+        Everything our endpoint serves is made up for the test, and nothing real sits behind it.
       </p>
       <div>
         <button
           type="button"
           onClick={onIssue}
-          className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20"
+          className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink glow-accent transition-colors hover:bg-nominal/20"
         >
-          {issuing ? 'ISSUING' : 'ISSUE RUN ENDPOINT'}
+          {issuing ? 'STARTING' : 'START A RUN'}
         </button>
       </div>
       {/* Directly under the button that spends one. It states the limit for any
@@ -921,8 +923,8 @@ function ReattachRefused({ refusal }: { refusal: LiveRunRefusal }) {
       <p className="micro-label text-caution">{REFUSAL_HEADINGS[refusal.code]}</p>
       <p className="reading measure">{refusal.message}</p>
       <p className="reading measure text-ink-muted">
-        Nothing was reopened. A run can only be reopened by the account that issued it, and only
-        until it is swept after it expires. You can issue a new run below.
+        This run could not be reopened. Only the account that started a run can reopen it, and only
+        until we clear it out after it expires. You can start a new run below.
       </p>
     </div>
   );
@@ -978,17 +980,17 @@ function SelectionNotice({
         <span className="readout">{asiLabel(category)}</span> (
         <span className="readout">{RUN_TYPE_LABEL[kind]}</span>) selected above.{' '}
         {over
-          ? 'A new selection takes effect on the next run you issue.'
-          : 'The endpoint, the token and the task goal on this page belong to the run that was ' +
-            'issued, and a new selection only takes effect on the next run you issue.'}
+          ? 'A new selection takes effect on the next run you start.'
+          : 'The endpoint, the token and the task goal on this page belong to the run you ' +
+            'started, and a new selection only takes effect on the next run you start.'}
       </p>
       <p className="reading measure text-ink-muted">
         {canRelease
-          ? 'No agent has connected to this run, so you can let it go and issue one for the new ' +
-            'selection. This run is left to expire.'
+          ? 'No agent has connected to this run, so you can leave it and start a new one for ' +
+            'your new choice. This run will expire on its own.'
           : phase === 'connected'
-            ? 'End this run first, then issue a new one for the new selection.'
-            : 'Issue a fresh run to use the new selection.'}
+            ? 'End this run first, then start a new one for your new choice.'
+            : 'Start a new run to use your new choice.'}
       </p>
       {canRelease && (
         <div>
@@ -1019,7 +1021,7 @@ function FreshRunButton({
    * The pinned bar's copy: tighter padding and the visible label NEW RUN below
    * `sm`, so it fits beside OPEN THE REPLAY on a phone. Its accessible name
    * contains the visible label at every width (WCAG 2.5.3): NEW RUN on a phone,
-   * ISSUE A FRESH RUN from `sm` up.
+   * START A NEW RUN from `sm` up.
    */
   compact?: boolean;
 }) {
@@ -1028,7 +1030,7 @@ function FreshRunButton({
       ref={buttonRef}
       type="button"
       onClick={onRelease}
-      aria-label={compact ? 'New run: issue a fresh run' : undefined}
+      aria-label={compact ? 'New run: start a new run' : undefined}
       className={cn(
         'inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line-em py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout',
         compact ? 'px-3 sm:px-5' : 'px-5',
@@ -1037,16 +1039,29 @@ function FreshRunButton({
       {compact ? (
         <>
           <span className="sm:hidden">NEW RUN</span>
-          <span className="hidden sm:inline">ISSUE A FRESH RUN</span>
+          <span className="hidden sm:inline">START A NEW RUN</span>
         </>
       ) : (
-        'ISSUE A FRESH RUN'
+        'START A NEW RUN'
       )}
     </button>
   );
 }
 
 // ── The issued run ──
+
+/**
+ * A moment as the viewer reads it, in their own zone with the zone named:
+ * "Oct 15, 2026, 9:37 PM CDT" (ruling 2026-10-15, the same rule as LAST SEEN).
+ * The ISO value the server issued stays in the datetime attribute.
+ */
+function LocalTime({ iso }: { iso: string }) {
+  return (
+    <time className="readout" dateTime={iso}>
+      {localDateTime(iso) ?? iso}
+    </time>
+  );
+}
 
 function Endpoint({ run }: { run: ActiveRun }) {
   return (
@@ -1062,10 +1077,10 @@ function Endpoint({ run }: { run: ActiveRun }) {
         <>
           <CopyOut label="RUN TOKEN" name="run token" value={run.token} secret />
           <p className="reading measure text-ink-muted">
-            The token is shown once and we cannot show it again, because we store only a hash of it.
-            It travels as an Authorization header on every request your agent makes, and the
-            commands below set that up for you. It opens this one run, on this one account, and it
-            dies when the run ends or when it expires.
+            We show this token once. We cannot show it again, because we store only a scrambled form
+            of it (a hash). Your agent sends it with every request, and the commands below set that
+            up. It works only for this run on this account, and stops working when the run ends or
+            expires.
           </p>
         </>
       ) : (
@@ -1074,9 +1089,9 @@ function Endpoint({ run }: { run: ActiveRun }) {
             RUN REOPENED · TOKEN NOT SHOWN
           </p>
           <p className="reading measure">
-            This run was reopened from its saved state. Its token was shown once, when the run was
-            issued, and we cannot show it again, because we store only a hash of it. An agent that
-            already holds the token keeps working, and you can watch the run and end it from here.
+            We reopened this run from its saved state. Its token was shown once, when the run
+            started, and we cannot show it again. An agent that already has the token can keep
+            working, and you can watch and end the run from here.
           </p>
         </div>
       )}
@@ -1092,13 +1107,13 @@ function Endpoint({ run }: { run: ActiveRun }) {
         <span className="instrument-faint">
           RUN TYPE <span className="readout">{RUN_TYPE_LABEL[run.kind]}</span>
         </span>
-        <span className="instrument-faint">
-          EXPIRES <span className="readout">{run.expiresAt}</span>
+        <span data-testid="ticket-expires" className="instrument-faint">
+          EXPIRES <LocalTime iso={run.expiresAt} />
         </span>
       </div>
       <p className="reading measure text-ink-muted">
-        The tools on this endpoint are hostile by design. A leaked token is worth one sandboxed run
-        of invented content, never an account.
+        The tools on this endpoint are built to attack your agent. Anyone who gets this token gets
+        only this one test run of made-up content, never your account.
       </p>
     </section>
   );
@@ -1122,8 +1137,8 @@ function Result({ runId }: { runId: string }) {
         See the result.
       </h3>
       <p className="reading measure">
-        The replay walks through every step that was recorded. The report states the verdict and
-        what it rests on.
+        The replay shows every recorded step. The report gives the result and the detector{"'"}s
+        reasons.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Link
@@ -1131,7 +1146,7 @@ function Result({ runId }: { runId: string }) {
           aria-label="Open the replay"
           className={cn(
             link,
-            'border-nominal bg-nominal/10 text-readout glow-accent hover:bg-nominal/20',
+            'border-nominal bg-nominal/10 text-ink glow-accent hover:bg-nominal/20',
           )}
         >
           OPEN THE REPLAY
@@ -1158,9 +1173,9 @@ function TaskGoal({ run }: { run: ActiveRun }) {
         Give your agent its task.
       </h3>
       <p className="reading measure">
-        MCP has no message that lets a server tell an agent what its job is, so the goal has to
-        reach your agent another way. There are two, and the first is better because the goal never
-        leaves the protocol.
+        MCP has no way for a server to tell an agent what its job is, so you have to give your agent
+        the task. There are two ways. The first is better because the task stays inside the MCP
+        connection.
       </p>
       <div className="rounded-lg border border-line-em bg-nominal/5 px-4 py-3.5">
         <p className="micro-label mb-2">PREFERRED · PUBLISHED MCP PROMPT</p>
@@ -1231,7 +1246,7 @@ function Connection({
    * run is not offered a fresh one, because letting it go drops the replay link.
    */
   settled: boolean;
-  /** The ticket's expiry, printed as issued. Evidence, never reformatted. */
+  /** The ticket's expiry, ISO. Drawn in the viewer's local time, never counted down. */
   expiresAt: string;
   /** Whether the clock had passed that expiry at the last poll. */
   expired: boolean;
@@ -1362,7 +1377,7 @@ function Connection({
   return (
     <>
       <h3 id="connect-state" className="reading-h3">
-        What we have actually seen.
+        What we have recorded so far.
       </h3>
       {/* THE RUN BAR. One compact strip: the state, the count, and the control
           that ends the run. It is pinned under the 72px header at every width,
@@ -1498,18 +1513,18 @@ function Connection({
               type="button"
               onClick={endAndJudge}
               // Named for what it does at every width; while a finish is in
-              // flight it shows JUDGING and is named by that instead, so the
+              // flight it shows GRADING and is named by that instead, so the
               // visible words are always inside the name (WCAG 2.5.3).
-              aria-label={finishing ? undefined : 'End run and judge'}
-              title={finishing ? undefined : 'End run and judge'}
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 py-3 font-mono text-[14px] tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20 max-sm:col-start-3 max-sm:row-start-2 max-sm:whitespace-nowrap max-sm:px-3 sm:px-5"
+              aria-label={finishing ? undefined : 'End run and get result'}
+              title={finishing ? undefined : 'End run and get result'}
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-nominal bg-nominal/10 py-3 font-mono text-[14px] tracking-[0.08em] text-ink glow-accent transition-colors hover:bg-nominal/20 max-sm:col-start-3 max-sm:row-start-2 max-sm:whitespace-nowrap max-sm:px-3 sm:px-5"
             >
               {finishing ? (
-                'JUDGING'
+                'GRADING'
               ) : (
                 <>
                   <span className="sm:hidden">END RUN</span>
-                  <span className="hidden sm:inline">END RUN AND JUDGE</span>
+                  <span className="hidden sm:inline">END RUN AND GET RESULT</span>
                 </>
               )}
             </button>
@@ -1536,7 +1551,7 @@ function Connection({
                 <Link
                   href={`/runs/${replayRunId}`}
                   aria-label="Open the replay"
-                  className="inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-nominal bg-nominal/10 px-3 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20 sm:px-5"
+                  className="inline-flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-md border border-nominal bg-nominal/10 px-3 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink glow-accent transition-colors hover:bg-nominal/20 sm:px-5"
                 >
                   <span className="sm:hidden">REPLAY</span>
                   <span className="hidden sm:inline">OPEN THE REPLAY</span>
@@ -1631,8 +1646,8 @@ function Connection({
       <div data-testid="run-state-detail" className="-mt-3 flex flex-col gap-3">
         <p className="reading measure">
           {lapsed
-            ? 'This run passed its expiry before it finished, so its endpoint and token no longer ' +
-              'accept connections. Issue a new run to try again.'
+            ? 'This run expired before it finished, so its endpoint and token no longer work. ' +
+              'Start a new run to try again.'
             : discarded
               ? `${RUN_DISCARDED_SENTENCE} ${DISCARD_STILL_COUNTS_SENTENCE}`
               : status === null
@@ -1646,28 +1661,28 @@ function Connection({
             offered, because letting the run go would drop the replay link. */}
         {phase === 'finished' && (
           <p className="reading measure">
-            Ending a run revokes its token, so this run{"'"}s endpoint no longer accepts
-            connections.{canRestart ? ' Issue a fresh run to test again.' : ''}
+            Ending a run cancels its token, so this run{"'"}s endpoint no longer works.
+            {canRestart ? ' Start a new run to test again.' : ''}
           </p>
         )}
         {!lapsed && phase === 'waiting' && !reattached && (
           <p className="reading measure text-ink-muted">
-            This reading changes to AGENT CONNECTED the moment your agent reaches the endpoint. If
-            it is still AWAITING AGENT after you have started your client, the connection did not
-            take.
+            This changes to AGENT CONNECTED as soon as your agent reaches the endpoint. If it still
+            says AWAITING AGENT after you start your agent, it is not connected.
           </p>
         )}
         {status !== null && (
           <p className="reading measure text-ink-muted">
-            The trace holds {status.steps} steps in total, which counts the task goal we sent and
-            the completion step we infer, as well as your agent{"'"}s own.
+            The run has {status.steps} steps in total. Two of them are ours: the task we sent, and a
+            last step we add to mark the end of the run. The rest are your agent{"'"}s tool calls
+            and our replies.
           </p>
         )}
         {statusRefusal !== null && (
           <p className="reading measure text-ink-muted">{statusRefusal.message}</p>
         )}
         {/* When the run stops accepting connections, and, when the server records
-            one, when the agent was last seen. Both are evidence, printed as issued
+            one, when the agent was last seen. Both are evidence, drawn in the viewer's local time
             and never counted down or animated.
 
             LAST SEEN is shown only when a time was actually reported. It used to
@@ -1702,30 +1717,30 @@ function Connection({
               come would be a date that means nothing. */}
           {phase !== 'finished' && (
             <p className="instrument-faint">
-              {lapsed ? 'EXPIRED' : 'EXPIRES'} <span className="readout">{expiresAt}</span>
+              {lapsed ? 'EXPIRED' : 'EXPIRES'} <LocalTime iso={expiresAt} />
             </p>
           )}
         </div>
         <p className="reading measure text-ink-muted">
-          We record what your agent does, not what it thinks. Reasoning is not observable from this
-          side of the connection and is never invented, so a live trace carries fewer steps than the
-          constructed sample does.
+          We record what your agent does, not what it thinks. We cannot see its reasoning from our
+          side of the connection, and we never make it up. So a live run has fewer steps than the
+          sample, which includes reasoning steps we wrote.
         </p>
         {/* WHAT DISCARD IS FOR, and what it costs. Said wherever it is offered,
             because the cost is the part a reader would not guess. No numeral:
             the allowance is configuration, and only the server words it. */}
         {canDiscard && (
           <p className="reading measure text-ink-muted">
-            If this was not a real test, for example a tool you pressed by hand in a manual client,
-            discard the run instead. A discarded run is not judged and never reaches the
+            If this was not a real test, for example you called a tool yourself in MCP Inspector,
+            discard the run instead. A discarded run is not graded and never appears on the
             leaderboard. {DISCARD_STILL_COUNTS_SENTENCE}
           </p>
         )}
         {canFinish && (
           <p className="reading measure">
-            When your agent is done, end the run. That revokes the token, asks the fixed judge for a
-            verdict on what was recorded, and saves the result. A compromise comes back anchored to
-            one step; a clean run comes back as a clean run. Both are saved and both are results.
+            When your agent is done, end the run. That cancels the token, sends the recorded steps
+            to the detector, and saves its result. A compromised run comes back with the step where
+            it happened. A clean run comes back clean. We save both.
           </p>
         )}
         {/* ONE control for both dead ends. A run that expired tells the reader to
@@ -1735,10 +1750,10 @@ function Connection({
           <div className="flex flex-col gap-2.5">
             {stranded && (
               <p className="reading measure">
-                This run was reopened without its token, and no agent has connected to it. If your
-                client was not set up before this page was reloaded, the run cannot be registered
-                with a client now, because we cannot show the token again. Issue a fresh run to get
-                a new endpoint and token. This one is left to expire.
+                We reopened this run without its token, and no agent has connected to it. If you did
+                not set up your agent before this page reloaded, you cannot set it up now, because
+                we cannot show the token again. Start a new run to get a new endpoint and token.
+                This one will expire on its own.
               </p>
             )}
             <div>
@@ -1835,7 +1850,7 @@ function Refusal({ refusal, onRetry }: { refusal: LiveRunRefusal; onRetry: () =>
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink-muted transition-colors hover:border-line-em hover:text-ink"
+            className="inline-flex min-h-11 items-center gap-2.5 rounded-md border border-line px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-line-em hover:text-ink"
           >
             TRY AGAIN
           </button>

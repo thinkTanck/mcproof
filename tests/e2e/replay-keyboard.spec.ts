@@ -83,7 +83,7 @@ for (const [width, height] of [
       // One step is drawn at the start, so one step is a stop. Then the verdict
       // terminal's own controls, then the transport: no invisible stop between.
       const steps = stops.filter((stop) => stop.inStepList);
-      expect(steps.map((stop) => stop.name)).toEqual(['Step 1: Principal instruction']);
+      expect(steps.map((stop) => stop.name)).toEqual(["Step 1: Operator's task"]);
     });
 
     test('a screen reader still finds all eight steps in the list', async ({ page }) => {
@@ -92,7 +92,9 @@ for (const [width, height] of [
         .getByRole('button');
 
       await expect(steps).toHaveCount(8);
-      await expect(steps.nth(5)).toHaveAccessibleName('Step 6: Tool call, compromise step');
+      await expect(steps.nth(5)).toHaveAccessibleName(
+        'Step 6: Tool call, the agent was compromised here',
+      );
     });
 
     test('at the end: all eight steps are stops, each visible with a focus ring', async ({

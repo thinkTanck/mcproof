@@ -9,7 +9,7 @@ import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
  * which jsdom does not apply, so this runs in Chromium against the Connect
  * states fixture (`/e2e/connect-states`, built only with E2E_FIXTURES=1).
  *
- * At 1280 the control is in the pinned bar beside END RUN AND JUDGE. At 320 it
+ * At 1280 the control is in the pinned bar beside END RUN AND GET RESULT. At 320 it
  * cannot be: the count and END RUN already fill the bar's second row, and a
  * third row would undo the ceiling the bar was given in the 2026-10-07 sweep
  * (tests/e2e/connected-run-bar.spec.ts). So on a narrow screen it sits directly
@@ -23,9 +23,10 @@ test.skip(
 );
 
 const FIXTURE = '/e2e/connect-states';
-const QUESTION = 'Discard this run? It ends now, its token stops working, and it is not judged.';
+const QUESTION =
+  'Discard this run? It ends now, its token stops working, and the detector does not grade it.';
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 /** Whichever copy of the control this width draws. Exactly one is ever visible. */
 const trigger = (page: Page) =>
   page.getByRole('button', { name: 'DISCARD RUN', exact: true }).filter({ visible: true });
@@ -42,7 +43,7 @@ async function issued(page: Page, state: 'waiting' | 'connected') {
   await page.context().route(/\.woff2?(\?|$)/, (route) => route.abort());
   await page.goto(`${FIXTURE}?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(
     bar(page).getByText(state === 'connected' ? 'AGENT CONNECTED' : 'AWAITING AGENT'),
   ).toBeVisible();
@@ -85,7 +86,7 @@ async function expectInsideViewport(page: Page, locator: Locator) {
 test.describe('1280x900', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test("DISCARD RUN is in the pinned bar, in END RUN AND JUDGE's row, and both are full size", async ({
+  test("DISCARD RUN is in the pinned bar, in END RUN AND GET RESULT's row, and both are full size", async ({
     page,
   }) => {
     await issued(page, 'connected');
@@ -139,7 +140,7 @@ test.describe('1280x900', () => {
     await expect(bar(page).getByText('AGENT CONNECTED')).toBeVisible();
   });
 
-  test('confirming reads RUN DISCARDED with ISSUE A FRESH RUN, and nothing to judge', async ({
+  test('confirming reads RUN DISCARDED with START A NEW RUN, and nothing to judge', async ({
     page,
   }) => {
     await issued(page, 'connected');
@@ -149,17 +150,19 @@ test.describe('1280x900', () => {
     await expect(bar(page).getByText('RUN DISCARDED')).toBeVisible();
     await expect(fresh(page)).toBeVisible();
     await expect(fresh(page)).toBeFocused();
-    await expect(fresh(page)).toHaveText(/ISSUE A FRESH RUN/);
+    await expect(fresh(page)).toHaveText(/START A NEW RUN/);
     await expect(endRun(page)).toHaveCount(0);
     await expect(trigger(page)).toHaveCount(0);
-    await expect(page.getByText('This run was discarded and not judged.').first()).toBeVisible();
+    await expect(
+      page.getByText('This run was discarded, so the detector did not grade it.').first(),
+    ).toBeVisible();
     await expect(page.getByRole('link', { name: /open the replay/i })).toHaveCount(0);
     expect((await box(fresh(page))).height).toBeGreaterThanOrEqual(44);
     expect((await box(bar(page))).height).toBeLessThan(90);
     await expectNoWcagViolations(page);
 
     await fresh(page).click();
-    await expect(page.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /start a run/i })).toBeVisible();
   });
 });
 
@@ -180,7 +183,7 @@ test.describe('320x568', () => {
     const [d, b, h] = await Promise.all([
       box(trigger(page)),
       box(bar(page)),
-      box(page.getByRole('heading', { name: 'What we have actually seen.' })),
+      box(page.getByRole('heading', { name: 'What we have recorded so far.' })),
     ]);
     // Not in the bar: wholly above it, and directly under the heading with
     // nothing but a gap between them.
@@ -269,7 +272,7 @@ for (const [width, height] of [
         await page.goto(`${FIXTURE}?state=${surface}`);
 
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-          'This run was discarded and not judged.',
+          'This run was discarded, so the detector did not grade it.',
         );
         await expect(page.getByText('RUN DISCARDED', { exact: true })).toBeVisible();
         const link = page.getByRole('link', { name: /connect your agent/i });

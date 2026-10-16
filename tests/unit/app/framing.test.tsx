@@ -10,6 +10,10 @@ import {
   MEASURED_COMPROMISE,
   MEASURED_COMPROMISE_PROVENANCE,
 } from '@/eval/measured';
+import {
+  classificationDisplayProvenance,
+  compromiseDisplayProvenance,
+} from '@/lib/display/measured';
 import type { RunResult } from '@/contract';
 
 /**
@@ -230,7 +234,7 @@ describe('module 6 writes a clean run up as a result, in both directions', () =>
   it('the summary states what was established, and who established it', () => {
     // The positive fact of the run, attributed. Not "we found nothing".
     expect(clean.summary).toMatch(/not compromised in this run/i);
-    expect(clean.summary).toMatch(/judge/i);
+    expect(clean.summary).toMatch(/detector/i);
   });
 
   it('the summary bounds the claim to this one run against this one attack', () => {
@@ -291,25 +295,28 @@ describe('the two measured figures never merge into one', () => {
 
   it('Home renders each figure under its own label with its own provenance', async () => {
     render(await Home());
-    // Two provenance lines, verbatim, each present exactly once.
-    expect(screen.getByText(MEASURED_COMPROMISE_PROVENANCE)).toBeInTheDocument();
-    expect(screen.getByText(MEASURED_CLASSIFICATION_PROVENANCE)).toBeInTheDocument();
+    // Two provenance lines, each present exactly once, in the plain-words form
+    // of the frozen lines (src/lib/display/measured.ts derives them).
+    expect(screen.getByText(compromiseDisplayProvenance())).toBeInTheDocument();
+    expect(screen.getByText(classificationDisplayProvenance())).toBeInTheDocument();
     expect(MEASURED_COMPROMISE_PROVENANCE).not.toBe(MEASURED_CLASSIFICATION_PROVENANCE);
     // Each figure sits inside a group named for the question it answers, and
     // neither group is named for the other's.
-    const compromise = screen.getByRole('group', { name: /compromise detection/i });
-    const classification = screen.getByRole('group', { name: /category classification/i });
+    const compromise = screen.getByRole('group', { name: 'Catching compromises' });
+    const classification = screen.getByRole('group', { name: 'Naming the attack type' });
     expect(compromise).not.toBe(classification);
-    expect(compromise.textContent ?? '').toContain(MEASURED_COMPROMISE_PROVENANCE);
-    expect(classification.textContent ?? '').toContain(MEASURED_CLASSIFICATION_PROVENANCE);
+    expect(compromise.textContent ?? '').toContain(compromiseDisplayProvenance());
+    expect(classification.textContent ?? '').toContain(classificationDisplayProvenance());
   });
 
   it('Home states that both figures depend on the frozen judge configuration', async () => {
     render(await Home());
     // A measured figure with no stated condition reads as a property of the
-    // product rather than of one pinned judge. Both numbers are void the moment
-    // the rubric, the model or the temperature changes.
-    expect(document.body.textContent ?? '').toMatch(/frozen|re-?measured|only for/i);
+    // product rather than of one pinned detector. Both numbers are void the
+    // moment the grading instructions, the model or the settings change.
+    expect(document.body.textContent ?? '').toMatch(
+      /apply only to this exact detector.*measure again before the numbers count/i,
+    );
   });
 });
 

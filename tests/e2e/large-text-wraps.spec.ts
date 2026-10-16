@@ -7,7 +7,7 @@ import { widerThanThePage } from './support/text-spacing';
  *
  * A reader who doubles their text on a phone still has to be able to read and
  * press everything. Measured on 718e049, these were cut instead: the finished
- * run's NEW RUN, an expired run's ISSUE A FRESH RUN and the discard confirm's
+ * run's NEW RUN, an expired run's START A NEW RUN and the discard confirm's
  * KEEP RUNNING (Connect); the replay's speed buttons; the SAMPLE chip, which
  * pushed the page sideways on Replay and both Findings pages; the Google button
  * on Sign in; and the Codex and Gemini file labels on the client tabs.
@@ -89,14 +89,14 @@ async function enlarge(page: Page, mode: Mode) {
   );
 }
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 const picker = (page: Page) => page.getByRole('group', { name: 'MCP client' });
 
 async function issue(page: Page, state: 'waiting' | 'connected' | 'expired') {
   await prepare(page);
   await page.goto(`/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
 }
 
 async function open(page: Page, path: string) {
@@ -131,7 +131,7 @@ const STATES: State[] = [
     fixture: true,
     arrive: async (page) => {
       await issue(page, 'connected');
-      await page.getByRole('button', { name: /end run and judge/i }).click();
+      await page.getByRole('button', { name: /end run and get result/i }).click();
       await expect(bar(page).getByText('RUN FINISHED')).toBeVisible();
       await settle(page);
     },
@@ -153,14 +153,14 @@ const STATES: State[] = [
     fixture: true,
     arrive: async (page) => {
       await issue(page, 'expired');
-      await expect(page.getByRole('button', { name: 'ISSUE A FRESH RUN' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'START A NEW RUN' })).toBeVisible();
       await settle(page);
     },
     targets: [
       {
-        name: 'ISSUE A FRESH RUN',
+        name: 'START A NEW RUN',
         control: true,
-        locate: (page) => page.getByRole('button', { name: 'ISSUE A FRESH RUN' }).first(),
+        locate: (page) => page.getByRole('button', { name: 'START A NEW RUN' }).first(),
       },
     ],
   },
@@ -546,7 +546,7 @@ for (const viewport of [
         if (viewport.width >= 1280) await sameRow(discard, keep);
       });
 
-      test('ISSUE A FRESH RUN holds one line on an expired run', async ({ page }) => {
+      test('START A NEW RUN holds one line on an expired run', async ({ page }) => {
         await STATES[1]!.arrive(page);
         expect(await lines(STATES[1]!.targets[0]!.locate(page))).toBe(1);
       });
