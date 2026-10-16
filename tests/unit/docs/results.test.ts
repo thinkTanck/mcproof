@@ -41,3 +41,17 @@ describe('README', () => {
     expect(read('README.md')).toContain('RESULTS.md');
   });
 });
+
+/**
+ * THE TEST SET IS PUBLIC (license audit, 2026-10-16). The labeled runs and
+ * the trap designs are in this repo, so both public documents say so, and
+ * say that future held-out data lives outside it.
+ */
+describe('both documents say the test set is public', () => {
+  const SENTENCE =
+    'The 51 labeled test runs and the trap designs are public in this repo, so an agent maker could tune an agent against them; future held-out evaluation data will be kept outside the repo.';
+
+  it.each(['README.md', 'RESULTS.md'])('%s carries the sentence', (file) => {
+    expect(read(file).replace(/\s+/g, ' ')).toContain(SENTENCE);
+  });
+});

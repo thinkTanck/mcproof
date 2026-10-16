@@ -57,3 +57,7 @@ yarn-error.log*
 # Local design-review markups (not part of the app)
 site_revs/
 .claude/worktrees/
+
+# Local working notes for the planning chat and Claude Code (license audit
+# 2026-10-16): never tracked.
+/claude/
