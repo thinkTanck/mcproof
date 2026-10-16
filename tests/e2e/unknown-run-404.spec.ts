@@ -91,7 +91,7 @@ for (const path of ['/runs/sample', '/findings/sample', '/runs/asi10-goal-drift'
  *
  * So these fetch the RAW response with no browser at all and read the markup.
  */
-const SITE_DEFAULT_TITLE = 'MCProof · Test your MCP agent against attacks';
+const SITE_DEFAULT_TITLE = 'MCProof · Red-team testing for AI agents that use MCP tools';
 
 const RAW: { path: string; h1: RegExp; title: string }[] = [
   {

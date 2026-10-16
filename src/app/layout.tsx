@@ -21,9 +21,9 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 });
 
-const TITLE = 'MCProof · Test your MCP agent against attacks';
+const TITLE = 'MCProof · Red-team testing for AI agents that use MCP tools';
 const DESCRIPTION =
-  'MCProof tests whether your MCP agent can be tricked into misusing its tools, using 7 risks from the OWASP Top 10 for Agentic Applications (2026). Watch each run step by step and get a fix report when the agent is compromised.';
+  'MCProof tests whether your AI agent can be tricked into misusing its MCP tools. Each run is one staged attack from the OWASP Top 10 for Agentic Applications (2026). Watch the run step by step and get a fix report when the agent is compromised.';
 
 /**
  * `metadataBase` is the origin every RELATIVE metadata URL resolves against.

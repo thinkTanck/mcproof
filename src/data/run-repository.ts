@@ -3,8 +3,10 @@ import { CategorySchema, type RunResult } from '@/contract';
 
 /**
  * A persisted run: a live `RunResult` plus its ownership + timestamp. The row
- * `id` is a fresh uuid (the RunResult's own `runId` is `model::category` and is
- * NOT unique per user over time), so a user can accumulate many runs.
+ * `id` is a fresh uuid made by Postgres on insert, and it is the id the replay
+ * and report URLs carry. The RunResult's own `runId` is the hosted MCP run id
+ * the agent's endpoint was served at; it is shown only in a live run's copied
+ * ticket.
  */
 export interface StoredRun {
   /** Unique row id (uuid) — the address a run is fetched/linked by. */
