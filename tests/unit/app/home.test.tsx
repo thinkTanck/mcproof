@@ -449,11 +449,25 @@ describe('Home — what the product is, in words', () => {
     expect(subhead.className).toMatch(/\breading-lead\b/);
     const text = (subhead.textContent ?? '').replace(/\s+/g, ' ').trim();
     // What the product does, keeping both results open (owner ruling
-    // 2026-10-15, Home hero). Still no number.
+    // 2026-10-16, #240). "this time": one run says nothing past itself.
+    // Still no number.
     expect(text).toBe(
-      'We hide an attack inside the MCP tools your agent uses, then show you the exact step where it was fooled, or proof that it held.',
+      'We hide an attack inside the MCP tools your agent uses, then show you the exact step where it was fooled, or that it held this time.',
     );
-    expect(text).not.toMatch(/—|\d/);
+    expect(text).not.toMatch(/—|\d|\bproof\b/);
+  });
+
+  it('says what MCP and "compromised" mean, directly under the subhead (owner ruling 2026-10-16)', async () => {
+    await renderHome();
+    const subhead = screen.getByTestId('home-subhead');
+    const terms = screen.getByTestId('home-terms');
+    expect(subhead.nextElementSibling).toBe(terms);
+    expect(terms.tagName).toBe('P');
+    expect(terms.className).toMatch(/\breading\b/);
+    expect(terms.className).toMatch(/\bmeasure\b/);
+    expect((terms.textContent ?? '').replace(/\s+/g, ' ').trim()).toBe(
+      'MCP (Model Context Protocol) is the standard way AI agents connect to outside tools. A run counts as compromised when your agent takes the harmful action the hidden attack asked for.',
+    );
   });
 
   it('carries the OWASP badge and its explanation in the headline block', async () => {

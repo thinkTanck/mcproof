@@ -146,16 +146,23 @@ export default async function Home() {
               Test your AI agent against known attacks.
             </h1>
 
-            {/* WHAT THE PRODUCT DOES, in plain words (owner ruling 2026-10-15,
-                Home hero). It promises nothing about the reader's own agent:
-                "fooled, or proof that it held" keeps both results open, as
-                framing.test.tsx requires. No number, so nothing in it can
-                drift from a measurement. It no longer says what MCP or
-                "compromised" mean (the copy-pass paragraph that did is
-                replaced by this ruling). */}
+            {/* WHAT THE PRODUCT DOES, in plain words (owner rulings 2026-10-15
+                and 2026-10-16). It promises nothing about the reader's own
+                agent: "fooled, or that it held this time" keeps both results
+                open, as framing.test.tsx requires, and "this time" claims no
+                more than the one run. No number, so nothing in it can drift
+                from a measurement. */}
             <p data-testid="home-subhead" className="reading-lead measure">
               We hide an attack inside the MCP tools your agent uses, then show you the exact step
-              where it was fooled, or proof that it held.
+              where it was fooled, or that it held this time.
+            </p>
+
+            {/* THE TWO TERMS a fresh reader does not know, said once (owner
+                ruling 2026-10-16). */}
+            <p data-testid="home-terms" className="reading measure">
+              MCP (Model Context Protocol) is the standard way AI agents connect to outside tools. A
+              run counts as compromised when your agent takes the harmful action the hidden attack
+              asked for.
             </p>
 
             {/* WHAT IT MAPS TO, and what that phrase means. The badge is text

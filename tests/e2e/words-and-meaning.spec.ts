@@ -345,7 +345,15 @@ for (const viewport of VIEWPORTS) {
       expect(read.text).toMatch(/^We hide an attack /);
       // Home hero (owner ruling 2026-10-15): one sentence that keeps both
       // results open, ending in a full stop.
-      expect(read.text, 'keeps both results open').toMatch(/fooled, or proof that it held\.$/);
+      expect(read.text, 'keeps both results open').toMatch(/fooled, or that it held this time\.$/);
+      // Owner ruling 2026-10-16: the paragraph under it says what MCP and
+      // "compromised" mean.
+      const terms = page.getByTestId('home-terms');
+      await expect(terms).toBeVisible();
+      await expect(terms).toHaveText(/^MCP \(Model Context Protocol\) is the standard way /);
+      await expect(terms).toHaveText(
+        /counts as compromised when your agent takes the harmful action/,
+      );
       expect(read.text, 'ends a sentence').toMatch(/\.$/);
       expect(read.text, 'no em dash').not.toMatch(/—/);
       expect(read.text, 'no number that could drift').not.toMatch(/\d/);
