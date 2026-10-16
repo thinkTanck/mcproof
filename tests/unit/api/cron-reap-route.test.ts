@@ -79,6 +79,47 @@ describe('/api/cron/reap-runs', () => {
     expect(reap).toHaveBeenCalledTimes(1);
   });
 
+  // ON PURPOSE (ruling 2026-10-15 19:45, claude/decisions-and-queue.md): the
+  // route trims the Authorization header before it reads the bearer value, so
+  // the right secret with whitespace after it is ACCEPTED. HTTP drops that
+  // whitespace on the wire anyway, and a caller still needs the whole secret.
+  // The comparison of the value itself stays constant-time and exact.
+  describe('the right secret with trailing whitespace', () => {
+    it.each([
+      ['a space', ' '],
+      ['a tab', '\t'],
+      ['a newline', '\n'],
+      ['a carriage return and newline', '\r\n'],
+    ])('is accepted with %s after it, as sent through Headers', async (_name, tail) => {
+      vi.stubEnv('CRON_SECRET', SECRET);
+
+      expect((await call(`Bearer ${SECRET}${tail}`)).status).toBe(200);
+      expect(reap).toHaveBeenCalledTimes(1);
+    });
+
+    it('is accepted when the raw header reaches the route untrimmed', async () => {
+      vi.stubEnv('CRON_SECRET', SECRET);
+      // Headers normalizes whitespace itself, so this hands the route a value
+      // nothing has trimmed yet: the route's own trim is what is pinned here.
+      const raw = `Bearer ${SECRET} \n`;
+      const request = {
+        url: 'https://mcproof.test/api/cron/reap-runs',
+        headers: { get: (name: string) => (name.toLowerCase() === 'authorization' ? raw : null) },
+      } as unknown as Request;
+
+      expect((await GET(request)).status).toBe(200);
+      expect(reap).toHaveBeenCalledTimes(1);
+    });
+
+    it('still refuses a value that differs inside the secret, however it is padded', async () => {
+      vi.stubEnv('CRON_SECRET', SECRET);
+
+      expect((await call(`Bearer ${SECRET}x `)).status).toBe(401);
+      expect((await call(`Bearer ${SECRET.slice(0, -1)} `)).status).toBe(401);
+      expect(reap).not.toHaveBeenCalled();
+    });
+  });
+
   it('never echoes the configured value back, whatever it is asked', async () => {
     vi.stubEnv('CRON_SECRET', SECRET);
 
