@@ -122,7 +122,11 @@ describe('root metadata URL contract', () => {
 
   it('carries a title and description into the social cards', async () => {
     const { metadata } = await import('@/app/layout');
-    expect(metadata.title).toBe('MCProof · Test your MCP agent against attacks');
+    expect(metadata.title).toBe('MCProof · Red-team testing for AI agents that use MCP tools');
+    // Each run is one staged attack from the list (owner ruling 2026-10-15).
+    expect(metadata.description).toMatch(/\bone staged attack\b/);
+    expect(metadata.description).toMatch(/OWASP Top 10 for Agentic Applications/);
+    expect(metadata.description).not.toMatch(/red-team your|trust the verdict/i);
     expect(metadata.openGraph?.title).toBe(metadata.title);
     expect(metadata.openGraph?.description).toBe(metadata.description);
     expect(metadata.twitter?.title).toBe(metadata.title);

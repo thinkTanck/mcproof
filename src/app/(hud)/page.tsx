@@ -135,23 +135,27 @@ export default async function Home() {
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.3fr_0.8fr] lg:gap-10">
           {/* ── left: pitch + stat + CTAs + trailer ── */}
           <section aria-labelledby="home-title" className="flex min-w-0 flex-col gap-4">
+            {/* WHAT THE PRODUCT IS, as a label over the headline (owner ruling
+                2026-10-15, Home hero). A label, so INSTRUMENT; it is not a
+                heading and does not name the region. */}
+            <p className={METRIC_GROUP_HEADING}>
+              Red-team testing for AI agents that use MCP tools
+            </p>
+
             <h1 id="home-title" className="reading-h1 max-w-[22ch]">
-              Find out if your AI agent can be tricked into misusing its tools.
+              Test your AI agent against known attacks.
             </h1>
 
-            {/* WHAT THE PRODUCT DOES, in plain words (UI audit 2026-10-12, batch
-                C; copy pass 2026-10-15). A fresh reader did not know what MCP,
-                the detector or "compromised" meant, so each is said in words
-                here, once. It promises nothing about the reader's own agent:
-                "whether" and "if it was" keep both results open, as
+            {/* WHAT THE PRODUCT DOES, in plain words (owner ruling 2026-10-15,
+                Home hero). It promises nothing about the reader's own agent:
+                "fooled, or proof that it held" keeps both results open, as
                 framing.test.tsx requires. No number, so nothing in it can
-                drift from a measurement. */}
+                drift from a measurement. It no longer says what MCP or
+                "compromised" mean (the copy-pass paragraph that did is
+                replaced by this ruling). */}
             <p data-testid="home-subhead" className="reading-lead measure">
-              MCProof gives your AI agent a normal task and a set of tools we host over MCP, the
-              protocol agents use to call tools. In an attack run, one of those tools carries a
-              hidden attack. Our detector, an AI grader, reads every step the agent took and says
-              whether the agent was compromised, meaning it did something harmful the task never
-              asked for. If it was, the report shows the exact step.
+              We hide an attack inside the MCP tools your agent uses, then show you the exact step
+              where it was fooled, or proof that it held.
             </p>
 
             {/* WHAT IT MAPS TO, and what that phrase means. The badge is text

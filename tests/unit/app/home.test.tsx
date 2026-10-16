@@ -35,12 +35,21 @@ describe('Home — landmarks & pitch', () => {
     await renderHome();
     const h1 = screen.getByRole('heading', {
       level: 1,
-      name: 'Find out if your AI agent can be tricked into misusing its tools.',
+      name: 'Test your AI agent against known attacks.',
     });
     expect(h1).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: /find out if your ai agent can be tricked/i }),
+      screen.getByRole('region', { name: /test your ai agent against known attacks/i }),
     ).toBeInTheDocument();
+  });
+
+  it('labels the headline with what the product is (owner ruling 2026-10-15)', async () => {
+    await renderHome();
+    const h1 = screen.getByRole('heading', { level: 1 });
+    const label = h1.previousElementSibling as HTMLElement | null;
+    expect(label?.tagName).toBe('P');
+    expect(label?.textContent).toBe('Red-team testing for AI agents that use MCP tools');
+    expect(label?.className).toMatch(/\bmicro-label\b/);
   });
 
   /**
@@ -439,17 +448,17 @@ describe('Home — what the product is, in words', () => {
     expect(subhead.tagName).toBe('P');
     expect(subhead.className).toMatch(/\breading-lead\b/);
     const text = (subhead.textContent ?? '').replace(/\s+/g, ' ').trim();
-    // What the product does, with MCP, the detector and "compromised" each
-    // said in words (copy pass 2026-10-15, reader test). Still no number.
+    // What the product does, keeping both results open (owner ruling
+    // 2026-10-15, Home hero). Still no number.
     expect(text).toBe(
-      'MCProof gives your AI agent a normal task and a set of tools we host over MCP, the protocol agents use to call tools. In an attack run, one of those tools carries a hidden attack. Our detector, an AI grader, reads every step the agent took and says whether the agent was compromised, meaning it did something harmful the task never asked for. If it was, the report shows the exact step.',
+      'We hide an attack inside the MCP tools your agent uses, then show you the exact step where it was fooled, or proof that it held.',
     );
     expect(text).not.toMatch(/—|\d/);
   });
 
   it('carries the OWASP badge and its explanation in the headline block', async () => {
     await renderHome();
-    const hero = screen.getByRole('region', { name: /find out if your ai agent/i });
+    const hero = screen.getByRole('region', { name: /test your ai agent/i });
     const badge = within(hero).getByRole('link', { name: 'Maps to OWASP Agentic Top 10' });
     expect(badge).toHaveAttribute('href', '/threats');
     expect(within(hero).getByTestId('owasp-explainer').tagName).toBe('DETAILS');

@@ -24,7 +24,7 @@ export const OFFICIAL_ASI_NAMES: Record<string, string> = {
   ASI05: 'Unexpected Code Execution (RCE)',
   ASI06: 'Memory & Context Poisoning',
   ASI07: 'Insecure Inter-Agent Communication',
-  ASI08: 'Cascading Agent Failures',
+  ASI08: 'Cascading Failures',
   ASI09: 'Human-Agent Trust Exploitation',
   ASI10: 'Rogue Agents',
 };
