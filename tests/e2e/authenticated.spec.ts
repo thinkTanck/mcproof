@@ -126,10 +126,10 @@ test.describe('signed-in screens', () => {
     await page.goto('/connect');
     await page.getByRole('button', { name: /^LIVE/ }).click();
 
-    // The gate is gone and the console is here. Asserted on the run-issuing
-    // control rather than on a sentence, because ISSUING an endpoint is the
-    // vocabulary ADR-0006 fixed, while the surrounding copy is still moving.
-    await expect(page.getByRole('button', { name: /issue/i })).toBeVisible();
+    // The gate is gone and the console is here. Asserted on the control that
+    // starts a run rather than on a sentence (its label read ISSUE RUN ENDPOINT
+    // until the UI and copy PR, 2026-10-15, and now reads START A RUN).
+    await expect(page.getByRole('button', { name: /^start a run$/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /^sign in$/i })).toHaveCount(0);
     // The token discipline the screen claims: nothing on it takes typed input,
     // so no autofill store or password manager has a control to latch onto.
