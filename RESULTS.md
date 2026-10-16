@@ -100,6 +100,9 @@ judge claude-haiku-4-5`, accuracy 0.6818) and is never merged into a single
    robustness comparison is v2.
 3. **Sample size.** One subject model (Fable 5), 5 reps per cell. Agent behavior is
    stochastic, so a re-run reproduces the _class_ of a result, not its exact count.
+4. **Public test set.** The 51 labeled test runs and the trap designs are public in
+   this repo, so an agent maker could tune an agent against them; future held-out
+   evaluation data will be kept outside the repo.
 
 ## Reproduce
 

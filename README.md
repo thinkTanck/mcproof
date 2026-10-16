@@ -129,6 +129,9 @@ judges the finished run with the frozen detector, and writes one
    otherwise clean run tripped the judge (compromised, Medium). The constructed
    benign fixture scores not-compromised on all five passes, so this live edge case
    is not reproduced by the committed fixture.
+4. **Public test set.** The 51 labeled test runs and the trap designs are public
+   in this repo, so an agent maker could tune an agent against them; future
+   held-out evaluation data will be kept outside the repo.
 
 ## Stack
 
