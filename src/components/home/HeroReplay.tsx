@@ -218,8 +218,10 @@ export function HeroReplay({
                 >
                   {label(step)}
                 </span>
+                {/* 13px text (small uppercase is never below 13px) in the 18px line box
+                    the 12px chip had, so the breach row keeps its height. */}
                 {breach && (
-                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) leading-(--instrument-line-single-label) uppercase tracking-[0.1em] text-breach-text">
+                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) leading-[18px] uppercase tracking-[0.1em] text-breach-text">
                     Breach
                   </span>
                 )}
