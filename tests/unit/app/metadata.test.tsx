@@ -122,7 +122,7 @@ describe('root metadata URL contract', () => {
 
   it('carries a title and description into the social cards', async () => {
     const { metadata } = await import('@/app/layout');
-    expect(metadata.title).toBe('MCProof · Red-team your MCP agents');
+    expect(metadata.title).toBe('MCProof · Test your MCP agent against attacks');
     expect(metadata.openGraph?.title).toBe(metadata.title);
     expect(metadata.openGraph?.description).toBe(metadata.description);
     expect(metadata.twitter?.title).toBe(metadata.title);

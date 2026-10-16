@@ -79,8 +79,8 @@ export function describeLiveRunAllowanceNote(env: Env = process.env): string | n
   }
   if (allowance <= 0) return null;
   return (
-    `Each account gets up to ${describeLiveRunAllowance(allowance)}. ` +
-    `That is a total for the life of the account, not a daily allowance.`
+    `Each account gets up to ${describeLiveRunAllowance(allowance)} in total. ` +
+    `The count does not reset.`
   );
 }
 
@@ -106,7 +106,7 @@ export class LiveRunAllowanceError extends Error {
       (allowance === 0
         ? `This account has ${describeLiveRunAllowance(allowance)} to use. `
         : `This account has reached its limit of ${describeLiveRunAllowance(allowance)}. `) +
-        `Sample playback stays open to everyone.`,
+        `Anyone can still watch the samples.`,
     );
     this.name = 'LiveRunAllowanceError';
     this.allowance = allowance;

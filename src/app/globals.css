@@ -68,12 +68,15 @@
   --red-600: #b23a4c;
   --red-800: #8c2133;
 
-  /* Ink — text / neutral. Approved "Sentinel v2" values, lifted verbatim; the
-   * lower tiers clear AA (measured against --surface-base / --surface-panel). */
-  --ink-100: #d3e2ea; /* 13.7:1 — hi           (v2 --hi)    */
-  --ink-300: #99b8c7; /*  8.7:1 — body         (v2 --tx)    */
-  --ink-500: #708c9e; /*  5.7:1 base / 5.1:1 panel — muted  (v2 --mut)   */
-  --ink-700: #6a8798; /*  5.3:1 base / 4.8:1 panel — faint  (v2 --faint) */
+  /* Ink — text / neutral. Every active tier clears 7:1 (UI and copy PR,
+   * 2026-10-15, owner ruling): body, muted and faint were lifted from the
+   * Sentinel v2 values (#99b8c7, #708c9e, #6a8798), same hue, more light.
+   * Ratios: base / panel / raised. The body tone also holds 7:1 on the
+   * nominal tint a filled or pressed control sits on (bg-nominal/10). */
+  --ink-100: #d3e2ea; /* 15.1 / 13.7 / 13.2 — hi */
+  --ink-300: #9fbcca; /* 10.1 / 9.1 / 8.8 — body, and every control label */
+  --ink-500: #9eb1bd; /*  9.1 / 8.2 / 7.9 — muted */
+  --ink-700: #9aaeb9; /*  8.7 / 7.9 / 7.6 — faint: metadata only */
   --ink-800: #3a4d57; /*  2.1:1 — was the stray #3a4d57. INACTIVE ONLY:
                           not-yet-reached timeline nodes (WCAG 1.4.3 exempts
                           inactive components). Never for active text.       */
@@ -86,8 +89,8 @@
   --surface-solid: var(--navy-850);
   /* THE RAISED SURFACE (UI audit 2026-10-13, batch F): what a card is painted
    * on. One step lighter than the panel fill and no more, because every text
-   * tone has to stay at 4.5:1 on it and the faint tone has the least to spare:
-   * 4.60:1 here, against 4.28:1 on --navy-800, which this token used to name
+   * tone has to stay at 7:1 on it and the faint tone has the least to spare:
+   * 7.6:1 here, and 7.1:1 even on --navy-800, which this token used to name
    * (only three hover tints used it then, at 70% over the dark shell, which
    * painted this same colour; they take it at full strength now). On a dark
    * page it is the lighter surface that reads as "nearer", far more than any
@@ -109,7 +112,7 @@
   --text-hi: var(--ink-100);
   --text: var(--ink-300);
   --text-muted: var(--ink-500);
-  --text-faint: var(--ink-700); /* AA-safe label tier */
+  --text-faint: var(--ink-700); /* 7:1 tier, metadata only */
   --text-readout: var(--cyan-100); /* mono values */
   --text-breach: var(--red-200); /* semantic breach text */
   --text-pending: var(--ink-800); /* inactive/not-reached only */
@@ -168,7 +171,7 @@
    * member and NEVER red: red is reserved for an actual breach; an uncovered
    * category is not a failing one (ADR-0003). Desaturated ink-500 family, AA on
    * base AND panel (asserted in tokens.test), carries an icon + label, no glow. */
-  --status-inert: var(--ink-500); /* #708c9e · 5.7:1 base / 5.1:1 panel */
+  --status-inert: var(--ink-500); /* 9.1:1 base / 8.2:1 panel */
 
   /* Chrome — ambient backdrop + translucent scrims. Every persistent shell
    * surface (graticule, header, rail, drawer) reads through these so a primitive
@@ -297,7 +300,7 @@
    * the design owns layout width, the role owns type. (ADR-0004.) */
   --reading-font: var(--font-sans);
   --reading-line: 1.6;
-  --reading-color: var(--text); /* ink-300 · 8.7:1 base */
+  --reading-color: var(--text); /* ink-300 · 10.1:1 base */
   --reading-color-hi: var(--text-hi); /* ink-100 · 13.7:1 base */
   /* 17px is the DESIGN's body size (DESIGN.md §type body; the CLAUDE.md READING
    * scale reads "17 body / 18 lead"). 16px remains the AA prose floor, asserted
@@ -353,8 +356,8 @@
   --instrument-stack-rows: 0.5rem;
   --instrument-tracking: 0.02em;
   --instrument-tracking-label: 0.12em; /* UPPERCASE micro-labels */
-  --instrument-color: var(--text-muted); /* ink-500 · 5.7:1 base / 5.1:1 panel */
-  --instrument-color-faint: var(--text-faint); /* ink-700 · 5.3:1 base / 4.8:1 panel */
+  --instrument-color: var(--text-muted); /* ink-500 · 9.1:1 base / 8.2:1 panel */
+  --instrument-color-faint: var(--text-faint); /* ink-700 · 8.7:1 base / 7.9:1 panel */
   --instrument-readout: var(--text-readout); /* cyan-100 mono values */
   --instrument-label: 13px; /* labels, chips, metadata, provenance (floor) */
   --instrument-base: 14px; /* readouts */

@@ -19,12 +19,12 @@ import { suppressBootSplash } from './support/screen';
  * phone the header is deliberately untouched; `header-fallback-font.spec.ts`
  * still holds the mode chip inside it at 320.
  */
-const PREVIEW_NAME = 'Sign in. Preview: sign-in is not set up on this build.';
+const PREVIEW_NAME = 'Sign in. Sign-in is not set up on this preview build.';
 
 /** What the entry must be on THIS build: PREVIEW without an auth backend. */
 async function entryOnThisBuild(request: APIRequestContext) {
   const signIn = await (await request.get('/sign-in')).text();
-  const preview = signIn.includes('Sign-in wiring ships with the hosted release');
+  const preview = signIn.includes('Sign-in is not set up on this preview');
   if (process.env.CI) {
     expect(preview, 'the CI build has no auth backend, so the entry is PREVIEW').toBe(true);
   }

@@ -32,7 +32,7 @@ afterEach(() => {
 /**
  * DISCARD RUN, on the Connect screen.
  *
- * A second way to end a run, beside END RUN AND JUDGE and quieter than it: the
+ * A second way to end a run, beside END RUN AND GET RESULT and quieter than it: the
  * run ends, the token stops working, and nobody is asked for a verdict. jsdom
  * lays nothing out, so where the control sits at each width is measured in a
  * browser (tests/e2e/discard-run.spec.ts). What is held here is everything that
@@ -104,7 +104,7 @@ function portWith(phase: LiveRunStatusView['phase'], over: Partial<Port> = {}): 
   };
 }
 
-const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 const detail = () => screen.getByTestId('run-state-detail');
 const narrow = () => screen.getByTestId('discard-run-narrow');
 /** The control in the pinned bar (the wide layout). */
@@ -122,7 +122,7 @@ const queryConfirm = () => screen.queryByRole('group', { name: /discard this run
 async function issue(port: ConnectLiveRunPort, settle: string, props: object = {}) {
   const user = userEvent.setup();
   render(<LiveRunConsole port={port} category="ASI01" signedIn {...props} />);
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
   await within(dock()).findByText(settle);
   return user;
 }
@@ -131,7 +131,7 @@ describe('the copy is the approved copy', () => {
   it('asks the exact question and offers the exact two answers', () => {
     expect(DISCARD_RUN_LABEL).toBe('DISCARD RUN');
     expect(DISCARD_CONFIRM_QUESTION).toBe(
-      'Discard this run? It ends now, its token stops working, and it is not judged.',
+      'Discard this run? It ends now, its token stops working, and the detector does not grade it.',
     );
     expect(DISCARD_CONFIRM_YES).toBe('DISCARD');
     expect(DISCARD_CONFIRM_NO).toBe('KEEP RUNNING');
@@ -140,11 +140,13 @@ describe('the copy is the approved copy', () => {
 });
 
 describe('where DISCARD RUN is offered', () => {
-  it('sits in the pinned bar beside END RUN AND JUDGE on a connected run', async () => {
+  it('sits in the pinned bar beside END RUN AND GET RESULT on a connected run', async () => {
     await issue(portWith('connected'), 'AGENT CONNECTED');
 
     expect(trigger()).toBeInTheDocument();
-    expect(within(dock()).getByRole('button', { name: 'End run and judge' })).toBeInTheDocument();
+    expect(
+      within(dock()).getByRole('button', { name: 'End run and get result' }),
+    ).toBeInTheDocument();
   });
 
   it('is offered on a run nobody has connected to, where END RUN is not', async () => {
@@ -156,7 +158,7 @@ describe('where DISCARD RUN is offered', () => {
 
   it('is the secondary control: END RUN keeps the fill and the hover glow, DISCARD has neither', async () => {
     await issue(portWith('connected'), 'AGENT CONNECTED');
-    const end = within(dock()).getByRole('button', { name: 'End run and judge' });
+    const end = within(dock()).getByRole('button', { name: 'End run and get result' });
 
     // Since batch F the glow is for the pointer and the keyboard only
     // (`glow-accent`); nothing glows at rest.
@@ -197,7 +199,7 @@ describe('where DISCARD RUN is offered', () => {
         signedIn
       />,
     );
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await within(dock()).findByText('RUN EXPIRED');
 
     expect(screen.queryByRole('button', { name: DISCARD_RUN_LABEL })).not.toBeInTheDocument();
@@ -205,7 +207,7 @@ describe('where DISCARD RUN is offered', () => {
 
   it('is not offered once the run is finished', async () => {
     const user = await issue(portWith('connected'), 'AGENT CONNECTED');
-    await user.click(within(dock()).getByRole('button', { name: 'End run and judge' }));
+    await user.click(within(dock()).getByRole('button', { name: 'End run and get result' }));
     await within(dock()).findByText('RUN FINISHED');
 
     expect(screen.queryByRole('button', { name: DISCARD_RUN_LABEL })).not.toBeInTheDocument();
@@ -214,8 +216,8 @@ describe('where DISCARD RUN is offered', () => {
   it('is not offered while a judge call is in flight', async () => {
     const finish = vi.fn(() => new Promise<never>(() => {}));
     const user = await issue(portWith('connected', { finish }), 'AGENT CONNECTED');
-    await user.click(within(dock()).getByRole('button', { name: 'End run and judge' }));
-    await within(dock()).findByRole('button', { name: 'JUDGING' });
+    await user.click(within(dock()).getByRole('button', { name: 'End run and get result' }));
+    await within(dock()).findByRole('button', { name: 'GRADING' });
 
     expect(screen.queryByRole('button', { name: DISCARD_RUN_LABEL })).not.toBeInTheDocument();
   });
@@ -239,7 +241,7 @@ describe('where DISCARD RUN is offered', () => {
 
     const note = within(detail()).getByText(/discard the run instead/i);
     expect(note.className).toMatch(/\breading\b/);
-    expect(note.textContent).toMatch(/not judged/i);
+    expect(note.textContent).toMatch(/not graded/i);
     expect(note.textContent).toMatch(/still counts toward your free live runs/i);
     // The allowance is configuration: no numeral is written into this sentence.
     expect(note.textContent).not.toMatch(/\d/);
@@ -350,7 +352,7 @@ describe('the confirm step', () => {
     const user = await issue(port, 'AGENT CONNECTED');
     await user.click(trigger());
 
-    await user.click(within(dock()).getByRole('button', { name: 'End run and judge' }));
+    await user.click(within(dock()).getByRole('button', { name: 'End run and get result' }));
 
     await within(dock()).findByText('RUN FINISHED');
     expect(queryConfirm()).not.toBeInTheDocument();
@@ -388,17 +390,17 @@ describe('after DISCARD is confirmed', () => {
     expect(within(dock()).queryByText('RUN FINISHED')).not.toBeInTheDocument();
   });
 
-  it('offers ISSUE A FRESH RUN as the one action, and moves focus to it', async () => {
+  it('offers START A NEW RUN as the one action, and moves focus to it', async () => {
     await discarded();
 
-    const fresh = within(dock()).getByRole('button', { name: /fresh run/i });
-    expect(fresh).toHaveTextContent('ISSUE A FRESH RUN');
+    const fresh = within(dock()).getByRole('button', { name: /start a new run/i });
+    expect(fresh).toHaveTextContent('START A NEW RUN');
     expect(within(dock()).getAllByRole('button')).toHaveLength(1);
     expect(within(dock()).queryByRole('link')).not.toBeInTheDocument();
     await waitFor(() => expect(fresh).toHaveFocus());
   });
 
-  it('says in prose that the run was discarded and not judged, and offers no result', async () => {
+  it('says in prose that the run was discarded and not graded, and offers no result', async () => {
     await discarded();
 
     const sentence = within(detail()).getByText(new RegExp(RUN_DISCARDED_SENTENCE));
@@ -427,12 +429,12 @@ describe('after DISCARD is confirmed', () => {
     expect(port.reattach).not.toHaveBeenCalled();
   });
 
-  it('goes back to the issue control from ISSUE A FRESH RUN', async () => {
+  it('goes back to the issue control from START A NEW RUN', async () => {
     const user = await discarded();
 
-    await user.click(within(dock()).getByRole('button', { name: /fresh run/i }));
+    await user.click(within(dock()).getByRole('button', { name: /start a new run/i }));
 
-    expect(await screen.findByRole('button', { name: /issue run endpoint/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /start a run/i })).toBeInTheDocument();
     expect(screen.queryByText(RUN_DISCARDED_LABEL)).not.toBeInTheDocument();
   });
 
@@ -449,8 +451,10 @@ describe('after DISCARD is confirmed', () => {
   it('heads the section RUN DISCARDED on the Connect screen', async () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn livePort={portWith('connected')} />);
-    await user.click(screen.getByRole('button', { name: /LIVE · your agent connects to us/i }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(
+      screen.getByRole('button', { name: /LIVE · your agent connects to our server/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await within(dock()).findByText('AGENT CONNECTED');
     await user.click(trigger());
     await user.click(within(confirm()).getByRole('button', { name: DISCARD_CONFIRM_YES }));
@@ -514,7 +518,7 @@ describe('while the discard is in flight, and when it is refused', () => {
     await user.click(within(confirm()).getByRole('button', { name: DISCARD_CONFIRM_YES }));
 
     expect(await within(dock()).findByText(RUN_DISCARDED_LABEL)).toBeInTheDocument();
-    expect(within(dock()).getByRole('button', { name: /fresh run/i })).toBeInTheDocument();
+    expect(within(dock()).getByRole('button', { name: /start a new run/i })).toBeInTheDocument();
   });
 
   it('reads RUN DISCARDED when END RUN is refused because the run was discarded elsewhere', async () => {
@@ -523,7 +527,7 @@ describe('while the discard is in flight, and when it is refused', () => {
       refusal: { code: 'RUN_DISCARDED' as const, message: RUN_DISCARDED_SENTENCE },
     }));
     const user = await issue(portWith('connected', { finish }), 'AGENT CONNECTED');
-    await user.click(within(dock()).getByRole('button', { name: 'End run and judge' }));
+    await user.click(within(dock()).getByRole('button', { name: 'End run and get result' }));
 
     expect(await within(dock()).findByText(RUN_DISCARDED_LABEL)).toBeInTheDocument();
     expect(within(dock()).queryByRole('button', { name: /end run/i })).not.toBeInTheDocument();
@@ -545,7 +549,7 @@ describe('a run that was discarded somewhere else', () => {
 
     expect(within(dock()).queryByRole('button', { name: /end run/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: DISCARD_RUN_LABEL })).not.toBeInTheDocument();
-    expect(within(dock()).getByRole('button', { name: /fresh run/i })).toBeInTheDocument();
+    expect(within(dock()).getByRole('button', { name: /start a new run/i })).toBeInTheDocument();
     expect(within(detail()).getByText(new RegExp(RUN_DISCARDED_SENTENCE))).toBeInTheDocument();
     expect(port.reattach).not.toHaveBeenCalled();
   });
@@ -565,7 +569,7 @@ describe('a run that was discarded somewhere else', () => {
 
     expect(await screen.findByText(RUN_DISCARDED_LABEL)).toBeInTheDocument();
     expect(dock()).toContainElement(screen.getByText(RUN_DISCARDED_LABEL));
-    expect(within(dock()).getByRole('button', { name: /fresh run/i })).toBeInTheDocument();
+    expect(within(dock()).getByRole('button', { name: /start a new run/i })).toBeInTheDocument();
     expect(within(detail()).queryByText(/closed without a saved result/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /open the replay/i })).not.toBeInTheDocument();
   });

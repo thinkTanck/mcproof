@@ -54,7 +54,7 @@ describe('trace-view helpers', () => {
       [{ id: 's2', type: 'tool_result', tool: 'read_file', result: null }, 'read_file'],
       [{ id: 's3', type: 'memory_write', key: 'k', value: null }, 'memory write'],
       [{ id: 's4', type: 'memory_read', key: 'k', value: null }, 'memory read'],
-      [{ id: 's5', type: 'principal_instruction', content: 'x' }, 'principal instruction'],
+      [{ id: 's5', type: 'principal_instruction', content: 'x' }, "operator's task"],
       [{ id: 's6', type: 'agent_reasoning', content: 'x' }, 'agent reasoning'],
       [{ id: 's7', type: 'task_complete' }, 'task complete'],
     ];

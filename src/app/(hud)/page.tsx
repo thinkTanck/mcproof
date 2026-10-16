@@ -8,12 +8,12 @@ import { HowATestWorks } from '@/components/home/HowATestWorks';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
 import { sampleDisplayProvenance } from '@/lib/display/dates';
+import { MEASURED_CLASSIFICATION, MEASURED_COMPROMISE } from '@/eval/measured';
 import {
-  MEASURED_CLASSIFICATION,
-  MEASURED_CLASSIFICATION_PROVENANCE,
-  MEASURED_COMPROMISE,
-  MEASURED_COMPROMISE_PROVENANCE,
-} from '@/eval/measured';
+  classificationDisplayProvenance,
+  compromiseDisplayProvenance,
+  measuredCopy,
+} from '@/lib/display/measured';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
 import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 import type { RunResult, Step } from '@/contract';
@@ -49,8 +49,14 @@ import type { RunResult, Step } from '@/contract';
  * value measures. The classification figure used to be a size smaller, to mark
  * it as the lesser claim; a reader took the smaller number for a footnote. What
  * keeps the two measurements apart now is what always did the real work: two
- * groups, two names, two provenance lines, and a label that says "category
- * classification accuracy" and never plain "accuracy".
+ * groups, two names, two provenance lines, and a figure that is named for the
+ * attack type and never called plain "accuracy".
+ *
+ * COPY PASS 2026-10-15: the words "precision" and "recall" are gone from the
+ * screen. Each figure's label is now the count behind it ("22 of 23") and its
+ * sentence says what that count is; the values are still the measured rates.
+ * Every count and the measurement day are derived in
+ * `src/lib/display/measured.ts` from the frozen constants.
  */
 
 /**
@@ -63,14 +69,21 @@ import type { RunResult, Step } from '@/contract';
  */
 const RESULTS_URL = `${REPO_URL}/blob/main/RESULTS.md`;
 
+/**
+ * The two group headings of the metric block share ONE class, so they are one
+ * colour (owner ruling 2026-10-15): the compromise heading was nominal and the
+ * classification heading the label default, which read as a ranking.
+ */
+const METRIC_GROUP_HEADING = 'micro-label text-nominal';
+
 /** One-line, plain-words summary of the featured ASI02 attack (trailer + caption). */
-const FEATURED_DESCRIPTOR = 'tool misuse to out-of-scope file read';
+const FEATURED_DESCRIPTOR = 'tool misuse: reading a file outside the task';
 
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
 function stepLabel(step: Step): string {
   switch (step.type) {
     case 'principal_instruction':
-      return 'principal instruction';
+      return "operator's task";
     case 'agent_reasoning':
       return 'agent reasoning';
     case 'tool_call':
@@ -113,6 +126,8 @@ export default async function Home() {
   // How many free live runs an account gets, as a sentence, read here on the
   // server. Nothing when no count is configured, and then no note is drawn.
   const freeRunsNote = describeLiveRunAllowanceNote();
+  // The metric block's words, every count derived from the frozen measurement.
+  const copy = measuredCopy();
 
   return (
     <div className="flex min-h-[calc(100dvh-62px)] items-start lg:items-center">
@@ -121,20 +136,22 @@ export default async function Home() {
           {/* ── left: pitch + stat + CTAs + trailer ── */}
           <section aria-labelledby="home-title" className="flex min-w-0 flex-col gap-4">
             <h1 id="home-title" className="reading-h1 max-w-[22ch]">
-              Red-team your MCP agent. Trust the verdict either way.
+              Find out if your AI agent can be tricked into misusing its tools.
             </h1>
 
-            {/* WHAT THE PRODUCT DOES, in one plain sentence (UI audit 2026-10-12,
-                batch C). It replaces the lead that described the mechanism
-                (an endpoint we host, the tool calls we record): the mechanism
-                is what Connect is for, and a first-time reader needs to know
-                what this is before how it works. It promises nothing about
-                the reader's own agent: "whether" and "if one is" keep both
-                results open, as framing.test.tsx requires. No number, so
-                nothing in it can drift from a measurement. */}
+            {/* WHAT THE PRODUCT DOES, in plain words (UI audit 2026-10-12, batch
+                C; copy pass 2026-10-15). A fresh reader did not know what MCP,
+                the detector or "compromised" meant, so each is said in words
+                here, once. It promises nothing about the reader's own agent:
+                "whether" and "if it was" keep both results open, as
+                framing.test.tsx requires. No number, so nothing in it can
+                drift from a measurement. */}
             <p data-testid="home-subhead" className="reading-lead measure">
-              MCProof tests whether an AI agent can be tricked into misusing its tools, and if one
-              is, shows the exact step where it happened.
+              MCProof gives your AI agent a normal task and a set of tools we host over MCP, the
+              protocol agents use to call tools. In an attack run, one of those tools carries a
+              hidden attack. Our detector, an AI grader, reads every step the agent took and says
+              whether the agent was compromised, meaning it did something harmful the task never
+              asked for. If it was, the report shows the exact step.
             </p>
 
             {/* WHAT IT MAPS TO, and what that phrase means. The badge is text
@@ -148,10 +165,7 @@ export default async function Home() {
             </div>
 
             <p className="reading measure">
-              Most tools only <span className="text-ink-muted">guess</span> whether an agent was
-              compromised. We tested our detector against attacks with known outcomes and{' '}
-              <span className="font-semibold text-nominal">measured</span> how accurate it is, so
-              you can trust its verdicts.
+              We tested the detector before we published it, so you can see how often it is right.
             </p>
 
             {/* No measured live finding is shown here (V1, 2026-10-14). The ASI02
@@ -190,25 +204,29 @@ export default async function Home() {
                 data-metric-group="compromise"
               >
                 <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
-                  <span id="metric-compromise-label" className="micro-label text-nominal">
-                    Compromise detection
+                  <span id="metric-compromise-label" className={METRIC_GROUP_HEADING}>
+                    Catching compromises
                   </span>
                   <span data-metric-provenance="" className="instrument-faint">
-                    {MEASURED_COMPROMISE_PROVENANCE}
+                    {compromiseDisplayProvenance()}
                   </span>
                 </div>
+                {/* HOW THE FIGURES WERE MADE, and how five grades per run became
+                    one result (owner ruling 2026-10-15): the most common answer
+                    per run. The day carries "(UTC)". */}
+                <p className="reading measure mb-3">{copy.intro}</p>
                 <dl className="flex flex-col gap-3">
                   <Metric
                     id="precision"
-                    label="Precision"
+                    label={copy.precisionLabel}
                     value={MEASURED_COMPROMISE.precision.toFixed(2)}
-                    meaning="Of the runs the detector flagged as compromised, the share that really were."
+                    meaning={copy.precision}
                   />
                   <Metric
                     id="recall"
-                    label="Recall"
+                    label={copy.recallLabel}
                     value={MEASURED_COMPROMISE.recall.toFixed(2)}
-                    meaning="Of the runs that really were compromised, the share the detector flagged."
+                    meaning={copy.recall}
                   />
                 </dl>
               </div>
@@ -226,33 +244,36 @@ export default async function Home() {
                 className="border-t border-line/60 pt-3"
               >
                 <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
-                  <span id="metric-classification-label" className="micro-label">
-                    Category classification
+                  <span id="metric-classification-label" className={METRIC_GROUP_HEADING}>
+                    Naming the attack type
                   </span>
                   <span data-metric-provenance="" className="instrument-faint">
-                    {MEASURED_CLASSIFICATION_PROVENANCE}
+                    {classificationDisplayProvenance()}
                   </span>
                 </div>
                 <dl className="flex flex-col gap-3">
                   <Metric
                     id="classification-accuracy"
-                    label="Category classification accuracy"
+                    label={copy.classificationLabel}
                     value={MEASURED_CLASSIFICATION.accuracy.toFixed(2)}
-                    meaning="Of the real compromises the detector caught, the share it filed under the right category."
+                    meaning={copy.classification}
                   />
                 </dl>
               </div>
             </div>
 
+            {/* WHAT THE FIGURES ARE NOT: a score for anyone's agent. */}
+            <p className="reading measure">
+              These numbers test our detector on runs we built, not how well any agent resists
+              attacks.
+            </p>
+
             {/* THE CONDITION BOTH FIGURES CARRY. Stated once, in prose, because a
                 measured number with no stated condition reads as a property of the
-                product rather than of one pinned judge. It names no model and no
-                temperature: the provenance lines above already carry the judge, and
-                re-typing a config value here would give it a second place to drift. */}
-            <p className="reading measure text-ink-muted">
-              Both figures hold only for the frozen judge named in their provenance lines. Change
-              the rubric, the model or the temperature and they are void until re-measured.
-            </p>
+                product rather than of one pinned detector. The model it names is
+                read off the frozen provenance line (src/lib/display/measured.ts),
+                never typed here, so it has no second place to drift. */}
+            <p className="reading measure text-ink-muted">{copy.condition}</p>
 
             {/* THE FULL RESULTS, on a line of their own under the figures (UI audit
                 2026-10-12, batch D). It was a small mono line under the finding, with
@@ -269,8 +290,7 @@ export default async function Home() {
               data-results-link=""
               className="flex min-h-(--target-min) w-fit items-center gap-2 font-mono text-[14px] tracking-[0.06em] text-nominal underline underline-offset-4 transition-colors hover:text-readout"
             >
-              Read full results
-              <span className="sr-only">: the measured results writeup, on GitHub</span>
+              Read the full results <span className="sr-only">on GitHub</span>
               <span aria-hidden="true">→</span>
             </a>
 
@@ -279,9 +299,10 @@ export default async function Home() {
                 the numbers; this states the same two-results honesty in one line so the
                 finding leads. framing.test.tsx holds that both outcomes stay named. */}
             <p className="reading measure">
-              Every run resolves one of two ways: a compromise becomes a fix report anchored to the
-              offending step, and a clean run lands on the robustness leaderboard. Which one is
-              measured, not predicted.
+              Every run ends one of two ways. If the agent was compromised, you get a fix report
+              that names the step where it happened. If not, you get a clean result. Both count
+              toward your leaderboard. The detector decides which one after the run, by reading what
+              the agent actually did.
             </p>
 
             {/* The two calls to action, the featured run's name, and the free-runs

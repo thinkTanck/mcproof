@@ -148,7 +148,7 @@ test.describe('signed-in screens', () => {
     // match would find two elements and prove neither.
     await page.getByRole('radio', { name: /CONTROL RUN/ }).click();
     await expect(
-      page.getByText(/We serve the same tool surface for the category you picked/i),
+      page.getByText(/We serve the tools for the attack type you picked, with no attack/i),
     ).toBeVisible();
 
     await expectNoWcagViolations(page);

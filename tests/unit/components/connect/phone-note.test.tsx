@@ -29,7 +29,7 @@ afterEach(() => {
 const note = () => screen.getByRole('note');
 const modeSwitch = () => screen.getByRole('group', { name: 'Run mode' });
 const goLive = async (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: /LIVE · your agent connects to us/i }));
+  user.click(screen.getByRole('button', { name: /LIVE · your agent connects to our server/i }));
 
 describe('Connect phone note · the approved words', () => {
   it('is the approved sentence, exactly', () => {
@@ -164,14 +164,14 @@ describe('Connect phone note · on the screen', () => {
     const user = userEvent.setup();
     const { container } = render(<ConnectScreen />);
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Set up a red-team run.');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Set up a test run.');
     expect(screen.getAllByRole('radio')).toHaveLength(7);
     expect(screen.getByRole('link', { name: /play sample run/i })).toBeInTheDocument();
     expect(container.querySelector('[disabled], [aria-disabled="true"]')).toBeNull();
 
     await goLive(user);
     expect(
-      screen.getByRole('button', { name: /LIVE · your agent connects to us/i }),
+      screen.getByRole('button', { name: /LIVE · your agent connects to our server/i }),
     ).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -91,7 +91,7 @@ for (const path of ['/runs/sample', '/findings/sample', '/runs/asi10-goal-drift'
  *
  * So these fetch the RAW response with no browser at all and read the markup.
  */
-const SITE_DEFAULT_TITLE = 'MCProof · Red-team your MCP agents';
+const SITE_DEFAULT_TITLE = 'MCProof · Test your MCP agent against attacks';
 
 const RAW: { path: string; h1: RegExp; title: string }[] = [
   {
@@ -108,7 +108,7 @@ const RAW: { path: string; h1: RegExp; title: string }[] = [
   // ever fails, the assertions are wrong, not the routes above.
   {
     path: '/no-such-route',
-    h1: /<h1[^>]*>404 · route not found/,
+    h1: /<h1[^>]*>404 · page not found/,
     title: 'Not found · MCProof',
   },
 ];

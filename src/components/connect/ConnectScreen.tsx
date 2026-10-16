@@ -85,7 +85,7 @@ const DEFAULT_CATEGORY: Category = SAMPLE_CATEGORY;
 
 const MODES: [Mode, string][] = [
   ['sample', 'SAMPLE · no sign-in'],
-  ['live', 'LIVE · your agent connects to us'],
+  ['live', 'LIVE · your agent connects to our server'],
 ];
 
 /**
@@ -362,20 +362,20 @@ export function ConnectScreen({
           is told before they read the setup, and shown what they can do. */}
       <PhoneNote />
       <p className="micro-label mb-2.5 tracking-[0.18em] text-nominal">CONNECT / RUN</p>
-      <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
+      <h1 className="reading-h2 mb-2.5">Set up a test run.</h1>
       <p className="reading-lead mb-4 measure">
-        Watch a recorded sample, or run live: you point your own MCP agent at an endpoint we host,
-        and we record every tool call it chooses to make. The same fixed, blind detector judges
-        either trace.
+        Watch a sample, or run a live test. In a live test, you connect your own MCP agent to an
+        endpoint we host, and we record every tool call it makes. The same detector grades both. It
+        never sees which attack we staged.
       </p>
       {/* WHAT COMES BACK, both ways round, before anything is set up. Stated here
           because a console that only ever describes the compromise path teaches the
           reader that a clean run is a non-result. It is the other half of the
           measurement, and it is what the leaderboard is made of. */}
       <p className="reading mb-7 measure text-ink-muted">
-        The verdict comes back one of two ways: a compromise anchored to the step it happened at,
-        which becomes a fix report, or a clean run, which becomes a robustness result. We measure
-        which one you get. We do not predict it.
+        The result is one of two things. If the agent was compromised, you get a fix report that
+        names the step. If not, you get a clean result. The detector decides after reading what your
+        agent did.
       </p>
 
       {/* 01 · Mode */}
@@ -393,8 +393,8 @@ export function ConnectScreen({
                 className={cn(
                   'min-h-11 flex-1 cursor-pointer rounded-md border px-4 py-2.5 font-mono text-[13px] tracking-[0.08em] transition-colors',
                   active
-                    ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
-                    : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',
+                    ? 'border-nominal bg-nominal/10 text-ink shadow-glow-nominal'
+                    : 'border-line bg-transparent text-ink hover:border-line-em hover:text-ink',
                 )}
               >
                 {label}
@@ -403,26 +403,22 @@ export function ConnectScreen({
           })}
         </div>
         <p className="reading measure mt-3 text-ink-muted">
-          Sample playback needs no sign-in and no key. A live run hosts an endpoint for your account
-          and asks the judge a question, so it is gated.
+          Anyone can watch a sample. A live test needs an account, because we host an endpoint for
+          you and pay for the detector to grade your run.
         </p>
       </Section>
 
       {/* 02 · Category */}
       <Section labelledBy="connect-category-head">
-        <SectionHead
-          id="connect-category-head"
-          n="02"
-          label="ATTACK CATEGORY · OWASP AGENTIC TOP-10"
-        />
+        <SectionHead id="connect-category-head" n="02" label="ATTACK TYPE · OWASP AGENTIC TOP 10" />
         <p className="reading mb-4 measure">
-          One run serves one attack surface, because the surface is the attack. Pick the one you
-          want to test.
+          Each run tests one attack type, because the tools we serve are set up for that attack.
+          Pick the one you want to test.
         </p>
         <div
           className="grid gap-2.5 md:grid-cols-2"
           role="radiogroup"
-          aria-label="Attack category (OWASP Agentic Top 10)"
+          aria-label="Attack type (OWASP Agentic Top 10)"
           onKeyDown={onRadioGroupKeys}
         >
           {CORE7.map((c) => (
@@ -459,13 +455,13 @@ export function ConnectScreen({
               {!live
                 ? 'A live run of this category gives your agent this task.'
                 : !signedIn
-                  ? 'Sign in to issue a run and get your endpoint and token.'
+                  ? 'Sign in to start a run and get your endpoint and token.'
                   : // An expired run draws no task of its own (the console drops its
                     // setup), so there is no "last step" to point at. It reads as
                     // having no run, through the same branch and the same words.
                     hasRun && !runExpired
-                    ? 'Lined up for your next run. The run you issued keeps its own task, shown in the last step.'
-                    : 'Issue a run to get your endpoint and token.'}
+                    ? 'This task is for your next run. The run you already started keeps its own task, shown in the last step.'
+                    : 'Start a run to get your endpoint and token.'}
             </p>
           </div>
         )}
@@ -504,18 +500,16 @@ export function ConnectScreen({
               ))}
             </div>
             <p className="reading mt-4 measure">
-              Both runs serve the same tools, with the same capability. The control run is not a
-              safer sandbox and not a weaker attack: it is the same surface with no attack staged on
-              it.
+              Both run types serve the same tools, which can do the same things. The control run
+              serves those tools with no attack.
             </p>
             <p className="reading mt-2 measure">
-              Run the control to see how your agent behaves there when nothing is trying to hijack
-              it, which is the only way to tell an agent that refuses everything apart from one
-              using judgment.
+              Run the control to see how your agent behaves when nothing is attacking it. An agent
+              that refuses every task will look safe in an attack run; the control run shows whether
+              it still does the normal task.
             </p>
             <p className="reading mt-2 measure text-ink-muted">
-              In our own docs and in the measured results these two are the malicious realization
-              and the benign control.
+              Our docs and results call these the malicious run and the benign control.
             </p>
           </div>
         )}
@@ -536,16 +530,18 @@ export function ConnectScreen({
               <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
               <circle cx="8" cy="8" r="2" fill="currentColor" />
             </svg>
-            <span className="font-mono text-[13px] tracking-[0.08em] text-nominal">BLIND</span>
+            <span className="font-mono text-[13px] tracking-[0.08em] text-nominal">
+              BLIND TO THE ATTACK
+            </span>
             <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[13px] tracking-[0.06em] text-ink-faint">
               <LockIcon />
               LOCKED
             </span>
           </div>
           <p className="reading measure">
-            One fixed, validated judge, never user-swappable. There is no picker here because the
-            measured accuracy only holds for this exact configuration, and it reads the trace
-            without ever seeing which attack we staged.
+            Every run uses the same detector, and you cannot swap it. Its measured accuracy holds
+            only for this exact setup. It reads the steps of the run without being told which attack
+            we staged.
           </p>
         </div>
       </Section>
@@ -596,21 +592,21 @@ export function ConnectScreen({
           ) : (
             <div className="flex flex-col gap-4">
               <p className="reading measure">
-                The sample is a constructed run judged by the real frozen detector. It shows what a
-                finding looks like; it is not a capture of a live agent, and it never claims to be.
+                The sample is a run we built ourselves, then graded with the same detector live runs
+                use. It shows what a result looks like. It is not a recording of a real agent.
               </p>
               {sampleProvenance && <p className="instrument-faint">{sampleProvenance}</p>}
               <div className="flex flex-wrap items-center gap-4">
                 <Link
                   href={sampleHref}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout glow-accent transition-colors hover:bg-nominal/20"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-ink glow-accent transition-colors hover:bg-nominal/20"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                     <polygon points="2,1 11,6 2,11" fill="currentColor" />
                   </svg>
                   PLAY SAMPLE RUN
                 </Link>
-                <span className="instrument">streams into Live Attack Replay</span>
+                <span className="instrument">opens in Replay</span>
               </div>
             </div>
           )}

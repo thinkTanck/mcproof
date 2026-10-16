@@ -217,13 +217,13 @@ export class LiveRunError extends Error {
 
 /** The gate could not be read, so nothing was granted. Fails closed. */
 export const GATE_UNAVAILABLE_MESSAGE =
-  'We could not check your run allowance just now, so this run did not go ahead. ' +
-  'Please try again in a moment.';
+  'We could not check how many free runs you have left, so this run did not start. ' +
+  'Try again in a moment.';
 
 /** Live detection is off, and sample playback is the path that still works. */
 export const DETECTION_UNAVAILABLE_MESSAGE =
-  'Live detection is not available right now, so this run cannot be judged. ' +
-  'Sample playback stays open to everyone.';
+  'The detector is not available right now, so this run cannot be graded. ' +
+  'Anyone can still watch the samples.';
 
 /** An outcome, never a throw for a state a caller can provoke. */
 export type LiveRunDecision<T> =
@@ -535,7 +535,12 @@ async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () =>
-            reject(new LiveRunError('DETECTION_FAILED', `The judge did not answer in ${ms}ms.`)),
+            reject(
+              new LiveRunError(
+                'DETECTION_FAILED',
+                `The detector did not answer within ${ms / 1000} seconds.`,
+              ),
+            ),
           ms,
         );
       }),
@@ -764,7 +769,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
         await sleep(Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_CAP_MS));
       }
     }
-    return fail('DETECTION_FAILED', 'The judge could not reach a verdict for this run.', {
+    return fail('DETECTION_FAILED', 'The detector could not grade this run.', {
       cause: last,
     });
   }

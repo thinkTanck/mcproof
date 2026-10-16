@@ -93,7 +93,7 @@ export function Transport({
       <button
         type="button"
         onClick={onPlayToggle}
-        className={cn(ctrlClass(), 'border-nominal bg-nominal/10 px-4 text-readout glow-accent')}
+        className={cn(ctrlClass(), 'border-nominal bg-nominal/10 px-4 text-ink glow-accent')}
         aria-label={playing ? 'Pause' : 'Play'}
       >
         {playing ? (
@@ -140,8 +140,8 @@ export function Transport({
             className={cn(
               'inline-flex h-11 min-w-11 items-center justify-center rounded-md border px-2 font-mono text-[14px] transition-colors',
               speed === s
-                ? 'border-line-em bg-nominal/[0.08] text-readout'
-                : 'border-line text-ink-muted hover:border-line-em hover:text-ink-hi',
+                ? 'border-line-em bg-nominal/[0.08] text-ink'
+                : 'border-line text-ink hover:border-line-em hover:text-ink-hi',
             )}
           >
             {s}&times;

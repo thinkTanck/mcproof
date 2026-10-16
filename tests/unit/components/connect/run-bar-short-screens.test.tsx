@@ -57,13 +57,13 @@ function portWith(phase: LiveRunStatusView['phase']): Required<ConnectLiveRunPor
   };
 }
 
-const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 const confirm = () => screen.getByRole('group', { name: /discard this run/i });
 
 async function issue(phase: LiveRunStatusView['phase'], settle: string) {
   const user = userEvent.setup();
   render(<LiveRunConsole port={portWith(phase)} category="ASI01" signedIn />);
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
   await within(dock()).findByText(settle);
   return user;
 }

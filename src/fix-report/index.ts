@@ -66,8 +66,8 @@ const OWASP_REFERENCE = 'https://genai.owasp.org/ (OWASP Top 10 for Agentic Appl
  * the exported ticket (locked UI copy rule).
  */
 const CLEAN_RUN_SUMMARY =
-  'The agent was not compromised in this run: the locked validated judge read the whole trace and found no compromising action. ' +
-  'That is one run against one staged attack, and it says nothing about other attacks or other runs.';
+  'The agent was not compromised in this run. The detector read every step and found no harmful action. ' +
+  'This is one run against one attack. It does not tell you how the agent would do against other attacks or in other runs.';
 
 /**
  * Category-appropriate remediation, grounded in the OWASP Agentic categories.
@@ -87,7 +87,7 @@ const REMEDIATION_STEPS: Record<Category, readonly string[]> = {
   ],
   ASI02: [
     'Enforce least-privilege tool access with per-tool allow-lists and argument validation.',
-    'Reject tool calls whose targets fall outside the declared scope (e.g. path traversal).',
+    "Reject tool calls that reach outside the task's allowed files or resources, such as a path with ../ in it.",
     'Require explicit authorization for destructive or high-impact tools.',
   ],
   ASI03: [
@@ -229,25 +229,34 @@ export interface FixReport {
 function classificationFor(staged: Category): Classification {
   const r = classificationReliability(staged);
   const stagedTitle = CATEGORY_TITLE[staged];
+  // What the recall measurement lets this note say, in words when it is all of
+  // them and as the figure otherwise. Read off the measurement, never typed.
+  const recall: number = MEASURED_COMPROMISE.recall;
+  const recallClause =
+    recall === 1
+      ? 'in our tests the detector caught every real compromise of every type'
+      : `in our tests the detector's recall was ${recall.toFixed(4)}`;
   const note = r.reliable
     ? null
     : [
-        `Category classification is unreliable for ${staged} ${stagedTitle}.`,
-        `On our labeled set the detector filed ${r.classScore.correct} of ${r.classScore.scored}`,
-        `${staged} realizations under that code, reading them as neighbouring categories instead.`,
-        'Remediation is derived from the category, so it is withheld here rather than guessed.',
-        'What was measured still holds: this compromise is confirmed, the detector missed no',
-        `compromise in any category (recall ${MEASURED_COMPROMISE.recall.toFixed(4)}), and the`,
+        `The detector often names the wrong attack type for ${staged} ${stagedTitle}.`,
+        `In our tests it named it correctly in ${r.classScore.correct} of ${r.classScore.scored}`,
+        `${staged} runs, and called the others a similar type.`,
+        'Our fix steps depend on the attack type, so we do not list any here rather than guess.',
+        `The compromise itself still stands: ${recallClause}, and the step shown`,
         // ABOVE: the offending step is drawn before this note, on the screen and in
         // the exported ticket (tests/unit/fix-report/direction-words.test.tsx).
-        'offending step above is its own anchor.',
-        'Category specific guidance for this class is pending a category-v2 rubric.',
+        'above is where it happened.',
+        'We plan to add fix steps for this type after we improve how the detector names it.',
       ].join(' ');
+  // The overall count behind the measured rate (15 of 22 on 2026-08-24),
+  // worked back from the rate and its denominator, never typed by hand.
+  const namedRight = Math.round(r.accuracy * r.scored);
   // No em dashes: this reaches both the findings screen and the exported ticket.
   const caveat = r.reliable
-    ? 'The category above is the detector’s own blind classification of the trace, and these ' +
-      `steps follow from it. Measured accuracy on our labeled set is ${r.accuracy.toFixed(2)}, so ` +
-      'confirm the category against the offending step before you act on this list.'
+    ? 'The detector chose the attack type above without being told which attack we staged, and ' +
+      `these steps follow from it. In our tests it named the right type ${namedRight} of ${r.scored} ` +
+      'times, so check the type against the step shown above before you act on this list.'
     : null;
   return {
     staged,
@@ -331,7 +340,7 @@ export function generateFixReport(
   // classified at zero that is the compromise and its anchor, never the code.
   const summary = classification.reliable
     ? `Compromised: ${verdict.category} (${finding.categoryTitle}), severity ${verdict.severity}. Offending step: ${stepId}.`
-    : `Compromised: confirmed, severity ${verdict.severity}. Offending step: ${stepId}. Category classification is unreliable for ${classification.staged}, so category remediation is withheld.`;
+    : `Compromised, severity ${verdict.severity}. Step: ${stepId}. The detector's attack type is unreliable for ${classification.staged}, so no fix steps are listed.`;
 
   return { runId, target, model, compromised: true, finding, summary, provenance };
 }
@@ -341,17 +350,36 @@ function provenanceLine(report: FixReport): string[] {
   return report.provenance === null ? [] : [`**Verdict:** ${report.provenance}`];
 }
 
+/**
+ * Which run ids the ticket names (owner ruling 2026-10-15: one run id where a
+ * person reads it). `runId` is the id the report is OPENED under, the one in
+ * its URL; without it the ticket names `report.runId`, as it always did.
+ * `hostedRunId` is a live run's hosted MCP run id (`RunResult.runId`), which
+ * a ticket may still need to match server logs; it is printed only when given
+ * and different, and always under its own label, never as "Run".
+ */
+export interface TicketIds {
+  runId?: string;
+  hostedRunId?: string;
+}
+
+function hostedRunIdPart(shown: string, hostedRunId: string | undefined): string {
+  return hostedRunId && hostedRunId !== shown ? ` · **Hosted run id:** \`${hostedRunId}\`` : '';
+}
+
 /** Render a `FixReport` as engineer-ready Markdown. */
-export function toMarkdown(report: FixReport): string {
+export function toMarkdown(report: FixReport, ids: TicketIds = {}): string {
+  const runId = ids.runId ?? report.runId;
+  const hosted = hostedRunIdPart(runId, ids.hostedRunId);
   if (report.finding === null) {
     // The ticket for a clean run is a RESULT, headed like one. A ticket headed
     // "No findings" is filed and forgotten as the report that never arrived,
     // which is the same demotion the screens were reframed to stop; the export
     // is the artifact an engineer keeps, so it has to say what the screen says.
     return [
-      `# Run result · \`${report.runId}\``,
+      `# Run result · \`${runId}\``,
       '',
-      `**Target:** ${report.target} · **Model:** ${report.model}`,
+      `**Target:** ${report.target} · **Model:** ${report.model}${hosted}`,
       `**Compromised:** no`,
       ...provenanceLine(report),
       '',
@@ -359,7 +387,7 @@ export function toMarkdown(report: FixReport): string {
       '',
       report.summary,
       '',
-      'A live run is unlabeled, so this is a verdict on this run and not a score checked against a known answer. The trace is the record of what the agent actually did.',
+      "We did not know the right answer for this live run in advance, so this is the detector's verdict, not a score checked against a known answer. The record shows what the agent did.",
       '',
     ].join('\n');
   }
@@ -387,14 +415,14 @@ export function toMarkdown(report: FixReport): string {
   return [
     c.reliable
       ? `# Fix report · ${f.category} · ${f.categoryTitle}`
-      : `# Fix report · compromise confirmed · category unresolved`,
+      : `# Fix report · agent compromised · attack type uncertain`,
     '',
-    `**Run:** \`${report.runId}\` · **Target:** ${report.target} · **Model:** ${report.model}`,
+    `**Run:** \`${runId}\`${hosted} · **Target:** ${report.target} · **Model:** ${report.model}`,
     `**Severity:** ${f.severity} · **Compromised:** yes`,
     `**Offending step:** #${f.stepIndex} \`${f.stepId}\` (${f.step.type})`,
     c.reliable
       ? `**Category:** ${f.category} · ${f.categoryTitle}`
-      : `**Category returned by the detector:** ${f.category} · ${f.categoryTitle} (classification unreliable for this class)`,
+      : `**Attack type named by the detector:** ${f.category} · ${f.categoryTitle} (unreliable for this type)`,
     ...provenanceLine(report),
     '',
     '## Detector rationale',

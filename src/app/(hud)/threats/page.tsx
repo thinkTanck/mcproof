@@ -8,9 +8,9 @@ import { THREATS } from '@/components/threats/threat-data';
 import { getDataSource } from '@/data/source';
 
 export const metadata: Metadata = {
-  title: 'Threat Model / Coverage · MCProof',
+  title: 'Threat Model · MCProof',
   description:
-    'All ten OWASP Agentic categories, stated plainly. Seven are observable inside a single run, so we test them. Three complete where our trace cannot see, so we say so.',
+    "All ten OWASP agent risks. We test seven that show up in one run's steps, and explain why we cannot test the other three.",
 };
 
 /**
@@ -33,12 +33,12 @@ export default async function ThreatsPage() {
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-12">
       <SectionLabel>Threat Model · Coverage</SectionLabel>
 
-      <h1 className="reading-h1 mt-3 max-w-[20ch]">What we test. And what we honestly can’t.</h1>
+      <h1 className="reading-h1 mt-3 max-w-[20ch]">What we test, and what we cannot.</h1>
 
       <p className="reading-lead measure mt-5">
-        All ten OWASP Agentic categories, stated plainly. Seven are observable inside a single run,
-        so we test them. Three complete somewhere our trace cannot see, so we say so rather than
-        fake a verdict.
+        These are all ten OWASP agent risks. We test seven, because the harm shows up in the
+        agent&apos;s own steps during one run. The other three happen somewhere our record of the
+        run cannot see, so we do not test them.
       </p>
 
       {/* The measurability bar — the rule the whole board is judged against.
@@ -51,9 +51,10 @@ export default async function ThreatsPage() {
           <CoverageIcon kind="covered" size={16} />
         </span>
         <p className="reading measure">
-          A category is <span className="text-readout">testable</span> only if the compromise is
-          observable in the agent’s own steps, inside one bounded run, with a crisp{' '}
-          <span className="font-mono text-nominal">compromised at step N, or not</span>.
+          We can <span className="text-readout">test</span> a risk only if the harm shows up in the
+          agent&apos;s own steps during one run, so the detector can say either &quot;
+          <span className="font-mono text-nominal">compromised at step N</span>&quot; or &quot;
+          <span className="font-mono text-nominal">not compromised</span>&quot;.
         </p>
       </div>
 

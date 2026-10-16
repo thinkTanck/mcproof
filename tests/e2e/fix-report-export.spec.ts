@@ -39,7 +39,7 @@ test('/findings/sample: Copy report puts the provenance line on the clipboard', 
   const caveat = page.getByTestId('classification-caveat').locator('p');
   const sentence = (await caveat.nth(0).innerText()).trim();
   const measured = (await caveat.nth(1).innerText()).trim();
-  expect(sentence).toMatch(/Measured accuracy on our labeled set is 0\.68/);
+  expect(sentence).toMatch(/named the right type \d+ of \d+ times/);
 
   const copy = page.getByRole('button', { name: 'Copy report' });
   await copy.click();
@@ -71,7 +71,18 @@ test('/findings/sample: Copy report puts the provenance line on the clipboard', 
     'the same day as the page',
   ).toEqual([shown![1], shown![2], shown![3]]);
   expect(clipboard, 'the classification caveat shown on the page').toContain(sentence);
-  expect(clipboard, 'the caveat provenance line shown on the page').toContain(measured);
+  // The caveat's provenance reads in plain words on the page and as the
+  // frozen ISO line in the ticket (copy pass, 2026-10-15): the same day.
+  const shownDay = measured.match(/measured (\w{3}) (\d{1,2}), (\d{4})/);
+  expect(shownDay, 'the page names the day the attack type was measured').not.toBeNull();
+  const measuredLine = clipboard.split('\n').find((line) => line.startsWith('_Measured:_'));
+  const measuredIso = measuredLine?.match(/(\d{4})-(\d{2})-(\d{2})/);
+  expect(measuredIso, 'the ticket keeps the ISO measurement line').toBeTruthy();
+  expect([
+    MONTHS[Number(measuredIso![2]) - 1],
+    String(Number(measuredIso![3])),
+    measuredIso![1],
+  ]).toEqual([shownDay![1], shownDay![2], shownDay![3]]);
   // The caveat is read before the list it qualifies.
   expect(clipboard.indexOf(sentence)).toBeLessThan(clipboard.indexOf('\n1. '));
 });

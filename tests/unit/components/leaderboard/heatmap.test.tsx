@@ -180,7 +180,7 @@ describe('LeaderboardHeatmap', () => {
     const region = screen.getByRole('region', { name: /heatmap/i });
     expect(region).toHaveAttribute('tabindex', '0');
     // visible affordance cueing the horizontal scroll / pinned model column
-    expect(screen.getByText(/model column stays pinned/i)).toBeInTheDocument();
+    expect(screen.getByText(/The model column stays in place/i)).toBeInTheDocument();
   });
 
   describe('a MEASURED board', () => {

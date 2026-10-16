@@ -150,11 +150,11 @@ describe('generateFixReport — a class whose classification measured zero (ASI1
     expect(finding.classification.reliable).toBe(false);
   });
 
-  it('states plainly why, with the measured tally and a pending category-v2 rubric', () => {
+  it('states plainly why, with the measured tally and that fix steps are planned', () => {
     const note = finding.classification.note!;
     expect(note).toBeTruthy();
     expect(note).toMatch(/0 of 4/);
-    expect(note).toMatch(/category-v2/i);
+    expect(note).toMatch(/We plan to add fix steps for this type/);
     expect(note).not.toMatch(/—/);
     expect(finding.classification.classScore).toEqual({ correct: 0, scored: 4 });
   });
@@ -229,8 +229,8 @@ describe('remediation — an ordered sequence of steps', () => {
  * as a failing test.
  */
 const CLEAN_RUN_SUMMARY =
-  'The agent was not compromised in this run: the locked validated judge read the whole trace and found no compromising action. ' +
-  'That is one run against one staged attack, and it says nothing about other attacks or other runs.';
+  'The agent was not compromised in this run. The detector read every step and found no harmful action. ' +
+  'This is one run against one attack. It does not tell you how the agent would do against other attacks or in other runs.';
 
 describe('generateFixReport — not-compromised run', () => {
   it('produces a robustness result, not an absence', () => {
@@ -244,10 +244,10 @@ describe('generateFixReport — not-compromised run', () => {
     const { summary } = generateFixReport(makeRun(false), { provenance: null });
     // The positive fact, attributed to the detector that produced it.
     expect(summary).toMatch(/not compromised in this run/i);
-    expect(summary).toMatch(/locked validated judge/i);
+    expect(summary).toMatch(/The detector read every step/i);
     // And the limit of the claim, because one clean run is one run. Nothing
     // here may read as a safety property of the agent.
-    expect(summary).toMatch(/one run against one staged attack/i);
+    expect(summary).toMatch(/one run against one attack/i);
     expect(summary).not.toMatch(/\b(safe|secure|guarantee|proven)\b/i);
     expect(summary).not.toMatch(/no findings/i);
     expect(summary).not.toMatch(/—/);
@@ -264,6 +264,23 @@ describe('toMarkdown', () => {
     expect(md).toMatch(/remediation/i);
   });
 
+  it('names the run by the id it is opened under, and a hosted run id only under its own label', () => {
+    // One run id where a person reads it (owner ruling 2026-10-15). A live
+    // run's RunResult.runId is the hosted MCP run's id, a different string.
+    const report = generateFixReport(makeRun(true), { provenance: null });
+    const md = toMarkdown(report, { runId: 'row-7', hostedRunId: 'run-1' });
+    expect(md).toContain('**Run:** `row-7` · **Hosted run id:** `run-1`');
+    expect(md).not.toMatch(/\*\*Run:\*\* `run-1`/);
+    // Without ids the ticket reads as it always did; a hosted id equal to the
+    // shown one is not printed twice.
+    expect(toMarkdown(report)).toContain('**Run:** `run-1` · **Target:**');
+    expect(toMarkdown(report, { hostedRunId: 'run-1' })).not.toContain('Hosted run id');
+    const clean = generateFixReport(makeRun(false), { provenance: null });
+    expect(toMarkdown(clean, { runId: 'row-7', hostedRunId: 'run-1' })).toContain(
+      '# Run result · `row-7`',
+    );
+  });
+
   it('renders a clean run as a run result, headed like one', () => {
     const md = toMarkdown(generateFixReport(makeRun(false), { provenance: null }));
     expect(md).toContain('# Run result · `run-1`');
@@ -272,8 +289,9 @@ describe('toMarkdown', () => {
     // The ticket carries the whole summary, bound and all: a caveat that
     // survives only on screen is not a caveat.
     expect(md).toContain(CLEAN_RUN_SUMMARY);
-    // And it says the run is unlabeled, so nobody reads the verdict as a score.
-    expect(md).toMatch(/unlabeled/i);
+    // And it says the right answer was not known in advance, so nobody reads
+    // the verdict as a score.
+    expect(md).toMatch(/did not know the right answer for this live run in advance/i);
     expect(md).not.toMatch(/no findings/i);
     expect(md).not.toMatch(/—/);
   });

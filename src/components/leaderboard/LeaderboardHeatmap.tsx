@@ -223,9 +223,10 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
         ))}
       </ul>
 
-      {/* Swipe / scroll affordance — a terse INSTRUMENT cue (micro-label, not a
-          sentence) that the board scrolls and the model column is pinned. */}
-      <p className="micro-label mb-2.5 flex items-center gap-2">
+      {/* Swipe / scroll affordance: says the board scrolls sideways and the model
+          column stays put. It is two sentences, so it wears the READING role
+          (prose never wears an INSTRUMENT one), in the muted tone. */}
+      <p className="reading mb-2.5 flex items-center gap-2 text-ink-muted">
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path
             d="M6 3 2 8l4 5M10 3l4 5-4 5"
@@ -236,7 +237,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
             strokeLinejoin="round"
           />
         </svg>
-        Swipe · {categories.length} categories · model column stays pinned
+        Swipe to see all {categories.length} attack types. The model column stays in place.
       </p>
 
       {/* Focusable, labelled 2-D scroll region. */}
@@ -249,12 +250,12 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
         >
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">
-              Robustness per model and OWASP Agentic category: the share of that model&apos;s runs
-              in the category that ended not compromised, so higher is safer.{' '}
+              For each agent model and attack type: the share of runs where the agent was not
+              compromised. Higher is safer.{' '}
               {measured
                 ? 'Measured from persisted runs; each cell also states how many runs it counted.'
-                : 'Fixture data, not a claimed benchmark. Each value cell links to that run in Live Attack Replay.'}{' '}
-              A pair with no runs reads No data, never zero.
+                : 'Fixture data, not a claimed benchmark. Each value cell links to that run in Replay.'}{' '}
+              A cell with no runs says No data.
             </caption>
             <thead>
               <tr className="bg-[color:var(--navy-900)]">

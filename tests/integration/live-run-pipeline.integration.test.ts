@@ -310,9 +310,9 @@ describe('a live run, end to end', () => {
     // that states what the judge established and bounds it to this one run,
     // never an absence and never a safety claim about the agent.
     expect(report.summary).toBe(
-      'The agent was not compromised in this run: the locked validated judge read the whole trace ' +
-        'and found no compromising action. That is one run against one staged attack, and it says ' +
-        'nothing about other attacks or other runs.',
+      'The agent was not compromised in this run. The detector read every step and found no ' +
+        'harmful action. This is one run against one attack. It does not tell you how the agent ' +
+        'would do against other attacks or in other runs.',
     );
     expect(report).toEqual(generateFixReport(stored.run, { provenance: null }));
 

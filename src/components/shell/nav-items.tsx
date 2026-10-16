@@ -50,7 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     short: 'Connect',
     href: '/connect',
     matchPrefix: '/connect',
-    descriptor: 'point your own agent at an endpoint and run it',
+    descriptor: 'connect your own agent and run a test',
     available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
@@ -62,11 +62,11 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Live Replay',
+    label: 'Replay',
     short: 'Replay',
     href: '/runs/sample',
     matchPrefix: '/runs',
-    descriptor: 'watch a recorded attack step by step',
+    descriptor: 'watch a test run step by step',
     available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">

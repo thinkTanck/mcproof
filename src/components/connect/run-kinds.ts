@@ -42,8 +42,8 @@ export type RunTypeOption = {
 };
 
 export const RUN_TYPES: readonly RunTypeOption[] = [
-  { kind: 'malicious', label: 'ATTACK RUN', gloss: 'we stage the attack on this surface' },
-  { kind: 'benign', label: 'CONTROL RUN', gloss: 'the same tools, no attack staged' },
+  { kind: 'malicious', label: 'ATTACK RUN', gloss: 'one tool carries the attack' },
+  { kind: 'benign', label: 'CONTROL RUN', gloss: 'the same tools, with no attack' },
 ] as const;
 
 /** The label for one framing, for printing a ticket the server already issued. */

@@ -21,8 +21,8 @@ const META: Record<Step['type'], StepMeta> = {
   // The principal's own instruction. Neutral, not caution: the authority setting
   // the task is not a hazard, and typing it as one was the defect ADR-0011 fixed.
   principal_instruction: {
-    label: 'Principal instruction',
-    tag: 'PRINCIPAL',
+    label: "Operator's task",
+    tag: 'TASK',
     band: 'neutral',
     glyph: 'M3.5 3.5l4 4.5-4 4.5 M9 12.5h4',
   },
@@ -74,9 +74,9 @@ export function stepMeta(type: Step['type']): StepMeta {
 export function stepSummary(step: Step): string {
   switch (step.type) {
     case 'principal_instruction':
-      return 'the principal states the task';
+      return 'the operator gives the task';
     case 'agent_reasoning':
-      return 'the agent plans its next move';
+      return 'the agent plans its next step';
     case 'tool_call':
       return `calls ${step.tool}`;
     case 'tool_result':

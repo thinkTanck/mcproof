@@ -5,6 +5,8 @@ import { AsiLabel, StatusChip } from '@/components/hud';
 import { stepMeta, stepPayload } from '@/components/replay/step-meta';
 import { CoverageIcon } from '@/components/threats/CoverageIcon';
 import { withStepNumber } from '@/lib/display/dates';
+import { classificationDisplayProvenance } from '@/lib/display/measured';
+import { RunProvenance } from '@/components/hud/RunProvenance';
 import type { FixReport } from '@/fix-report';
 import { CopyReportButton } from './CopyReportButton';
 
@@ -51,6 +53,8 @@ export function FindingsReport({
   report,
   routeId,
   provenanceLabel,
+  runAt,
+  hostedRunId,
 }: {
   report: FixReport;
   routeId?: string;
@@ -60,8 +64,22 @@ export function FindingsReport({
    * report's own line is drawn.
    */
   provenanceLabel?: string;
+  /**
+   * When a live run ran (ISO), so its day is drawn in the viewer's own time
+   * zone (owner ruling 2026-10-15). Absent for a sample.
+   */
+  runAt?: string | null;
+  /**
+   * A live run's hosted MCP run id (`RunResult.runId`). Never printed on the
+   * screen, which names the run by the id in its URL; the copied ticket carries
+   * it under its own label, "Hosted run id".
+   */
+  hostedRunId?: string;
 }) {
   const shownProvenance = provenanceLabel ?? report.provenance;
+  // ONE RUN ID ON SCREEN (owner ruling 2026-10-15): the id in the URL. A saved
+  // live run's `report.runId` is the hosted MCP run's id, a different string.
+  const shownRunId = routeId ?? report.runId;
   const finding = report.finding;
   const step = finding?.step;
   const classification = finding?.classification;
@@ -92,7 +110,7 @@ export function FindingsReport({
           <h1 className="reading-h1 mt-3 measure">
             {finding
               ? unreliable
-                ? 'Compromise confirmed'
+                ? 'Agent compromised'
                 : finding.categoryTitle
               : 'Agent resisted'}
           </h1>
@@ -112,7 +130,7 @@ export function FindingsReport({
                 style={{ color: 'var(--status-inert)' }}
               >
                 <CoverageIcon kind="inert" size={12} />
-                CLASSIFICATION UNRELIABLE
+                ATTACK TYPE UNRELIABLE
               </span>
             ) : null}
             <p className="instrument">
@@ -127,19 +145,25 @@ export function FindingsReport({
                   <span aria-hidden="true"> · </span>
                 </>
               ) : null}
-              run <span className="text-readout">{report.runId}</span>
+              run <span className="text-readout">{shownRunId}</span>
             </p>
           </div>
           <p className="instrument mt-(--instrument-stack) text-ink-faint">
-            target <span className="text-readout">{report.target}</span>
+            server <span className="text-readout">{report.target}</span>
             <span aria-hidden="true"> · </span>
-            model <span className="text-readout">{report.model}</span>
+            agent model <span className="text-readout">{report.model}</span>
           </p>
           {shownProvenance ? (
-            <p className="instrument mt-(--instrument-stack) text-ink-faint">{shownProvenance}</p>
+            <p className="instrument mt-(--instrument-stack) text-ink-faint">
+              <RunProvenance text={shownProvenance} runAt={runAt} />
+            </p>
           ) : null}
         </div>
-        <CopyReportButton report={report} />
+        <CopyReportButton
+          report={report}
+          runId={shownRunId}
+          {...(hostedRunId === undefined ? {} : { hostedRunId })}
+        />
       </header>
 
       {finding && step ? (
@@ -149,8 +173,8 @@ export function FindingsReport({
               `auto`, so one unbreakable token in the payload (a long path) set
               the column wider than a phone screen and the page clipped it. */}
           <div className="mt-8 grid grid-cols-1 gap-7 border-t border-line pt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <section aria-label="Offending step">
-              <SectionHeading>Offending step</SectionHeading>
+            <section aria-label="Step where it happened">
+              <SectionHeading>Step where it happened</SectionHeading>
               <p className="readout mt-(--instrument-stack-rows) text-breach-text">
                 {`#${finding.stepIndex} · ${stepMeta(step.type).label}`}
               </p>
@@ -197,8 +221,8 @@ export function FindingsReport({
               paragraph is marked `data-asi-quoted` with where it came from,
               and the code is named in the page's own text around it (the
               header line, and the tally under a withheld remediation). */}
-          <section aria-label="Detector rationale" className="mt-7 border-t border-breach/30 pt-5">
-            <SectionHeading tone="breach">Detector rationale</SectionHeading>
+          <section aria-label="Detector's reasons" className="mt-7 border-t border-breach/30 pt-5">
+            <SectionHeading tone="breach">Detector&apos;s reasons</SectionHeading>
             <p data-asi-quoted="judge-rationale" className="reading measure mt-2">
               {finding.rationale}
             </p>
@@ -211,19 +235,19 @@ export function FindingsReport({
               (it is never shown `Trace.category`). So the list only appears when
               the measurement says the filing is worth deriving from. */}
           {finding.remediation && classification ? (
-            <section aria-label="Remediation" className="mt-7 border-t border-line-em/40 pt-5">
-              <SectionHeading tone="cyan">Remediation</SectionHeading>
+            <section aria-label="How to fix it" className="mt-7 border-t border-line-em/40 pt-5">
+              <SectionHeading tone="cyan">How to fix it</SectionHeading>
 
               <div data-testid="classification-caveat" className="mt-3">
                 <p data-asi-quoted="generated-report" className="reading measure">
                   {classification.caveat}
                 </p>
                 <p className="instrument mt-(--instrument-stack) text-ink-faint">
-                  {classification.provenance}
+                  {classificationDisplayProvenance()}
                 </p>
               </div>
 
-              <ol aria-label="Remediation" className="mt-3">
+              <ol aria-label="How to fix it" className="mt-3">
                 {finding.remediation.steps.map((remedy, i) => (
                   <li
                     key={remedy}
@@ -249,22 +273,23 @@ export function FindingsReport({
                engineer can work top to bottom IS the authoritative claim,
                whatever hedge sits above it. */
             <section
-              aria-label="Remediation withheld"
+              aria-label="No fix steps for this attack type"
               className="mt-7 border-t border-line-em/40 pt-5"
             >
-              <SectionHeading>Remediation withheld</SectionHeading>
+              <SectionHeading>No fix steps for this attack type</SectionHeading>
               <div data-testid="classification-unreliable" className="mt-3">
                 <p data-asi-quoted="generated-report" className="reading measure">
                   {classification.note}
                 </p>
                 <p className="instrument mt-(--instrument-stack)">
                   <span style={{ color: 'var(--status-inert)' }}>
-                    {classification.staged} {classification.stagedTitle} filed correctly{' '}
-                    {classification.classScore.correct} of {classification.classScore.scored}
+                    {classification.staged} {classification.stagedTitle}: attack type named
+                    correctly {classification.classScore.correct} of{' '}
+                    {classification.classScore.scored} times in our tests
                   </span>
                 </p>
                 <p className="instrument mt-(--instrument-stack) text-ink-faint">
-                  {classification.provenance}
+                  {classificationDisplayProvenance()}
                 </p>
               </div>
             </section>
@@ -287,8 +312,8 @@ export function FindingsReport({
             {report.summary}
           </p>
           <p className="reading mt-3 measure text-ink-muted">
-            This run finished and the detector judged it. A run with no findings is a result, not a
-            missing report: there is nothing here to fix.
+            This run finished and the detector graded it. It found no compromise, so there is
+            nothing to fix.
           </p>
           {/* THE CLEAN RESULT'S OWN OFF-RAMP. A compromise ends somewhere (this
               report, and the ticket an engineer copies out of it); until now a
@@ -300,7 +325,7 @@ export function FindingsReport({
               href="/leaderboard"
               className="target-min inline-flex items-center text-nominal underline underline-offset-2 hover:text-readout"
             >
-              See it on the robustness leaderboard
+              See it on the leaderboard
             </Link>
           </p>
           {/* And back to the evidence: the replay of this same run, step by step. */}

@@ -7,7 +7,7 @@ import { getEmailOtpLength, isAuthEnabled, isGithubOAuthEnabled } from '@/config
 export const metadata: Metadata = {
   title: 'Sign in · MCProof',
   description:
-    'Sign in to MCProof to live red-team your own MCP agent against the Core-7. A one-time code emailed to you gates live runs; sample playback stays open to everyone.',
+    'Sign in to MCProof to test your own MCP agent. We email you a one-time code. Anyone can watch the samples without signing in.',
 };
 
 /**

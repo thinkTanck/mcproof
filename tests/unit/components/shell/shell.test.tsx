@@ -7,14 +7,7 @@ vi.mock('next/headers', () => ({
   headers: async () => ({ get: (k: string) => (k === 'x-pathname' ? '/' : null) }),
 }));
 
-const DECK_LINKS = [
-  'Home',
-  'Connect / Run',
-  'Live Replay',
-  'Leaderboard',
-  'Findings',
-  'Threat Model',
-];
+const DECK_LINKS = ['Home', 'Connect / Run', 'Replay', 'Leaderboard', 'Findings', 'Threat Model'];
 
 describe('AppShell (server shell)', () => {
   it('exposes banner, navigation and main landmarks with the six deck links', async () => {
@@ -35,10 +28,12 @@ describe('AppShell (server shell)', () => {
     const deck = screen.getByRole('navigation', { name: 'Command deck' });
     // A newcomer should not have to click to learn what these do.
     expect(
-      within(deck).getByRole('link', { name: /Live Replay.*watch a recorded attack/i }),
+      within(deck).getByRole('link', { name: /Replay.*watch a test run step by step/i }),
     ).toBeInTheDocument();
     expect(
-      within(deck).getByRole('link', { name: /Connect \/ Run.*point your own agent/i }),
+      within(deck).getByRole('link', {
+        name: /Connect \/ Run.*connect your own agent and run a test/i,
+      }),
     ).toBeInTheDocument();
   });
 

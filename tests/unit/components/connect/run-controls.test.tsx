@@ -88,14 +88,14 @@ describe('no run on show: the block that starts one', () => {
     expect(within(group).getByRole('link', { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('live, signed in, nothing issued: the same group, around ISSUE RUN ENDPOINT', async () => {
+  it('live, signed in, nothing issued: the same group, around START A RUN', async () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn livePort={port()} />);
     await user.click(screen.getByRole('button', { name: /^live/i }));
     expect(landings()).toHaveLength(1);
     const group = screen.getByRole('group', { name: RUN_CONTROLS_LABEL });
     expectALandingPlace(group);
-    expect(within(group).getByRole('button', { name: /issue run endpoint/i })).toBeInTheDocument();
+    expect(within(group).getByRole('button', { name: /start a run/i })).toBeInTheDocument();
   });
 });
 
@@ -106,9 +106,9 @@ describe('a run on show: the run bar', () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn livePort={port()} />);
     await user.click(screen.getByRole('button', { name: /^live/i }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
-    const bar = await screen.findByRole('region', { name: /what we have actually seen/i });
+    const bar = await screen.findByRole('region', { name: /what we have recorded so far/i });
     await waitFor(() => expect(bar).toHaveAttribute('id', RUN_CONTROLS_ID));
     await waitFor(() => expect(landings()).toHaveLength(1));
     expectALandingPlace(bar);
@@ -121,8 +121,8 @@ describe('a run on show: the run bar', () => {
   it('the console by itself: the bar carries the id and is named by the run heading', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={port()} category="ASI01" signedIn />);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
-    const bar = await screen.findByRole('region', { name: /what we have actually seen/i });
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
+    const bar = await screen.findByRole('region', { name: /what we have recorded so far/i });
     expect(bar).toHaveAttribute('id', RUN_CONTROLS_ID);
     expect(bar).toHaveAttribute('aria-labelledby', 'connect-state');
     expectALandingPlace(bar);

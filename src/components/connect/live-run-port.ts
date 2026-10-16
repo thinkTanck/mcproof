@@ -206,13 +206,12 @@ export interface ConnectLiveRunActions {
 
 /** Nothing was issued because this build has no server action behind the screen. */
 export const LIVE_RUN_NOT_WIRED_MESSAGE =
-  'Starting a live run is not connected in this build, so nothing was issued and ' +
-  'no token exists. Sample playback stays open to everyone.';
+  'Live runs are not set up on this build, so no run or token was created. ' +
+  'Anyone can still watch the samples.';
 
 /** The server answered in a shape this build cannot read, so nothing is claimed. */
 export const LIVE_RUN_UNREADABLE_STATE_MESSAGE =
-  'We could not read this run just now, so nothing is being reported as observed. ' +
-  'The run itself is unaffected.';
+  'We could not load this run just now, so nothing is shown. ' + 'The run itself is not affected.';
 
 /** A call failed outright. The underlying detail is ours; it never becomes copy. */
 export const LIVE_RUN_CALL_FAILED_MESSAGE =

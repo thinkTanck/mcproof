@@ -34,7 +34,7 @@ for (const width of [390, 1280]) {
         // The client picker is drawn once a live run is issued, as a reader gets there.
         if ('issue' in rest && rest.issue) {
           await page.getByRole('button', { name: /^LIVE/ }).click();
-          await page.getByRole('button', { name: /issue run endpoint/i }).click();
+          await page.getByRole('button', { name: /start a run/i }).click();
         }
         const buttons = page.getByRole('group', { name: group }).getByRole('button');
         await expect(buttons.first()).toBeVisible();

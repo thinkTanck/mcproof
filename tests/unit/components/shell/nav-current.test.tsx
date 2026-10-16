@@ -22,8 +22,8 @@ const INDICATOR = '[data-nav-indicator]';
 const CASES: [pathname: string, current: string | null][] = [
   ['/', 'Home'],
   ['/connect', 'Connect / Run'],
-  ['/runs/sample', 'Live Replay'],
-  ['/runs/3f2b6c1e-8a4d-4c1b-9e57-0a1b2c3d4e5f', 'Live Replay'],
+  ['/runs/sample', 'Replay'],
+  ['/runs/3f2b6c1e-8a4d-4c1b-9e57-0a1b2c3d4e5f', 'Replay'],
   ['/leaderboard', 'Leaderboard'],
   ['/findings/sample', 'Findings'],
   ['/findings/asi10-goal-drift', 'Findings'],

@@ -50,7 +50,7 @@ describe('Sign-in screen', () => {
     await user.type(screen.getByLabelText(/email/i), 'tester@example.com');
     await user.click(screen.getByRole('button', { name: /email me a code/i }));
     expect(screen.queryByText(/we sent/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/no email is sent in this preview/i)).toBeInTheDocument();
+    expect(screen.getByText(/this preview sends no email/i)).toBeInTheDocument();
   });
 
   it('returns focus to the email field when the preview is dismissed', async () => {
@@ -102,7 +102,7 @@ describe('Sign-in screen', () => {
 
   it('gives the promised sample a keyless door, and does not ship inert OAuth', async () => {
     await renderPage();
-    expect(screen.getByRole('link', { name: /watch the sample run/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /watch a sample run/i })).toHaveAttribute(
       'href',
       '/runs/sample',
     );

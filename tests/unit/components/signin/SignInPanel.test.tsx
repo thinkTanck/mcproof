@@ -28,7 +28,7 @@ describe('SignInPanel (wired auth)', () => {
   it('advances to the code step after a code is requested', async () => {
     const user = userEvent.setup();
     render(<SignInPanel authEnabled codeLength={6} />);
-    expect(screen.queryByText(/no email is sent yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sign-in is not set up on this preview/i)).not.toBeInTheDocument();
 
     await reachCodeStep(user);
 
@@ -269,5 +269,24 @@ describe('SignInPanel (wired auth)', () => {
   it('shows no failure notice when there is no prior error', () => {
     render(<SignInPanel authEnabled codeLength={6} />);
     expect(screen.queryByText(/could not complete that sign-in/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * N1. A form with no method submits as GET. Submitted before hydration (no
+   * onSubmit yet to prevent it), the email form would put the address in the
+   * URL, where it lands in history, logs and the Referer. Both forms POST.
+   */
+  it('posts the email form, so a submit before hydration never puts the address in a URL', () => {
+    render(<SignInPanel authEnabled codeLength={6} />);
+    const form = screen.getByLabelText(/email/i).closest('form');
+    expect(form).toHaveAttribute('method', 'post');
+  });
+
+  it('posts the code form too', async () => {
+    const user = userEvent.setup();
+    render(<SignInPanel authEnabled codeLength={6} />);
+    await reachCodeStep(user);
+    const form = screen.getByLabelText(/code/i).closest('form');
+    expect(form).toHaveAttribute('method', 'post');
   });
 });

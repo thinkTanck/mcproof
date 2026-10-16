@@ -1,7 +1,7 @@
 /**
  * THE REAPER — what happens to a run whose owner closed the tab.
  *
- * `END RUN AND JUDGE` on `/connect` used to be the only way a run finished, so a
+ * `END RUN AND GET RESULT` on `/connect` used to be the only way a run finished, so a
  * user who walked away left the run open until its token expired and then lost
  * the verdict for inference they had already paid for. These tests pin the job
  * that finishes it for them.

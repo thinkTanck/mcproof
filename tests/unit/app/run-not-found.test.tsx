@@ -32,7 +32,9 @@ describe('/runs/[id] not-found: the replay empty state', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'No run to replay.' })).toBeVisible();
     expect(screen.getByText('does-not-exist')).toBeVisible();
-    expect(screen.getByText(/It may be an unfinished run, a run on another account/)).toBeVisible();
+    expect(
+      screen.getByText(/It may still be running, it may belong to another account/),
+    ).toBeVisible();
     expect(screen.getByRole('link', { name: 'Play the sample run' })).toHaveAttribute(
       'href',
       '/runs/sample',
@@ -63,7 +65,7 @@ describe('/findings/[id] not-found: the report empty state', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'No report for run does-not-exist' }),
     ).toBeVisible();
-    expect(screen.getByText(/This run has no fix report/)).toBeVisible();
+    expect(screen.getByText(/This run has no report. It may still be running/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/');
   });
 });

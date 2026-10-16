@@ -62,7 +62,17 @@ export default async function FindingsScreen({ params }: Props) {
       />
     );
   }
+  // ONE RUN ID ON SCREEN (owner ruling 2026-10-15): the report names the run by
+  // `id`, the URL's. For a live run that is the stored row id (`StoredRun.id`)
+  // and `report.runId` is the hosted MCP run id, which the copied ticket alone
+  // carries, labelled "Hosted run id". A sample has no hosted run.
   return (
-    <FindingsReport report={view.report} routeId={id} provenanceLabel={view.displayProvenance} />
+    <FindingsReport
+      report={view.report}
+      routeId={id}
+      provenanceLabel={view.displayProvenance}
+      runAt={view.runAt}
+      {...(view.origin === 'live' ? { hostedRunId: view.report.runId } : {})}
+    />
   );
 }

@@ -12,16 +12,16 @@ import Link from 'next/link';
  */
 export function ReplayEmpty({ id }: { id: string }) {
   return (
-    <section aria-label="Live Attack Replay" className="mx-auto max-w-[720px] px-6 py-16">
-      <p className="micro-label text-ink-faint">Live Attack Replay</p>
+    <section aria-label="Replay" className="mx-auto max-w-[720px] px-6 py-16">
+      <p className="micro-label text-ink-faint">Replay</p>
       <h1 className="reading-h2 mt-3">No run to replay.</h1>
       <p className="reading measure mt-3 text-ink-muted">
-        There is no run for <span className="readout text-readout">{id}</span>. It may be an
-        unfinished run, a run on another account, or the id may be wrong.
+        There is no run for <span className="readout text-readout">{id}</span>. It may still be
+        running, it may belong to another account, or the address may be wrong.
       </p>
       <Link
         href="/runs/sample"
-        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-readout glow-accent transition-colors hover:bg-nominal/20"
+        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:bg-nominal/20"
       >
         Play the sample run
       </Link>

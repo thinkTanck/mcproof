@@ -64,12 +64,12 @@ describe('ASI10, remediation withheld: where the offending step is', () => {
 
   it('on screen the offending step is drawn before the note, and the note says above', () => {
     render(<FindingsReport report={withheld} />);
-    const step = screen.getByRole('region', { name: 'Offending step' });
+    const step = screen.getByRole('region', { name: 'Step where it happened' });
     const note = screen.getByTestId('classification-unreliable');
 
     expect(follows(step, note), 'the note comes after the offending step').toBe(true);
-    expect(note).toHaveTextContent('the offending step above is its own anchor.');
-    expect(note).not.toHaveTextContent(/offending step below/i);
+    expect(note).toHaveTextContent('the step shown above is where it happened.');
+    expect(note).not.toHaveTextContent(/step shown below/i);
   });
 
   it('in the exported ticket the offending step line is before the note, and the note says above', () => {
@@ -79,13 +79,13 @@ describe('ASI10, remediation withheld: where the offending step is', () => {
 
     expect(step).toBeGreaterThan(-1);
     expect(step).toBeLessThan(note);
-    expect(md.slice(note)).toContain('the offending step above is its own anchor.');
-    expect(md).not.toMatch(/offending step below/i);
+    expect(md.slice(note)).toContain('the step shown above is where it happened.');
+    expect(md).not.toMatch(/step shown below/i);
   });
 
   it('is one sentence, authored once, on the report itself', () => {
     expect(withheld.finding!.classification.note).toContain(
-      'the offending step above is its own anchor.',
+      'the step shown above is where it happened.',
     );
   });
 });
@@ -93,15 +93,15 @@ describe('ASI10, remediation withheld: where the offending step is', () => {
 describe('compromised, remediation shown: where the category is', () => {
   const shown = report('ASI02');
 
-  it('on screen the category is drawn before the caveat that calls it "the category above"', () => {
+  it('on screen the category is drawn before the caveat that calls it "the attack type above"', () => {
     render(<FindingsReport report={shown} />);
     const caveat = screen.getByTestId('classification-caveat');
     const category = screen.getByRole('heading', { level: 1 });
 
-    expect(caveat).toHaveTextContent(/^The category above is the detector/);
+    expect(caveat).toHaveTextContent(/^The detector chose the attack type above/);
     expect(follows(category, caveat)).toBe(true);
-    // It names the offending step without sending the reader anywhere for it.
-    expect(caveat).toHaveTextContent('confirm the category against the offending step before');
+    // It names the offending step, which is drawn above it on screen too.
+    expect(caveat).toHaveTextContent('check the type against the step shown above before');
     expect(caveat).not.toHaveTextContent(/\bbelow\b/i);
   });
 
@@ -109,7 +109,7 @@ describe('compromised, remediation shown: where the category is', () => {
     const md = toMarkdown(shown);
 
     expect(md.indexOf('**Category:**')).toBeGreaterThan(-1);
-    expect(md.indexOf('**Category:**')).toBeLessThan(md.indexOf('The category above'));
+    expect(md.indexOf('**Category:**')).toBeLessThan(md.indexOf('chose the attack type above'));
     expect(md).not.toMatch(/\bbelow\b/i);
   });
 });
@@ -133,8 +133,8 @@ describe('every Core-7 class: no direction word points the wrong way', () => {
    * above fails here without anyone having to remember this test.
    */
   const TARGETS: { phrase: RegExp; marker: string }[] = [
-    { phrase: /offending step (above|below)/i, marker: '**Offending step:**' },
-    { phrase: /category (above|below)/i, marker: '**Category' },
+    { phrase: /step shown (above|below)/i, marker: '**Offending step:**' },
+    { phrase: /attack type (above|below)/i, marker: '**Category' },
   ];
 
   it.each(CategorySchema.options)('%s', (category) => {

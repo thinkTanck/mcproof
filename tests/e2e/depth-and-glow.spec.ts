@@ -25,7 +25,7 @@ import {
  *     never glows. The fade is at most 150ms and is switched off under
  *     `prefers-reduced-motion: reduce`. Nothing animates a glow.
  *
- *  3. TEXT. No text casts a shadow, and text is still at least 4.5:1 against
+ *  3. TEXT. No text casts a shadow, and text is still at least 7:1 against
  *     what is under it, the raised surface included (axe `color-contrast` with
  *     zero violations, and every node axe could not decide computed here).
  *
@@ -37,7 +37,7 @@ import {
  * checks are Chromium's.
  */
 
-const TEXT_MIN = 4.5;
+const TEXT_MIN = 7; // owner ruling 2026-10-15 (UI and copy PR): 7:1, was 7:1
 const DISABLED_MIN = 3;
 const RING_MIN_WIDTH = 2;
 /** The longest a hover fade may take, in seconds. */
@@ -525,7 +525,7 @@ for (const viewport of VIEWPORTS) {
         expect(found.out, 'text with a shadow').toEqual([]);
       });
 
-      test(`${where.name}: text is at least 4.5:1, on the raised surface too`, async ({
+      test(`${where.name}: text is at least 7:1, on the raised surface too`, async ({
         page,
         browserName,
       }) => {
@@ -540,15 +540,15 @@ for (const viewport of VIEWPORTS) {
         expect(pairs.length, 'pieces of text measured').toBeGreaterThan(5);
         expect(
           pairs.filter((pair) => !pair.disabled && pair.ratio < TEXT_MIN).map(line),
-          'text under 4.5:1',
+          'text under 7:1',
         ).toEqual([]);
 
-        const axe = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
+        const axe = await new AxeBuilder({ page }).withRules(['color-contrast-enhanced']).analyze();
         expect(
           axe.violations.flatMap((violation) =>
             violation.nodes.map((node) => node.target.join(' ')),
           ),
-          'axe color-contrast violations',
+          'axe color-contrast-enhanced violations',
         ).toEqual([]);
 
         const undecided: string[] = [];
@@ -558,7 +558,7 @@ for (const viewport of VIEWPORTS) {
           if (!own) undecided.push(`not measured: ${target}`);
           else if (own.ratio < (own.disabled ? DISABLED_MIN : TEXT_MIN)) undecided.push(line(own));
         }
-        expect(undecided, 'nodes axe left incomplete that are not 4.5:1 when computed').toEqual([]);
+        expect(undecided, 'nodes axe left incomplete that are not 7:1 when computed').toEqual([]);
       });
 
       test(`${where.name}: nothing animates a shadow with reduced motion, and no glow ever pulses`, async ({

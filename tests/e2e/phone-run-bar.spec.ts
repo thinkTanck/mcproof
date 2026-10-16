@@ -63,7 +63,7 @@ type State = (typeof STATES)[number];
 /** Sub-pixel rounding at an edge. */
 const EDGE = 1;
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 const trigger = (page: Page) =>
   page.getByRole('button', { name: 'DISCARD RUN', exact: true }).filter({ visible: true });
 const keep = (page: Page) => page.getByRole('button', { name: 'KEEP RUNNING' });
@@ -99,7 +99,7 @@ async function reach(page: Page, state: State, text: Text) {
     );
   }
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(bar(page)).toBeVisible();
   if (state === 'finished') {
     await bar(page)
@@ -365,7 +365,7 @@ for (const viewport of PHONES) {
         barPosition: 'static',
       });
       await expect(bar(page).getByRole('button', { name: /end run/i })).toHaveAccessibleName(
-        'End run and judge',
+        'End run and get result',
       );
       const target = (await bar(page)
         .getByRole('button', { name: /end run/i })
@@ -536,7 +536,7 @@ for (const viewport of PHONES) {
       try {
         await page.goto(`${FIXTURE}?state=connected`);
         await page.getByRole('button', { name: /^LIVE/ }).click();
-        await page.getByRole('button', { name: /issue run endpoint/i }).click();
+        await page.getByRole('button', { name: /start a run/i }).click();
         await expect(bar(page)).toBeVisible();
 
         const clients = page.getByRole('group', { name: 'MCP client' }).getByRole('button');

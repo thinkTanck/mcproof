@@ -5,7 +5,7 @@ import { suppressBootSplash } from './support/screen';
  * A CONNECTED RUN'S PINNED BAR FITS A SMALL PHONE (sweep 2026-10-07, C3).
  *
  * At 320x568 the bar was 155px while an agent was connected: the status wrapped
- * to two lines, END RUN AND JUDGE dropped to a row of its own, and its label
+ * to two lines, END RUN AND GET RESULT dropped to a row of its own, and its label
  * wrapped too. With the 72px header that is 40% of the screen held still while
  * the setup underneath is read. #173 and #175 had measured 360 and 390 only.
  *
@@ -23,7 +23,7 @@ test.skip(
   'NOT COVERED: E2E_FIXTURES=1 is unset, so the fixture route this suite drives is not built.',
 );
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 const endRun = (page: Page) => bar(page).getByRole('button', { name: /end run/i });
 
 async function connected(page: Page, font: 'fallback' | 'web') {
@@ -37,7 +37,7 @@ async function connected(page: Page, font: 'fallback' | 'web') {
   }
   await page.goto('/e2e/connect-states?state=connected');
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(endRun(page)).toBeVisible();
   await expect(bar(page).getByText('AGENT CONNECTED')).toBeVisible();
 }
@@ -121,10 +121,10 @@ for (const font of ['fallback', 'web'] as const) {
       const g = await geometry(page);
 
       expect(g.buttonText).toBe('END RUN');
-      await expect(endRun(page)).toHaveAccessibleName('End run and judge');
-      await expect(endRun(page)).toHaveAttribute('title', 'End run and judge');
+      await expect(endRun(page)).toHaveAccessibleName('End run and get result');
+      await expect(endRun(page)).toHaveAttribute('title', 'End run and get result');
       // Label in name (WCAG 2.5.3): the visible words are inside the name.
-      expect('End run and judge'.toLowerCase()).toContain(g.buttonText.toLowerCase());
+      expect('End run and get result'.toLowerCase()).toContain(g.buttonText.toLowerCase());
     });
 
     test('the status region still holds the phase reading and the count, together', async ({
@@ -166,7 +166,7 @@ for (const { width, height } of [
       await connected(page, 'fallback');
       const g = await geometry(page);
 
-      expect(g.buttonText).toBe('END RUN AND JUDGE');
+      expect(g.buttonText).toBe('END RUN AND GET RESULT');
       // One row: the control's vertical range overlaps the phase reading's.
       expect(g.button.top).toBeLessThan(g.label.bottom);
       expect(g.button.bottom).toBeGreaterThan(g.label.top);

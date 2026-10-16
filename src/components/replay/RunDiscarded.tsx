@@ -1,4 +1,5 @@
 import { ConnectCta } from '@/components/hud';
+import { LocalDate } from '@/components/hud/LocalDate';
 import { InertMark } from '@/components/leaderboard';
 import { humanDate } from '@/lib/display/dates';
 import { asiLabel } from '@/lib/owasp/asi';
@@ -10,7 +11,7 @@ import {
 
 /** Which screen is saying it. The state is the same; only the eyebrow differs. */
 const SURFACE_LABEL = {
-  replay: 'Live Attack Replay',
+  replay: 'Replay',
   report: 'Findings · Fix report',
 } as const;
 
@@ -45,8 +46,11 @@ export function RunDiscarded({
   discardedAt?: string;
 }) {
   const at = discardedAt === undefined ? Number.NaN : Date.parse(discardedAt);
-  // A human date (2026-10-14), dropped if unreadable.
-  const day = Number.isNaN(at) ? null : humanDate(new Date(at).toISOString());
+  // The day it was discarded, in the VIEWER'S time zone (owner ruling
+  // 2026-10-15), drawn by `LocalDate` over the server's UTC day. Dropped if
+  // unreadable.
+  const iso = Number.isNaN(at) ? null : new Date(at).toISOString();
+  const day = iso === null ? null : humanDate(iso);
 
   return (
     <section aria-labelledby="run-discarded-heading" className="mx-auto max-w-[720px] px-6 py-16">
@@ -62,8 +66,8 @@ export function RunDiscarded({
         {RUN_DISCARDED_SENTENCE}
       </h1>
       <p className="reading measure mt-3 text-ink-muted">
-        It was ended before any verdict was asked for, so there is nothing to replay and no report
-        to read. {DISCARD_STILL_COUNTS_SENTENCE}
+        It ended before the detector graded it, so there is no replay and no report.{' '}
+        {DISCARD_STILL_COUNTS_SENTENCE}
       </p>
       {(category !== undefined || day !== null) && (
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1">
@@ -72,9 +76,9 @@ export function RunDiscarded({
               SERVED <span className="readout">{asiLabel(category)}</span>
             </p>
           )}
-          {day !== null && (
+          {iso !== null && day !== null && (
             <p className="instrument-faint">
-              DISCARDED <span className="readout">{day}</span>
+              DISCARDED <LocalDate iso={iso} className="readout" />
             </p>
           )}
         </div>

@@ -89,6 +89,8 @@ describe('resolveRun — the sample library', () => {
     expect(view?.run).toEqual(sampleRun('ASI02'));
     expect(view?.provenance).toBe(SAMPLE_VERDICT_PROVENANCE);
     expect(view?.displayProvenance).toBe(sampleDisplayProvenance());
+    // A sample's dates are recorded, the same for every reader: no run time.
+    expect(view?.runAt).toBeNull();
   });
 
   it('serves a sample by its canonical run id too', async () => {
@@ -134,8 +136,11 @@ describe('resolveRun — a persisted live run', () => {
     expect(view?.provenance).toContain('2026-08-05');
     // On screen the same verdict reads as the day the run happened.
     expect(view?.displayProvenance).toBe(
-      'live run · run Aug 5, 2026 · verdict from the locked validated judge',
+      'live run · run Aug 5, 2026 · graded by the MCProof detector',
     );
+    // And it carries the stored ISO time, so the screen can draw that day in
+    // the viewer's own time zone (owner ruling 2026-10-15).
+    expect(view?.runAt).toBe('2026-08-05T09:41:07.123456+00:00');
     expect(view?.provenance).not.toMatch(/constructed demonstration/i);
     // A live run is UNLABELED, so nothing here may read as a measured figure.
     expect(view?.provenance).not.toMatch(/measured|precision|recall/i);
@@ -178,7 +183,7 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
     // The expected label is computed from the stored row, not read back off the
     // view, so the whole report is compared against an independent value.
     const label = liveVerdictProvenance('2026-08-05T09:41:07.123456+00:00');
-    expect(label).toBe('live run · verdict from the locked validated judge · 2026-08-05');
+    expect(label).toBe('live run · graded by the MCProof detector · 2026-08-05');
     expect(view?.report).toEqual(generateFixReport(run, { provenance: label }));
     expect(view?.report.finding?.stepId).toBe(run.verdict.stepId);
     expect(view?.origin).toBe('live');

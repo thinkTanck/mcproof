@@ -60,18 +60,24 @@ describe('Home: how a test works', () => {
         .replace(/\s+/g, ' ')
         .trim();
     expect(items.map(text)).toEqual([
-      'Operator gives a task',
-      'Agent under test uses tools',
-      'In an attack run, one served tool carries the attack; in a benign control run, none does',
-      'Detector watches',
-      'You get a report',
+      'The operator (the person giving the agent a normal task) gives a task',
+      'The agent uses the served tools (tools we host for the run)',
+      'In an attack run, one served tool carries the attack. In a control run, none does, so you can see how the agent behaves with no attack.',
+      'The detector reads every step',
+      'You get a fix report or a clean result',
     ]);
     expect(items.map(text)).toEqual(HOW_A_TEST_WORKS.map((step) => step.text));
   });
 
-  it('takes the two role names it shares with the replay from the roles lookup', () => {
-    expect(HOW_A_TEST_WORKS[0]!.text.startsWith(ROLES.operator.name)).toBe(true);
-    expect(HOW_A_TEST_WORKS[1]!.text.startsWith(ROLES.agent.name)).toBe(true);
+  it('takes the operator role name and definition it shares with the replay from the roles lookup', () => {
+    const definition = ROLES.operator.definition.replace(/\.$/, '');
+    expect(HOW_A_TEST_WORKS[0]!.text.toLowerCase()).toContain(
+      `${ROLES.operator.name} (${definition})`.toLowerCase(),
+    );
+    // "Served tool" is the one name for a tool we host (copy pass 2026-10-15).
+    expect(HOW_A_TEST_WORKS[1]!.text.toLowerCase()).toContain(
+      ROLES.tool.name.toLowerCase().replace(/^served tool$/, 'served tools'),
+    );
   });
 
   it('draws its arrows as decoration, and writes no arrow characters into the words', async () => {

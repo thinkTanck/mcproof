@@ -16,7 +16,7 @@ import {
  * A config block draws its token as a mask and copies the real one. When the
  * clipboard refuses, the box offers SHOW CONFIG, and only then, on the reader's
  * press, draws the real config as selectable text beside "This contains your run
- * token. Don't share it." The unit suite holds the rules; this holds what only a
+ * token. Do not share it." The unit suite holds the rules; this holds what only a
  * browser can: the drawn text is exactly the config a copy would have written,
  * the box still fits a 320px phone without pushing the page sideways, the button
  * is a 44px target, and the section passes axe with the config revealed.
@@ -34,7 +34,7 @@ test.skip(
 /** The fixture's invented run (`src/app/(hud)/e2e/connect-states/fixture.tsx`). */
 const ENDPOINT = 'https://example.invalid/api/mcp/fixture-run';
 const TOKEN = 'fixture-token-not-a-credential';
-const WARNING = "This contains your run token. Don't share it.";
+const WARNING = 'This contains your run token. Do not share it.';
 
 const TABS = [
   { tab: /^CLAUDE CODE$/, build: claudeCodeConfig },
@@ -53,7 +53,7 @@ async function issued(page: Page) {
   await suppressBootSplash(page);
   await page.goto('/e2e/connect-states?state=waiting');
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(picker(page)).toBeVisible();
   await page
     .locator('.panel-in')

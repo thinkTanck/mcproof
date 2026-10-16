@@ -243,10 +243,9 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            In the live app, a {codeLength}-digit code lands at{' '}
-            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
-            shortly after. No email is sent in this preview; sign-in wiring ships with the hosted
-            release.
+            In the live app, we email a {codeLength}-digit code to{' '}
+            <span className="font-mono text-readout">{email || 'your inbox'}</span>. It expires
+            soon. This preview sends no email.
           </p>
         </div>
         <Button
@@ -281,6 +280,7 @@ export function SignInPanel({
         </div>
 
         <form
+          method="post"
           className="mt-6 flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
@@ -354,8 +354,8 @@ export function SignInPanel({
       <div className="border-t border-line pt-7">
         <h1 className="reading-h1">Continue to MCProof.</h1>
         <p className="reading mt-3">
-          Sign-in gates live runs against your own agent, with a small free-run cap that keeps
-          things fair and affordable. Sample playback stays open to everyone.
+          You need an account to test your own agent. Each account gets a small number of free test
+          runs. Anyone can watch the samples without signing in.
         </p>
       </div>
 
@@ -385,12 +385,15 @@ export function SignInPanel({
             Preview
           </span>
           <span className="reading text-ink-muted">
-            Sign-in wiring ships with the hosted release; no email is sent yet.
+            Sign-in is not set up on this preview, so no email is sent.
           </span>
         </div>
       )}
 
+      {/* method="post" on both forms (N1): a form with no method submits as GET,
+          so a submit before hydration would put the address in the URL. */}
       <form
+        method="post"
         className="mt-6 flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
@@ -434,8 +437,8 @@ export function SignInPanel({
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
-            No password. We email a {codeLength}-digit code that expires soon after, so there is
-            nothing to remember and nothing to leak.
+            There is no password. We email you a {codeLength}-digit code that expires soon, so there
+            is nothing to remember.
           </span>
         </p>
       </form>
@@ -471,7 +474,7 @@ export function SignInPanel({
           <Button
             variant="ghost"
             disabled
-            aria-label="Continue with GitHub (available with the hosted release)"
+            aria-label="Continue with GitHub (not available on this preview)"
             className="flex-1 gap-2 border-line text-ink"
           >
             <GitHubIcon />
@@ -481,7 +484,7 @@ export function SignInPanel({
         <Button
           variant="ghost"
           disabled
-          aria-label="Continue with Google (available with the hosted release)"
+          aria-label="Continue with Google (not available on this preview)"
           className="flex-1 gap-2 border-line text-ink"
         >
           <GoogleIcon />
@@ -491,16 +494,16 @@ export function SignInPanel({
 
       {/* The copy promises the sample is open to everyone; give it a door. */}
       <p className="reading mt-6 text-ink-muted">
-        Just exploring?{' '}
+        Just looking? You can{' '}
         {/* A link inside a sentence: the line keeps its spacing and a hit area of
             `--target-min` is laid over the link (`target-area`, globals.css). */}
         <Link
           href="/runs/sample"
           className="target-area whitespace-nowrap text-nominal hover:underline"
         >
-          Watch the sample run
-        </Link>
-        , no sign-in needed.
+          watch a sample run
+        </Link>{' '}
+        without signing in.
       </p>
     </div>
   );

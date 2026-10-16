@@ -29,7 +29,7 @@ import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
  *                        line on the client's other MCP servers, and the live
  *                        connection reading under it.
  *   2. Give it the job   the task goal, with a copy control.
- *   3. Finish            "When your agent is done, End run and judge."
+ *   3. Finish            "When your agent is done, press End run and get result."
  *
  * ── THE TABS ──
  *
@@ -97,9 +97,10 @@ import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
  * ── THE CODE PANEL ROUTE ──
  *
  * The Claude desktop app's Code panel is Claude Code, and it keeps a route of
- * its own UNDER the Claude Code steps, marked NOT RECOMMENDED: as tested in the
- * desktop app, the panel has no `/mcp` command and loads every connector the app
- * has, so it cannot be limited to the run's server. The warning comes before its
+ * its own UNDER the Claude Code steps, marked NOT RECOMMENDED: the desktop app
+ * delivers every connector the app has to the panel, and "No MCP setting or
+ * managed-mcp.json reaches those connectors" (code.claude.com/docs/en/desktop,
+ * read 2026-10-15), so it cannot be limited to the run's server. The warning comes before its
  * steps and sends the reader to the terminal route.
  */
 
@@ -257,7 +258,7 @@ function AgentStatus({ phase }: { phase: LiveRunPhase | null }) {
         {connected
           ? 'Your agent has reached the endpoint. Go on to step 2.'
           : phase === 'waiting'
-            ? 'This reading changes to AGENT CONNECTED when your agent reaches the endpoint. If it does not change, the connection did not take.'
+            ? 'This changes to AGENT CONNECTED when your agent reaches the endpoint. If it does not change, your agent is not connected.'
             : 'We are reading the state of this run from the server.'}
       </p>
     </div>
@@ -419,7 +420,7 @@ function ThreeSteps({
         </SetupStep>
         <SetupStep name="Finish">
           <p data-testid="finish-line" className="reading measure">
-            When your agent is done, End run and judge.
+            When your agent is done, press End run and get result.
           </p>
         </SetupStep>
       </ol>
@@ -461,10 +462,10 @@ export function ClientSetup({
           ATTACH NOTHING ELSE
         </p>
         <p className="reading mt-2 measure">
-          Connect an agent that has no other tools attached. A run here can carry an instruction
-          aimed at whatever your agent can reach, so if the same agent is also holding a live
-          connector for mail, files, a browser or a cloud account, an instruction it takes on this
-          endpoint can reach the real thing.
+          Connect an agent that has no other tools attached. An attack run sends your agent
+          instructions aimed at anything it can reach. If the same agent also has a real connection
+          to your email, files, browser or a cloud account, it could act on those instructions
+          there.
         </p>
       </div>
 
@@ -492,8 +493,8 @@ export function ClientSetup({
               className={cn(
                 'inline-flex min-h-11 max-w-full cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border px-4 py-2.5 text-left font-mono text-[13px] tracking-[0.08em] transition-colors',
                 active
-                  ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
-                  : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',
+                  ? 'border-nominal bg-nominal/10 text-ink shadow-glow-nominal'
+                  : 'border-line bg-transparent text-ink hover:border-line-em hover:text-ink',
               )}
             >
               <span data-testid="client-tab-label">{label}</span>
@@ -503,8 +504,8 @@ export function ClientSetup({
       </div>
 
       <p data-testid="chat-apps-line" className="reading measure text-ink-muted">
-        Chat apps (Claude, ChatGPT, Gemini) can&apos;t carry a run token. Use one of the agents
-        above.
+        Chat apps such as Claude, ChatGPT and Gemini generally cannot send a run token, so use one
+        of the agents above. We have not tested every chat app.
       </p>
 
       <div id={PANEL_ID} className="mt-1">
@@ -592,11 +593,11 @@ function ClaudeCode({ ticket, phase }: TabProps) {
             NOT RECOMMENDED
           </p>
           <p className="reading mt-2 measure">
-            The Code panel of the Claude desktop app cannot be limited to{' '}
-            <Code>{MCP_SERVER_NAME}</Code>. It loads every connector your Claude app has and gives
-            you no way to switch them off, so an agent that is compromised in a run there can reach
-            your real connectors. To run a test, use the terminal route above. The steps below are
-            for anyone who still chooses the Code panel.
+            The Code panel in the Claude desktop app cannot be limited to{' '}
+            <Code>{MCP_SERVER_NAME}</Code>. It loads every connector your Claude app has, and no MCP
+            setting can turn them off for one session. If the agent is compromised during a run, it
+            can reach your real connectors. Use the terminal steps above instead. The steps below
+            are only for people who still choose the Code panel.
           </p>
         </div>
         <ol className="list-decimal space-y-4 pl-7 marker:font-mono marker:text-ink-muted">
@@ -614,12 +615,12 @@ function ClaudeCode({ ticket, phase }: TabProps) {
               />
             }
           >
-            Register the endpoint from that folder. Your shell echoes the token back when it
-            confirms, so keep that output off a shared screen.
+            Add the endpoint from that folder. Your terminal prints the token when it confirms, so
+            do not show that output on a shared screen.
           </Action>
           <Action>
-            Open a new session in the Code panel, in that folder. The panel has no <Code>/mcp</Code>{' '}
-            command, so the other connectors it loaded stay on.
+            Open a new session in the Code panel, in that folder. The other connectors it loaded
+            stay on for that session.
           </Action>
           <Action>Then carry on from step 2 above.</Action>
         </ol>
@@ -655,8 +656,8 @@ function VsCode({ ticket, phase }: TabProps) {
             Save this file in that folder. {FILE_HOLDS_TOKEN}
           </Action>
           <Action>
-            Open Copilot Chat in agent mode. VS Code asks whether you trust the new server the first
-            time it starts.
+            Open Copilot Chat and choose Agent. If VS Code asks whether you trust the folder or the
+            server, say yes, or it will not start the server.
           </Action>
         </>
       }
@@ -840,21 +841,23 @@ function OtherAgent({ ticket, phase }: TabProps) {
               </>
             }
           >
-            Add this server to your agent. Paste the JSON block if it takes one. If it asks for the
-            values one at a time, they are under the block: the endpoint, and the value of a header
-            named <Code>{AUTHORIZATION_HEADER_NAME}</Code>. The transport is Streamable HTTP.
+            Add this server to your agent. If it accepts a JSON block, paste it. If it asks for each
+            value separately, use the two values under the block: the endpoint, and the value for a
+            header named <Code>{AUTHORIZATION_HEADER_NAME}</Code>. Choose Streamable HTTP if it asks
+            for a transport.
           </Action>
         </>
       }
       otherServers="Make this the only MCP server your agent has loaded, with no other tools attached."
     >
       <p data-testid="frameworks-line" className="reading measure">
-        Frameworks with MCP support include Claude Agent SDK, OpenAI Agents SDK, CrewAI and
-        Microsoft Agent Framework. LangGraph and Google ADK connect through adapters.
+        Frameworks with MCP support include Claude Agent SDK, OpenAI Agents SDK, CrewAI, Microsoft
+        Agent Framework and Google ADK. LangGraph connects through LangChain{"'"}s MCP adapters.
       </p>
       <p className="reading measure text-ink-muted">
-        If you are writing your own client: the server opens no server-to-client stream, so a GET on
-        the endpoint answers 405. A client that follows the MCP specification carries on over POST.
+        If you are writing your own client: the server does not open a stream back to the client, so
+        a GET request to the endpoint returns 405. A client that follows the MCP specification then
+        uses POST.
       </p>
       {/* A BEGINNER NOTE, not a warning: the neutral panel, no caution and no
           red. Its title is a question a person reads, so it wears a READING
@@ -868,16 +871,16 @@ function OtherAgent({ ticket, phase }: TabProps) {
           What is MCP Inspector?
         </p>
         <p className="reading measure">
-          MCP Inspector is a free tool from the MCP project. It lets you connect to a server
-          yourself and press its tools by hand.
+          MCP Inspector is a free tool from the MCP project. It lets you connect to a server and
+          call its tools yourself.
         </p>
         <p className="reading measure">
           Use it only to check that your endpoint and token work: add a server, choose Streamable
           HTTP, paste the endpoint, add the Authorization header, connect, then list the tools.
         </p>
         <p className="reading measure">
-          It is not an agent, so pressing tools yourself is not a test. For that run, use Discard
-          run instead of End run and judge.
+          It is not an agent, so calling tools yourself is not a test. For that run, choose Discard
+          run instead of End run and get result.
         </p>
       </div>
     </ThreeSteps>

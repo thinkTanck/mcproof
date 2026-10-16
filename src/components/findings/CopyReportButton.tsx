@@ -2,15 +2,16 @@
 
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/hud';
-import { toMarkdown, type FixReport } from '@/fix-report';
+import { toMarkdown, type FixReport, type TicketIds } from '@/fix-report';
 
 /**
  * Serialise a fix report for a ticket. This is module 6's own `toMarkdown`, so
  * what an engineer pastes is the report the product generates, not a second
- * rendering of it maintained beside the first.
+ * rendering of it maintained beside the first. `ids` names the run by the id in
+ * the page's URL, and a live run's hosted run id under its own label.
  */
-export function formatReport(report: FixReport): string {
-  return toMarkdown(report);
+export function formatReport(report: FixReport, ids: TicketIds = {}): string {
+  return toMarkdown(report, ids);
 }
 
 /**
@@ -20,12 +21,27 @@ export function formatReport(report: FixReport): string {
  */
 type CopyStatus = 'idle' | 'copied' | 'failed';
 
-export function CopyReportButton({ report }: { report: FixReport }) {
+export function CopyReportButton({
+  report,
+  runId,
+  hostedRunId,
+}: {
+  report: FixReport;
+  /** The id the report is opened under (its URL). */
+  runId?: string;
+  /** A live run's hosted MCP run id, labelled as such in the ticket. */
+  hostedRunId?: string;
+}) {
   const [status, setStatus] = useState<CopyStatus>('idle');
 
   const onCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(formatReport(report));
+      await navigator.clipboard.writeText(
+        formatReport(report, {
+          ...(runId === undefined ? {} : { runId }),
+          ...(hostedRunId === undefined ? {} : { hostedRunId }),
+        }),
+      );
       setStatus('copied');
       window.setTimeout(() => setStatus('idle'), 2000);
     } catch {
@@ -34,7 +50,7 @@ export function CopyReportButton({ report }: { report: FixReport }) {
       setStatus('failed');
       window.setTimeout(() => setStatus('idle'), 3000);
     }
-  }, [report]);
+  }, [report, runId, hostedRunId]);
 
   const label =
     status === 'copied' ? 'COPIED ✓' : status === 'failed' ? 'COPY FAILED' : 'COPY REPORT';

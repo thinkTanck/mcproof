@@ -30,7 +30,7 @@ const WRONG_OR_EXPIRED_CODE =
  * itself a signal about which control tripped, and about the address that
  * tripped it. One sentence, no numbers, no address, no bucket.
  */
-export const RATE_LIMITED_MESSAGE = 'Too many attempts. Wait about a minute, then try again.';
+export const RATE_LIMITED_MESSAGE = 'Too many attempts. Wait a few minutes, then try again.';
 
 const RATE_LIMITED = RATE_LIMITED_MESSAGE;
 /**

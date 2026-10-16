@@ -141,7 +141,7 @@ export function ReplayLegend({
 }) {
   return (
     <details data-replay-legend={placement} className={cn('group min-w-0', className)}>
-      <summary className="micro-label one-line target-min inline-flex cursor-pointer list-none items-center gap-2 text-nominal [&::-webkit-details-marker]:hidden">
+      <summary className="micro-label one-line target-min inline-flex cursor-pointer list-none items-center gap-2 text-ink [&::-webkit-details-marker]:hidden">
         {/* The state, drawn: the chevron points right when closed and down
               when open. It turns at once, with no transition. */}
         <svg

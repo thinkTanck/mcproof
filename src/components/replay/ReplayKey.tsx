@@ -67,7 +67,7 @@ export function transcriptKeyEntries(): ReplayKeyEntry[] {
     {
       id: 'prompt',
       mark: <Swatch color="var(--terminal-prompt)" />,
-      label: 'Prompt: who wrote the line',
+      label: 'Prompt: who wrote this line',
     },
     {
       id: 'step',
@@ -92,7 +92,7 @@ export function transcriptKeyEntries(): ReplayKeyEntry[] {
 
 /** The hero replay's dot colours, in the order a run meets them. */
 const HERO_KINDS: { id: string; types: StepType[]; label: string }[] = [
-  { id: 'principal', types: ['principal_instruction'], label: 'Principal instruction' },
+  { id: 'principal', types: ['principal_instruction'], label: "Operator's task" },
   { id: 'reasoning', types: ['agent_reasoning'], label: 'Agent reasoning' },
   { id: 'tool', types: ['tool_call', 'tool_result'], label: 'Tool call or result' },
   { id: 'memory', types: ['memory_read', 'memory_write'], label: 'Memory read or write' },
@@ -122,7 +122,7 @@ export function heroKeyEntries(steps: readonly { type: StepType }[]): ReplayKeyE
           <circle cx="9" cy="9" r="2.6" fill="var(--status-breach)" />
         </svg>
       ),
-      label: 'Breach: the compromise step',
+      label: 'Breach: the step where the agent was compromised',
     },
   ];
 }

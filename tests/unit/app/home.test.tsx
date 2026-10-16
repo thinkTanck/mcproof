@@ -12,6 +12,11 @@ import {
 import { describeLiveRunAllowance, describeLiveRunAllowanceNote } from '@/runs/allowance';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { sampleDisplayProvenance } from '@/lib/display/dates';
+import {
+  classificationDisplayProvenance,
+  compromiseDisplayProvenance,
+  measuredCopy,
+} from '@/lib/display/measured';
 
 /**
  * Home (BRAND register front door). Asserts the landmarks, the pitch + the
@@ -28,9 +33,14 @@ async function renderHome() {
 describe('Home — landmarks & pitch', () => {
   it('exposes the hero as a region named by the level-1 pitch headline', async () => {
     await renderHome();
-    const h1 = screen.getByRole('heading', { level: 1, name: /red-team your mcp agent/i });
+    const h1 = screen.getByRole('heading', {
+      level: 1,
+      name: 'Find out if your AI agent can be tricked into misusing its tools.',
+    });
     expect(h1).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /red-team your mcp agent/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /find out if your ai agent can be tricked/i }),
+    ).toBeInTheDocument();
   });
 
   /**
@@ -48,9 +58,15 @@ describe('Home — landmarks & pitch', () => {
 
   it('states the measured-detector claim in the pitch', async () => {
     await renderHome();
-    // The pitch's emphasised claim: the detector accuracy was measured. Emphasis is
-    // sans weight+colour, never the mono INSTRUMENT role (prose never wears it).
-    expect(screen.getByText('measured')).toBeInTheDocument();
+    // The pitch's claim: the detector was tested before it was published, so a
+    // reader can see how often it is right (copy pass 2026-10-15). The unsourced
+    // "most tools only guess" is gone.
+    expect(
+      screen.getByText(
+        'We tested the detector before we published it, so you can see how often it is right.',
+      ),
+    ).toBeInTheDocument();
+    expect(document.body.textContent ?? '').not.toMatch(/most tools only/i);
   });
 
   it('couples the word "measured" to a real figure and its full provenance', async () => {
@@ -68,14 +84,16 @@ describe('Home — landmarks & pitch', () => {
     // realizations, how many passes, when, and by which judge. A number that
     // loses any part of its provenance fails here, and so does provenance with
     // no number.
-    const chip = screen.getByText(/^measured ·/);
+    const chip = screen.getByText(/^measured /);
     // Shape, not a pinned count: the exact denominator is coupled to the real
     // fixture count in tests/unit/eval/measured.test.ts, so it moves when fixtures
-    // are added and re-measured. Here we only demand the claim is fully provenanced.
-    expect(chip.textContent).toMatch(/N=\d+ labeled realizations/);
-    expect(chip.textContent).toMatch(/5 passes/);
-    expect(chip.textContent).toMatch(/\d{4}-\d{2}-\d{2}/);
-    expect(chip.textContent).toMatch(/judge claude-haiku-4-5/);
+    // are added and re-measured. Here we only demand the claim is fully provenanced,
+    // in the plain-words form of the frozen line (src/lib/display/measured.ts).
+    expect(chip.textContent).toBe(compromiseDisplayProvenance());
+    expect(chip.textContent).toMatch(/\d+ test runs/);
+    expect(chip.textContent).toMatch(/graded 5 times each/);
+    expect(chip.textContent).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{4} \(UTC\)/);
+    expect(chip.textContent).toMatch(/detector claude-haiku-4-5/);
     // The figures themselves must be present and non-zero next to it.
     expect(screen.getByText('0.96')).toBeInTheDocument();
     expect(screen.getByText('1.00')).toBeInTheDocument();
@@ -85,7 +103,7 @@ describe('Home — landmarks & pitch', () => {
     await renderHome();
     // The reverse drift: quietly downgrading the claim while leaving real numbers
     // on screen would be just as untrue as the original overclaim.
-    const chip = screen.getByText(/^measured ·/);
+    const chip = screen.getByText(/^measured /);
     expect(chip.textContent).not.toMatch(/illustrative/i);
     expect(chip.textContent).not.toMatch(/fixture, not a benchmark/i);
   });
@@ -94,11 +112,11 @@ describe('Home — landmarks & pitch', () => {
 describe('Home — category classification is a SECOND, separate measurement', () => {
   it('renders the classification accuracy under its own label, not among the P/R figures', async () => {
     await renderHome();
-    // Its own label. The compromise readout is labelled "Compromise detection",
+    // Its own label. The compromise readout is labelled "Catching compromises",
     // for the question it answers; a category accuracy sitting under a shared
     // heading would be read as part of the same number, which is exactly the
     // conflation this screen must not commit.
-    const block = screen.getByRole('group', { name: /category classification/i });
+    const block = screen.getByRole('group', { name: 'Naming the attack type' });
     expect(
       within(block).getByText(MEASURED_CLASSIFICATION.accuracy.toFixed(2)),
     ).toBeInTheDocument();
@@ -109,16 +127,18 @@ describe('Home — category classification is a SECOND, separate measurement', (
 
   it('renders the classification provenance line verbatim, beside its own figure', async () => {
     await renderHome();
-    const block = screen.getByRole('group', { name: /category classification/i });
-    expect(within(block).getByText(MEASURED_CLASSIFICATION_PROVENANCE)).toBeInTheDocument();
+    const block = screen.getByRole('group', { name: 'Naming the attack type' });
+    // The plain-words form of the frozen line (src/lib/display/measured.ts).
+    expect(within(block).getByText(classificationDisplayProvenance())).toBeInTheDocument();
+    expect(MEASURED_CLASSIFICATION_PROVENANCE).toMatch(/^category accuracy ·/);
     // The two provenance lines are both present and remain distinct.
-    expect(screen.getByText(/^measured ·/)).toBeInTheDocument();
-    expect(screen.getByText(/^category accuracy ·/)).toBeInTheDocument();
+    expect(screen.getByText(/^measured /)).toBeInTheDocument();
+    expect(screen.getByText(/^attack type measured /)).toBeInTheDocument();
   });
 
   it('never presents the classification figure as precision or recall', async () => {
     await renderHome();
-    const chip = screen.getByText(/^category accuracy ·/);
+    const chip = screen.getByText(/^attack type measured /);
     expect(chip.textContent).not.toMatch(/precision|recall/i);
   });
 });
@@ -137,10 +157,20 @@ describe('Home: the three measured figures share one component (UI audit batch D
     expect(value('precision')).toBe(MEASURED_COMPROMISE.precision.toFixed(2));
     expect(value('recall')).toBe(MEASURED_COMPROMISE.recall.toFixed(2));
     expect(value('classification-accuracy')).toBe(MEASURED_CLASSIFICATION.accuracy.toFixed(2));
+    // A label (the count behind the figure) and a sentence a reader who has never
+    // met the words precision and recall can follow (copy pass 2026-10-15).
+    const copy = measuredCopy();
+    const part = (id: string, which: string) =>
+      document.querySelector(`[data-metric="${id}"] [data-metric-${which}]`)!.textContent;
+    expect(part('precision', 'label')).toBe(copy.precisionLabel);
+    expect(part('precision', 'meaning')).toBe(copy.precision);
+    expect(part('recall', 'label')).toBe(copy.recallLabel);
+    expect(part('recall', 'meaning')).toBe(copy.recall);
+    expect(part('classification-accuracy', 'label')).toBe(copy.classificationLabel);
+    expect(part('classification-accuracy', 'meaning')).toBe(copy.classification);
     for (const metric of metrics) {
-      // A label, and a sentence a reader who has never met the word can follow.
       expect(metric.querySelector('[data-metric-label]')!.textContent!.length).toBeGreaterThan(3);
-      expect(metric.querySelector('[data-metric-meaning]')!.textContent).toMatch(/^Of the /);
+      expect(metric.querySelector('[data-metric-meaning]')!.textContent).toMatch(/^[A-Z].*\.$/);
     }
     // No figure is drawn outside the component at a size of its own.
     const classes = (selector: string) =>
@@ -152,35 +182,66 @@ describe('Home: the three measured figures share one component (UI audit batch D
 
   it('never calls the classification figure plain "accuracy"', async () => {
     await renderHome();
-    const label = document.querySelector(
-      '[data-metric="classification-accuracy"] [data-metric-label]',
-    )!;
-    expect(label).toHaveTextContent(/^category classification accuracy$/i);
+    const metric = document.querySelector('[data-metric="classification-accuracy"]')!;
+    // Named for what it is, the attack type, and never "accuracy" on its own.
+    expect(metric.textContent ?? '').not.toMatch(/accuracy/i);
+    expect(metric.querySelector('[data-metric-meaning]')).toHaveTextContent(/right attack type/);
+  });
+
+  it('states how five grades per run became one result, and the day in UTC', async () => {
+    await renderHome();
+    const compromise = screen.getByRole('group', { name: 'Catching compromises' });
+    expect(within(compromise).getByText(measuredCopy().intro)).toBeInTheDocument();
+    expect(measuredCopy().intro).toMatch(/On Aug 24, 2026 \(UTC\), /);
+    expect(measuredCopy().intro).toMatch(/kept the answer it gave most often/);
+  });
+
+  it('says the figures test the detector, not how well any agent resists', async () => {
+    await renderHome();
+    expect(
+      screen.getByText(
+        'These numbers test our detector on runs we built, not how well any agent resists attacks.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(measuredCopy().condition)).toBeInTheDocument();
+  });
+
+  it('draws the two group headings in one colour (owner ruling 2026-10-15)', async () => {
+    await renderHome();
+    const colour = (id: string) =>
+      document
+        .getElementById(id)!
+        .className.split(/\s+/)
+        .filter((c) => /^text-[a-z][a-z-]*$/.test(c));
+    const compromise = colour('metric-compromise-label');
+    expect(compromise).toHaveLength(1);
+    expect(colour('metric-classification-label')).toEqual(compromise);
   });
 
   it('keeps the two measurements in two groups, each with its own provenance line', async () => {
     await renderHome();
-    const compromise = screen.getByRole('group', { name: /compromise detection/i });
-    const classification = screen.getByRole('group', { name: /category classification/i });
+    const compromise = screen.getByRole('group', { name: 'Catching compromises' });
+    const classification = screen.getByRole('group', { name: 'Naming the attack type' });
     expect(compromise).not.toBe(classification);
     expect(compromise.contains(classification)).toBe(false);
     expect(classification.contains(compromise)).toBe(false);
     // Number and provenance move together: each group holds its own line.
-    expect(within(compromise).getByText(MEASURED_COMPROMISE_PROVENANCE)).toBeInTheDocument();
-    expect(
-      within(classification).getByText(MEASURED_CLASSIFICATION_PROVENANCE),
-    ).toBeInTheDocument();
-    expect(within(compromise).queryByText(MEASURED_CLASSIFICATION_PROVENANCE)).toBeNull();
-    expect(within(classification).queryByText(MEASURED_COMPROMISE_PROVENANCE)).toBeNull();
+    expect(within(compromise).getByText(compromiseDisplayProvenance())).toBeInTheDocument();
+    expect(within(classification).getByText(classificationDisplayProvenance())).toBeInTheDocument();
+    expect(within(compromise).queryByText(classificationDisplayProvenance())).toBeNull();
+    expect(within(classification).queryByText(compromiseDisplayProvenance())).toBeNull();
+    expect(MEASURED_COMPROMISE_PROVENANCE).not.toBe(MEASURED_CLASSIFICATION_PROVENANCE);
     expect(compromise.querySelectorAll('[data-metric]')).toHaveLength(2);
     expect(classification.querySelectorAll('[data-metric]')).toHaveLength(1);
     // The denominator the classification figure was scored over stays on screen.
-    expect(classification).toHaveTextContent(/n=22 scored/);
+    expect(classification).toHaveTextContent(
+      new RegExp(`${MEASURED_CLASSIFICATION.scored} compromised test runs`),
+    );
   });
 
-  it('puts "Read full results" after the figures, as the only thing in its block', async () => {
+  it('puts "Read the full results" after the figures, as the only thing in its block', async () => {
     await renderHome();
-    const link = screen.getByRole('link', { name: /^read full results/i });
+    const link = screen.getByRole('link', { name: /^read the full results/i });
     const last = [...document.querySelectorAll('[data-metric]')].at(-1)!;
     expect(last.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // A block of its own: not a link inside a sentence, and not inline.
@@ -291,11 +352,10 @@ describe('Home — the featured ASI02 finding', () => {
 
   it('offers a one-click link to the full RESULTS writeup', async () => {
     await renderHome();
-    const results = screen.getByRole('link', { name: /^read full results/i });
-    // The words on screen are the start of its name, and the name says results
-    // of what and where they are, for a reader who meets the link out of context.
-    expect(results).toHaveAccessibleName(/measured results/i);
-    expect(results).toHaveAccessibleName(/github/i);
+    const results = screen.getByRole('link', { name: /^read the full results/i });
+    // The words on screen are the start of its name, and the name says where
+    // the results are, for a reader who meets the link out of context.
+    expect(results).toHaveAccessibleName(/^read the full results on github/i);
     expect(results).toHaveAttribute('data-results-link');
     expect(results).toHaveAttribute(
       'href',
@@ -329,7 +389,9 @@ describe('Home — sample binding (never literals)', () => {
     expect(dots).toHaveLength(total);
 
     // Compromise step index + offending tool are derived from verdict.stepId.
-    expect(screen.getByText(new RegExp(`${idx}\\D+${tool}\\s+breach`, 'i'))).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`${idx}\\D+${tool}, compromised here`, 'i')),
+    ).toBeInTheDocument();
     // The step-total readout matches the real length.
     expect(screen.getByText(new RegExp(`${total}\\s+steps`, 'i'))).toBeInTheDocument();
   });
@@ -369,7 +431,7 @@ describe('the repository is named in one place', () => {
  * never prints a category code without its name.
  */
 describe('Home — what the product is, in words', () => {
-  it('puts one plain sentence directly under the headline', async () => {
+  it('puts a plain paragraph directly under the headline', async () => {
     await renderHome();
     const h1 = screen.getByRole('heading', { level: 1 });
     const subhead = screen.getByTestId('home-subhead');
@@ -377,14 +439,17 @@ describe('Home — what the product is, in words', () => {
     expect(subhead.tagName).toBe('P');
     expect(subhead.className).toMatch(/\breading-lead\b/);
     const text = (subhead.textContent ?? '').replace(/\s+/g, ' ').trim();
-    expect(text).toMatch(/^MCProof tests whether /);
-    expect(text).toMatch(/^[^.!?]+\.$/);
+    // What the product does, with MCP, the detector and "compromised" each
+    // said in words (copy pass 2026-10-15, reader test). Still no number.
+    expect(text).toBe(
+      'MCProof gives your AI agent a normal task and a set of tools we host over MCP, the protocol agents use to call tools. In an attack run, one of those tools carries a hidden attack. Our detector, an AI grader, reads every step the agent took and says whether the agent was compromised, meaning it did something harmful the task never asked for. If it was, the report shows the exact step.',
+    );
     expect(text).not.toMatch(/—|\d/);
   });
 
   it('carries the OWASP badge and its explanation in the headline block', async () => {
     await renderHome();
-    const hero = screen.getByRole('region', { name: /red-team your mcp agent/i });
+    const hero = screen.getByRole('region', { name: /find out if your ai agent/i });
     const badge = within(hero).getByRole('link', { name: 'Maps to OWASP Agentic Top 10' });
     expect(badge).toHaveAttribute('href', '/threats');
     expect(within(hero).getByTestId('owasp-explainer').tagName).toBe('DETAILS');

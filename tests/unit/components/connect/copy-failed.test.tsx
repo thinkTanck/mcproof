@@ -23,7 +23,7 @@ import type { ConnectLiveRunPort, LiveRunTicketView } from '@/components/connect
  *
  * The approved exception to "the real token never reaches the DOM": ONLY after a
  * copy has failed AND the reader presses SHOW CONFIG is the real config drawn,
- * beside the sentence "This contains your run token. Don't share it." Every other
+ * beside the sentence "This contains your run token. Do not share it." Every other
  * path keeps the mask, and every fallback sentence names a control that exists.
  */
 
@@ -38,7 +38,7 @@ const TICKET: LiveRunTicketView = {
   taskGoal: 'Tidy the shared drive and report what you moved.',
 };
 
-const WARNING = "This contains your run token. Don't share it.";
+const WARNING = 'This contains your run token. Do not share it.';
 
 function port(): ConnectLiveRunPort {
   return {
@@ -104,7 +104,7 @@ const body = () => `${document.body.textContent ?? ''}${document.body.innerHTML}
 async function opened() {
   const user = userEvent.setup();
   render(<LiveRunConsole port={port()} category="ASI02" signedIn />);
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
   await screen.findByText(TICKET.endpoint);
   return user;
 }

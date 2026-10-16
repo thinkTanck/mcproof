@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
 import { AsiLabel, StatusChip } from '@/components/hud';
+import { RunProvenance } from '@/components/hud/RunProvenance';
 import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
@@ -13,7 +14,7 @@ import { SpeakerDefinitions } from './SpeakerHandle';
 import { useReplayLayout } from './phone-layout';
 
 /**
- * Live Attack Replay (the hero) — two terminals over a full-width transport. The
+ * Replay (the hero) — two terminals over a full-width transport. The
  * transcript terminal streams the run's real input/output as a bash session; the
  * verdict terminal prints the detector's summary + an export prompt. The transport
  * (full width) and the step-detail box sit beneath both. The step-detail panel is
@@ -50,9 +51,11 @@ interface ReplayProps {
   run: RunResult;
   /**
    * The id this run was OPENED under (the `/runs/[id]` segment). The report
-   * off-ramp is built from it, because `/findings/[id]` resolves the same id. It
-   * is not `run.runId`: a saved live run is stored under a row id, and the two
-   * only coincide for the sample.
+   * off-ramp is built from it, because `/findings/[id]` resolves the same id,
+   * and it is the ONE run id this screen prints (owner ruling 2026-10-15). It
+   * is not `run.runId`: a saved live run is stored under a row id
+   * (`StoredRun.id`), while `run.runId` is the hosted MCP run's id, and a page
+   * that printed both read as two runs.
    */
   routeId: string;
   /**
@@ -61,6 +64,11 @@ interface ReplayProps {
    * nothing is claimed.
    */
   provenance?: string | null;
+  /**
+   * When a live run ran (ISO), so its day is drawn in the viewer's own time
+   * zone (owner ruling 2026-10-15). Absent for a sample.
+   */
+  runAt?: string | null;
 }
 
 /** One replay, and the one place that holds which prompt's definition is open. */
@@ -72,7 +80,7 @@ export function Replay(props: ReplayProps) {
   );
 }
 
-function ReplayStage({ run, routeId, provenance }: ReplayProps) {
+function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
   const steps = run.trace.steps;
   const total = steps.length;
   const compromiseIndex = steps.findIndex((s) => s.id === run.verdict.stepId);
@@ -154,7 +162,7 @@ function ReplayStage({ run, routeId, provenance }: ReplayProps) {
           The step number is EVIDENCE quoted from the trace, so it is printed,
           never counted up. */}
       <header className="border-b border-line px-6 py-5 lg:px-8">
-        <p className="micro-label text-nominal">Live Attack Replay</p>
+        <p className="micro-label text-nominal">Replay</p>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="reading-h2 font-semibold text-ink-hi">
             {/* The class this run staged, with its official name from the one
@@ -171,18 +179,24 @@ function ReplayStage({ run, routeId, provenance }: ReplayProps) {
         </div>
         {/* The run telemetry, under the title (G option B, owner ruling
             2026-10-14). It used to be cut to one line in the header bar; here
-            it wraps, so a long run id or model name is printed in full. */}
+            it wraps, so a long run id or model name is printed in full. The
+            run id is the one in the URL, never the hosted run id on the
+            verdict (owner ruling 2026-10-15): one run, one id. "BLIND TO THE
+            ATTACK" says what blind means: the detector is never told which
+            attack the run staged. */}
         <p
           data-replay-telemetry=""
           className="instrument mt-(--instrument-stack) text-ink-muted [overflow-wrap:anywhere]"
         >
-          RUN <span className="text-readout">{run.runId}</span>
-          <span aria-hidden="true"> · </span>TARGET{' '}
-          <span className="text-readout">{run.model}</span>
-          <span aria-hidden="true"> · </span>DETECTOR <span className="text-nominal">BLIND</span>
+          RUN <span className="text-readout">{routeId}</span>
+          <span aria-hidden="true"> · </span>AGENT <span className="text-readout">{run.model}</span>
+          <span aria-hidden="true"> · </span>DETECTOR{' '}
+          <span className="text-nominal">BLIND TO THE ATTACK</span>
         </p>
         {provenance ? (
-          <p className="instrument mt-(--instrument-stack) text-ink-faint">{provenance}</p>
+          <p className="instrument mt-(--instrument-stack) text-ink-faint">
+            <RunProvenance text={provenance} runAt={runAt} />
+          </p>
         ) : null}
       </header>
 

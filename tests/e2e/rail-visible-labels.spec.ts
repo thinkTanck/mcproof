@@ -39,19 +39,19 @@ const PAGES = ['/', '/connect', '/runs/sample', '/leaderboard'] as const;
 /** The deck's names, unchanged, and the build has no auth configured (CI and here). */
 const EXPECTED_NAMES = [
   'Home',
-  'Connect / Run. point your own agent at an endpoint and run it',
-  'Live Replay. watch a recorded attack step by step',
+  'Connect / Run. connect your own agent and run a test',
+  'Replay. watch a test run step by step',
   'Leaderboard',
   'Findings',
   'Threat Model',
-  'Sign in. Preview: sign-in is not set up on this build.',
+  'Sign in. Sign-in is not set up on this preview build.',
 ] as const;
 
 /** The full words the wide rail and the drawer show, as before. */
 const FULL_LABELS = [
   'Home',
   'Connect / Run',
-  'Live Replay',
+  'Replay',
   'Leaderboard',
   'Findings',
   'Threat Model',

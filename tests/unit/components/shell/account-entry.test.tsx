@@ -136,7 +136,7 @@ describe('AccountEntry · PREVIEW, auth not configured', () => {
 
   it('is still a way to the sign-in page, and says plainly that it is a preview', () => {
     const link = within(entry()).getByRole('link', {
-      name: 'Sign in. Preview: sign-in is not set up on this build.',
+      name: 'Sign in. Sign-in is not set up on this preview build.',
     });
     expect(link).toHaveAttribute('href', '/sign-in?next=%2F');
     expect(link).toHaveTextContent('Sign in');
@@ -179,7 +179,7 @@ describe('where the entry lives', () => {
   it.each([
     ['signed out', SIGNED_OUT, 'Sign in'],
     ['signed in', SIGNED_IN, `Your runs, signed in as ${EMAIL}`],
-    ['preview', PREVIEW, 'Sign in. Preview: sign-in is not set up on this build.'],
+    ['preview', PREVIEW, 'Sign in. Sign-in is not set up on this preview build.'],
   ] as const)('the rail renders it, %s', (_name, account, name) => {
     render(<CommandDeck pathname="/" account={account} />);
 
@@ -192,7 +192,7 @@ describe('where the entry lives', () => {
   it.each([
     ['signed out', SIGNED_OUT, 'Sign in'],
     ['signed in', SIGNED_IN, `Your runs, signed in as ${EMAIL}`],
-    ['preview', PREVIEW, 'Sign in. Preview: sign-in is not set up on this build.'],
+    ['preview', PREVIEW, 'Sign in. Sign-in is not set up on this preview build.'],
   ] as const)('the mobile drawer renders it, %s', (_name, account, name) => {
     render(<MobileDrawer pathname="/" account={account} />);
 
@@ -317,7 +317,7 @@ describe('the header carries the entry from 1100px, and the rail lets go of it t
     render(<StatusBar pathname="/" account={PREVIEW} />);
 
     const link = within(headerEntry()).getByRole('link', {
-      name: 'Sign in. Preview: sign-in is not set up on this build.',
+      name: 'Sign in. Sign-in is not set up on this preview build.',
     });
     expect(link).toHaveAttribute('href', '/sign-in?next=%2F');
     expect(link).toHaveTextContent('Sign in');

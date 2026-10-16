@@ -49,14 +49,16 @@ export default function Error({
 
         <div className="flex flex-col gap-2">
           <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
-            System · Fault
+            Error
           </p>
-          <h2 className="reading-h3 font-semibold text-ink-hi">This view hit a fault</h2>
+          <h2 className="reading-h3 font-semibold text-ink-hi">
+            Something went wrong on this page
+          </h2>
         </div>
 
         <p className="reading text-ink-muted">
-          An unexpected error interrupted this screen. Your run data is untouched. Retry the view,
-          or return to home.
+          An error stopped this page from loading. Your run data is safe. Try again, or go back to
+          the home page.
         </p>
 
         {error.digest ? (
@@ -69,13 +71,13 @@ export default function Error({
           <button
             type="button"
             onClick={reset}
-            className="inline-flex min-h-11 items-center rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
+            className="inline-flex min-h-11 items-center rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.06em] text-ink transition-colors hover:bg-nominal/20"
           >
             Try again
           </button>
           <Link
             href="/"
-            className="inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.04em] text-ink-muted transition-colors hover:text-ink-hi"
+            className="inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.04em] text-ink transition-colors hover:text-ink-hi"
           >
             Return home →
           </Link>

@@ -28,8 +28,8 @@ const PREVIEW: ShellAccount = { state: 'preview' };
 /** Today's accessible names, unchanged by this fix. */
 const DECK_NAMES = [
   'Home',
-  'Connect / Run. point your own agent at an endpoint and run it',
-  'Live Replay. watch a recorded attack step by step',
+  'Connect / Run. connect your own agent and run a test',
+  'Replay. watch a test run step by step',
   'Leaderboard',
   'Findings',
   'Threat Model',
@@ -132,7 +132,7 @@ describe('AccountEntry in the narrow rail', () => {
     [
       'preview',
       PREVIEW,
-      [['link', 'Sign in. Preview: sign-in is not set up on this build.', 'Sign in']],
+      [['link', 'Sign in. Sign-in is not set up on this preview build.', 'Sign in']],
     ],
   ] as const)('%s: names unchanged, a visible word inside each', (_s, account, controls) => {
     const rail = railLinks(account);

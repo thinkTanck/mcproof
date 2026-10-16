@@ -4,7 +4,7 @@ import { suppressBootSplash } from './support/screen';
 /**
  * THE PINNED RUN BAR, MEASURED IN A REAL BROWSER (issue #173).
  *
- * A finished run's bar holds two controls, OPEN THE REPLAY and ISSUE A FRESH RUN.
+ * A finished run's bar holds two controls, OPEN THE REPLAY and START A NEW RUN.
  * On a phone they used to stack, and the bar grew to 152px at 390x844 and 189px
  * at 360x640, screen the reader loses for as long as the bar is pinned. The
  * decision on the issue: both stay, side by side in one row below the narrow
@@ -24,7 +24,7 @@ test.skip(
 
 const FIXTURE = '/e2e/connect-states';
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 const replay = (page: Page) => bar(page).getByRole('link', { name: /open the replay/i });
 const fresh = (page: Page) => bar(page).getByRole('button', { name: /fresh run|new run/i });
 
@@ -33,14 +33,14 @@ async function issued(page: Page, state: 'waiting' | 'connected' | 'expired') {
   await suppressBootSplash(page);
   await page.goto(`${FIXTURE}?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(bar(page)).toBeVisible();
 }
 
 /** A run judged on this page: the bar hands off to the replay and offers a fresh run. */
 async function finished(page: Page) {
   await issued(page, 'connected');
-  await page.getByRole('button', { name: /end run and judge/i }).click();
+  await page.getByRole('button', { name: /end run and get result/i }).click();
   await expect(replay(page)).toBeVisible();
   await expect(fresh(page)).toBeVisible();
 }
@@ -133,7 +133,7 @@ test.describe('finished run bar at 1280x900', () => {
   test('keeps the full labels on desktop', async ({ page }) => {
     await finished(page);
     expect((await replay(page).innerText()).trim()).toBe('OPEN THE REPLAY');
-    expect((await fresh(page).innerText()).trim()).toBe('ISSUE A FRESH RUN');
+    expect((await fresh(page).innerText()).trim()).toBe('START A NEW RUN');
   });
 });
 
@@ -159,7 +159,7 @@ const STATES: { name: string; reach: (page: Page) => Promise<void> }[] = [
     name: 'selection mismatch',
     reach: async (page) => {
       await issued(page, 'waiting');
-      const category = page.getByRole('radiogroup', { name: /attack category/i });
+      const category = page.getByRole('radiogroup', { name: /attack type/i });
       await category.getByRole('radio', { checked: false }).first().click();
       await expect(page.getByTestId('run-selection-notice')).toBeVisible();
     },

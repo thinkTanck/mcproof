@@ -104,7 +104,7 @@ for (const viewport of [
       await expect(note(page).getByRole('link')).toHaveCount(3);
       // The rest of the screen is still there to use.
       await expect(
-        page.getByRole('radiogroup', { name: /attack category/i }).getByRole('radio'),
+        page.getByRole('radiogroup', { name: /attack type/i }).getByRole('radio'),
       ).toHaveCount(7);
       await expect(page.getByRole('link', { name: /sign in/i }).first()).toBeVisible();
       await expectNoSidewaysScroll(page);
@@ -196,10 +196,10 @@ test.describe('the Connect states fixture, 320x568', () => {
     await expect(note(page)).toBeVisible();
 
     await live(page).click();
-    await page.getByRole('button', { name: /issue run endpoint/i }).click();
+    await page.getByRole('button', { name: /start a run/i }).click();
     await expect(
       page
-        .getByRole('region', { name: /what we have actually seen/i })
+        .getByRole('region', { name: /what we have recorded so far/i })
         .getByText('AGENT CONNECTED'),
     ).toBeVisible();
 

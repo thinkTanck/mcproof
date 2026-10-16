@@ -50,7 +50,7 @@ describe('Connect page — real session state', () => {
 
     expect(screen.queryByRole('link', { name: /sign in/i })).not.toBeInTheDocument();
     // The signed-in visitor gets the live console, not the gate.
-    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start a run/i })).toBeInTheDocument();
   });
 
   it('still gates a signed-out visitor', async () => {
@@ -63,7 +63,7 @@ describe('Connect page — real session state', () => {
       'href',
       '/sign-in?next=%2Fconnect',
     );
-    expect(screen.queryByRole('button', { name: /issue run endpoint/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start a run/i })).not.toBeInTheDocument();
   });
 });
 
@@ -84,7 +84,7 @@ describe('Connect page — the live-run actions are really bound', () => {
     render(await ConnectPage());
     await user.click(screen.getByRole('button', { name: /live/i }));
     await user.click(screen.getByRole('radio', { name: /ASI05/ }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
     await waitFor(() =>
       expect(startLiveRun).toHaveBeenCalledWith({ category: 'ASI05', kind: 'malicious' }),
@@ -108,7 +108,7 @@ describe('Connect page — the live-run actions are really bound', () => {
     await user.click(screen.getByRole('button', { name: /live/i }));
     await user.click(screen.getByRole('radio', { name: /ASI05/ }));
     await user.click(screen.getByRole('radio', { name: /control run/i }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
     await waitFor(() =>
       expect(startLiveRun).toHaveBeenCalledWith({ category: 'ASI05', kind: 'benign' }),
@@ -126,7 +126,7 @@ describe('Connect page — the live-run actions are really bound', () => {
 
     render(await ConnectPage());
     await user.click(screen.getByRole('button', { name: /live/i }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
     expect(await screen.findByText('LIVE RUNS PAUSED')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /copy run token/i })).not.toBeInTheDocument();

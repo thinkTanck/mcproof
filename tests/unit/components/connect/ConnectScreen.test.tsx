@@ -31,7 +31,7 @@ afterEach(() => {
  */
 
 const goLive = async (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: /LIVE · your agent connects to us/i }));
+  user.click(screen.getByRole('button', { name: /LIVE · your agent connects to our server/i }));
 
 describe('ConnectScreen · mode', () => {
   it('exposes SAMPLE and LIVE as aria-pressed tabs, SAMPLE selected by default', () => {
@@ -42,7 +42,7 @@ describe('ConnectScreen · mode', () => {
       'true',
     );
     expect(
-      screen.getByRole('button', { name: /LIVE · your agent connects to us/i }),
+      screen.getByRole('button', { name: /LIVE · your agent connects to our server/i }),
     ).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -50,7 +50,7 @@ describe('ConnectScreen · mode', () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn={false} />);
 
-    expect(screen.getByText(/sample playback needs no sign-in/i)).toBeInTheDocument();
+    expect(screen.getByText(/anyone can watch a sample/i)).toBeInTheDocument();
     await goLive(user);
     expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
       'href',
@@ -63,9 +63,9 @@ describe('ConnectScreen · detector', () => {
   it('states BLIND and LOCKED as a fact, with no control implying a future toggle', () => {
     const { container } = render(<ConnectScreen />);
 
-    expect(screen.getByText('BLIND')).toBeInTheDocument();
+    expect(screen.getByText('BLIND TO THE ATTACK')).toBeInTheDocument();
     expect(screen.getByText('LOCKED')).toBeInTheDocument();
-    expect(screen.getByText(/never user-swappable/i)).toBeInTheDocument();
+    expect(screen.getByText(/you cannot swap it/i)).toBeInTheDocument();
     // No disabled control anywhere: a greyed-out picker would promise a choice.
     expect(container.querySelector('[disabled]')).toBeNull();
     expect(container.querySelector('[aria-disabled="true"]')).toBeNull();
@@ -86,7 +86,7 @@ describe('ConnectScreen · one Core-7 category per run', () => {
   it('offers the seven categories as a single-choice radio group', () => {
     render(<ConnectScreen />);
 
-    expect(screen.getByRole('radiogroup', { name: /attack category/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /attack type/i })).toBeInTheDocument();
     expect(screen.getAllByRole('radio')).toHaveLength(7);
     for (const [id, title] of CORE7) {
       expect(
@@ -179,8 +179,8 @@ describe('ConnectScreen · the control run', () => {
     render(<ConnectScreen />);
     await goLive(user);
 
-    expect(screen.getByText(/same tools, with the same capability/i)).toBeInTheDocument();
-    expect(screen.getByText(/not a safer sandbox/i)).toBeInTheDocument();
+    expect(screen.getByText(/same tools, which can do the same things/i)).toBeInTheDocument();
+    expect(screen.getByText(/serves those tools with no attack/i)).toBeInTheDocument();
   });
 
   it('says in one sentence what the control is FOR', async () => {
@@ -188,8 +188,8 @@ describe('ConnectScreen · the control run', () => {
     render(<ConnectScreen />);
     await goLive(user);
 
-    expect(screen.getByText(/nothing is trying to hijack it/i)).toBeInTheDocument();
-    expect(screen.getByText(/refuses everything/i)).toBeInTheDocument();
+    expect(screen.getByText(/when nothing is attacking it/i)).toBeInTheDocument();
+    expect(screen.getByText(/refuses every task/i)).toBeInTheDocument();
   });
 
   it('keeps our own terms readable somewhere honest, without leading with them', async () => {
@@ -197,7 +197,7 @@ describe('ConnectScreen · the control run', () => {
     render(<ConnectScreen />);
     await goLive(user);
 
-    expect(screen.getByText(/malicious realization and the benign control/i)).toBeInTheDocument();
+    expect(screen.getByText(/the malicious run and the benign control/i)).toBeInTheDocument();
   });
 
   it('offers the choice only for a live run, because every recorded sample is an attack run', () => {
@@ -219,7 +219,7 @@ describe('ConnectScreen · the control run', () => {
     await user.click(screen.getByRole('radio', { name: /control run/i }));
 
     expect(
-      screen.getAllByText(/We serve the same tool surface for the category you picked/i),
+      screen.getAllByText(/We serve the tools for the attack type you picked, with no attack/i),
     ).toHaveLength(1);
   });
 
@@ -274,7 +274,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
 
   const issueLive = async (user: ReturnType<typeof userEvent.setup>) => {
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
   };
 
   it('sends the attack framing when the user changed nothing', async () => {
@@ -294,7 +294,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
 
     await goLive(user);
     await user.click(screen.getByRole('radio', { name: /control run/i }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
     expect(live.start).toHaveBeenCalledWith({ category: SAMPLE_CATEGORY, kind: 'benign' });
   });
@@ -307,7 +307,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
     await goLive(user);
     await user.click(screen.getByRole('radio', { name: /ASI05/ }));
     await user.click(screen.getByRole('radio', { name: /control run/i }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
     expect(live.start).toHaveBeenCalledWith({ category: 'ASI05', kind: 'benign' });
   });
@@ -421,7 +421,7 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
 
     expect(screen.getByRole('button', { name: /live/i })).toHaveAttribute('aria-pressed', 'true');
     expect(await screen.findByText('AGENT CONNECTED')).toBeVisible();
-    expect(screen.getByRole('button', { name: /end run and judge/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /end run and get result/i })).toBeVisible();
     expect(live.reattach).toHaveBeenCalledWith({ runId: 'run-1' });
     expect(live.start).not.toHaveBeenCalled();
   });
@@ -430,7 +430,7 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn liveActions={actions()} />);
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
 
     await waitFor(() => expect(window.location.search).toBe('?run=run-1'));
     expect(window.location.href).not.toContain('rt_secret');
@@ -441,7 +441,7 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
     const live = actions();
     render(<ConnectScreen signedIn liveActions={live} />);
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await screen.findByText('AGENT CONNECTED');
 
     await user.click(screen.getByRole('button', { name: /sample/i }));
@@ -524,7 +524,7 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
 
   const issue = async (user: ReturnType<typeof userEvent.setup>) => {
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await screen.findByText('AGENT CONNECTED');
   };
 
@@ -565,10 +565,10 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
     const user = userEvent.setup();
     const first = render(<ConnectScreen signedIn liveActions={actions()} />);
     await issue(user);
-    await user.click(screen.getByRole('button', { name: /end run and judge/i }));
+    await user.click(screen.getByRole('button', { name: /end run and get result/i }));
     // The bar's link: the result section under it draws a second one.
     await within(
-      await screen.findByRole('region', { name: /what we have actually seen/i }),
+      await screen.findByRole('region', { name: /what we have recorded so far/i }),
     ).findByRole('link', { name: /open the replay/i });
 
     await waitFor(() => expect(stored()).toBeNull());
@@ -587,11 +587,11 @@ describe('ConnectScreen · the active run survives a trip to another screen', ()
     window.sessionStorage.setItem(ACTIVE_RUN_STORAGE_KEY, 'run-1');
     render(<ConnectScreen signedIn liveActions={actions({ status: statusOf('waiting', 0) })} />);
 
-    await user.click(await screen.findByRole('button', { name: /issue a fresh run/i }));
+    await user.click(await screen.findByRole('button', { name: /start a new run/i }));
 
     expect(stored()).toBeNull();
     await waitFor(() => expect(window.location.search).toBe(''));
-    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /start a run/i })).toBeVisible();
   });
 
   it('forgets a stored id the server no longer knows', async () => {
@@ -710,7 +710,7 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
   it('sits directly under the category picker, inside the same section', () => {
     render(<ConnectScreen categoryGoals={GOALS} />);
 
-    const picker = screen.getByRole('radiogroup', { name: /attack category/i });
+    const picker = screen.getByRole('radiogroup', { name: /attack type/i });
     expect(picker.nextElementSibling).toBe(preview());
   });
 
@@ -719,7 +719,7 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
     render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
     await goLive(user);
 
-    expect(preview()).toHaveTextContent('Issue a run to get your endpoint and token.');
+    expect(preview()).toHaveTextContent('Start a run to get your endpoint and token.');
     expect(preview().querySelector('button')).toBeNull();
     expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
   });
@@ -728,7 +728,7 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
     const user = userEvent.setup();
     render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     const pasteStep = await screen.findByRole('region', { name: /give your agent its task/i });
 
     await pick(user, 'ASI01');
@@ -746,7 +746,7 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
     const user = userEvent.setup();
     render(<ConnectScreen signedIn liveActions={actions()} categoryGoals={GOALS} />);
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     const pasteStep = await screen.findByRole('region', { name: /give your agent its task/i });
 
     const copyGoal = screen.getAllByRole('button', { name: /copy task goal/i });
@@ -768,8 +768,8 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
     render(<ConnectScreen signedIn={false} categoryGoals={GOALS} />);
     await goLive(user);
 
-    expect(preview()).toHaveTextContent('Sign in to issue a run and get your endpoint and token.');
-    expect(preview()).not.toHaveTextContent('Issue a run to get your endpoint and token.');
+    expect(preview()).toHaveTextContent('Sign in to start a run and get your endpoint and token.');
+    expect(preview()).not.toHaveTextContent('Start a run to get your endpoint and token.');
   });
 });
 
@@ -785,7 +785,7 @@ describe('ConnectScreen · the task preview follows the category picker', () => 
  */
 describe('ConnectScreen · the radio groups from the keyboard', () => {
   const categories = () =>
-    within(screen.getByRole('radiogroup', { name: /attack category/i })).getAllByRole('radio');
+    within(screen.getByRole('radiogroup', { name: /attack type/i })).getAllByRole('radio');
   const checked = (radios: HTMLElement[]) =>
     radios.filter((radio) => radio.getAttribute('aria-checked') === 'true');
 
@@ -922,14 +922,14 @@ describe('ConnectScreen · the section 03 heading on an expired run', () => {
   const heading = () => document.getElementById('connect-run-head')!;
   const issue = async (user: ReturnType<typeof userEvent.setup>) => {
     await goLive(user);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
   };
 
   it('reads RUN EXPIRED, the wording of the run bar, and names no endpoint', async () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn liveActions={actions(PAST)} />);
     await issue(user);
-    const bar = await screen.findByRole('region', { name: /what we have actually seen/i });
+    const bar = await screen.findByRole('region', { name: /what we have recorded so far/i });
     await within(bar).findByText('RUN EXPIRED');
 
     await waitFor(() => expect(heading()).toHaveTextContent('RUN EXPIRED'));
@@ -965,7 +965,7 @@ describe('ConnectScreen · the section 03 heading on an expired run', () => {
     await issue(user);
     await waitFor(() => expect(heading()).toHaveTextContent('RUN EXPIRED'));
 
-    await user.click(screen.getByRole('button', { name: /issue a fresh run/i }));
+    await user.click(screen.getByRole('button', { name: /start a new run/i }));
 
     await waitFor(() => expect(heading()).toHaveTextContent('YOUR RUN ENDPOINT'));
     expect(heading()).not.toHaveTextContent('RUN EXPIRED');

@@ -13,7 +13,7 @@ import type {
 /**
  * A FINISHED RUN SHOWS ITS RESULT, NOT ITS SETUP (sweep 2026-10-07, C2).
  *
- * After END RUN AND JUDGE the bar read RUN FINISHED, "ended, judged and saved",
+ * After END RUN AND GET RESULT the bar read RUN FINISHED, "ended, judged and saved",
  * while the section under it was still headed YOUR RUN ENDPOINT and still drew
  * "Point your agent here.", the endpoint, the token ("it dies when the run
  * ends"), the client steps and CHECK IT TOOK, which waits on AGENT CONNECTED.
@@ -91,7 +91,7 @@ function portWith(overrides: Partial<ConnectLiveRunPort> = {}): ConnectLiveRunPo
   };
 }
 
-const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 const runBar = () => within(dock()).getByRole('status');
 const detail = () => screen.getByTestId('run-state-detail');
 const result = () => screen.getByRole('region', { name: 'See the result.' });
@@ -100,8 +100,8 @@ const result = () => screen.getByRole('region', { name: 'See the result.' });
 async function finishHere(port: ConnectLiveRunPort) {
   const user = userEvent.setup();
   const view = render(<LiveRunConsole port={port} category="ASI01" signedIn now={NOW} />);
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
-  await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
+  await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
   await within(dock()).findByText('RUN FINISHED');
   return { user, ...view };
 }
@@ -119,7 +119,7 @@ async function reopenFinished(reattach: Partial<LiveRunReattachView>) {
     <LiveRunConsole port={port} category="ASI01" signedIn now={NOW} reattachRunId="run-77" />,
   );
   await within(
-    await screen.findByRole('region', { name: /what we have actually seen/i }),
+    await screen.findByRole('region', { name: /what we have recorded so far/i }),
   ).findByText('RUN FINISHED');
   return view;
 }
@@ -161,11 +161,15 @@ function expectNoDeadSetup(container: HTMLElement) {
   expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
 }
 
-const SETUP_GONE =
-  "Ending a run revokes its token, so this run's endpoint no longer accepts connections.";
-const WAY_ON = 'Issue a fresh run to test again.';
+/** An expiry as the viewer reads it, in their own zone: never the ISO value. */
+const LOCAL_TIME = String.raw`[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} (AM|PM) \S+`;
+const EXPIRES_LOCAL = new RegExp(`EXPIRES ${LOCAL_TIME}`);
+const EXPIRED_LOCAL = new RegExp(`EXPIRED ${LOCAL_TIME}`);
+
+const SETUP_GONE = "Ending a run cancels its token, so this run's endpoint no longer works.";
+const WAY_ON = 'Start a new run to test again.';
 const RESULT_BODY =
-  'The replay walks through every step that was recorded. The report states the verdict and what it rests on.';
+  "The replay shows every recorded step. The report gives the result and the detector's reasons.";
 
 describe('LiveRunConsole · a finished run drops the setup for its revoked token', () => {
   it('for a run ended on this page: no endpoint, token, client tabs, check or task', async () => {
@@ -190,13 +194,13 @@ describe('LiveRunConsole · what a finished run says in place of its setup', () 
 
     expect(within(runBar()).getByText('RUN FINISHED')).toBeVisible();
     expect(detail()).toHaveTextContent(
-      'This run is ended, judged and saved. The replay has the whole trace.',
+      'This run has ended, been graded and been saved. The replay shows every step.',
     );
     expect(detail()).toHaveTextContent(SETUP_GONE);
     expect(detail()).toHaveTextContent(WAY_ON);
     // Nothing under a finished bar speaks of a run that is still open.
     expect(detail()).not.toHaveTextContent(/when your agent is done, end the run/i);
-    expect(detail()).not.toHaveTextContent(/no longer accept connections\. Issue a new run/i);
+    expect(detail()).not.toHaveTextContent(/no longer work\. Start a new run to try again/i);
     expect(document.body.textContent).not.toMatch(/—/);
   });
 
@@ -228,7 +232,7 @@ describe('LiveRunConsole · what a finished run says in place of its setup', () 
       'href',
       `/runs/${COMPROMISED.storedRunId}`,
     );
-    expect(screen.getAllByRole('button', { name: /fresh run/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /start a new run/i })).toHaveLength(1);
   });
 
   it('reads the same for a run the agent resisted: no verdict is stated here', async () => {
@@ -275,7 +279,7 @@ describe('LiveRunConsole · a finished run whose result is not in yet, or never 
     ).not.toBeInTheDocument();
     // Letting the run go now would drop the only route to its replay link.
     expect(detail()).not.toHaveTextContent(WAY_ON);
-    expect(screen.queryByRole('button', { name: /fresh run/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start a new run/i })).not.toBeInTheDocument();
   });
 
   it('closed with nothing saved: no setup, no links, and the way on is a fresh run', async () => {
@@ -290,7 +294,7 @@ describe('LiveRunConsole · a finished run whose result is not in yet, or never 
     expectNoDeadSetup(container);
     expect(screen.queryByRole('region', { name: 'See the result.' })).not.toBeInTheDocument();
     expect(detail()).toHaveTextContent(WAY_ON);
-    expect(screen.getAllByRole('button', { name: /fresh run/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /start a new run/i })).toHaveLength(1);
   });
 });
 
@@ -316,23 +320,23 @@ describe('LiveRunConsole · a result that arrives while the page is open', () =>
     const { container } = render(
       <LiveRunConsole port={port} category="ASI01" signedIn now={NOW} pollIntervalMs={20} />,
     );
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
 
     // JUDGING: finished in the bar, the setup already gone, nothing to link to yet.
     await within(dock()).findByText('RUN FINISHED');
-    expect(detail()).toHaveTextContent(/is ended and is being judged/i);
+    expect(detail()).toHaveTextContent(/has ended and the detector is grading it/i);
     expect(detail()).toHaveTextContent(SETUP_GONE);
     expectNoDeadSetup(container);
     expect(screen.queryByRole('region', { name: 'See the result.' })).not.toBeInTheDocument();
     expect(detail()).not.toHaveTextContent(WAY_ON);
-    expect(screen.queryByRole('button', { name: /fresh run/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start a new run/i })).not.toBeInTheDocument();
 
     // SAVED: the judge answers, and the same page now points at the result.
     answer({ ok: true, value: COMPROMISED });
 
     expect(await screen.findByRole('region', { name: 'See the result.' })).toBeVisible();
-    expect(detail()).toHaveTextContent(/ended, judged and saved/i);
+    expect(detail()).toHaveTextContent(/ended, been graded and been saved/i);
     expect(within(result()).getByRole('link', { name: 'Open the replay' })).toHaveAttribute(
       'href',
       `/runs/${COMPROMISED.storedRunId}`,
@@ -342,7 +346,7 @@ describe('LiveRunConsole · a result that arrives while the page is open', () =>
       `/findings/${COMPROMISED.storedRunId}`,
     );
     expect(detail()).toHaveTextContent(WAY_ON);
-    expect(screen.getAllByRole('button', { name: /fresh run/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /start a new run/i })).toHaveLength(1);
   });
 });
 
@@ -359,7 +363,7 @@ describe('LiveRunConsole · the selection notice on an expired run', () => {
     const { rerender } = render(
       <LiveRunConsole port={port} category="ASI01" signedIn now={AFTER} />,
     );
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await within(dock()).findByText('RUN EXPIRED');
 
     rerender(<LiveRunConsole port={port} category="ASI05" signedIn now={AFTER} />);
@@ -369,7 +373,7 @@ describe('LiveRunConsole · the selection notice on an expired run', () => {
     expect(notice).toHaveTextContent(
       'You now have ASI05 Unexpected Code Execution (RCE) (ATTACK RUN) selected above.',
     );
-    expect(notice).toHaveTextContent('A new selection takes effect on the next run you issue.');
+    expect(notice).toHaveTextContent('A new selection takes effect on the next run you start.');
     expect(notice).not.toHaveTextContent(/endpoint|token|task goal|on this page/i);
   });
 });
@@ -379,8 +383,8 @@ describe('LiveRunConsole · the selection notice on a finished run', () => {
     const user = userEvent.setup();
     const port = portWith();
     const { rerender } = render(<LiveRunConsole port={port} category="ASI01" signedIn now={NOW} />);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
     await within(dock()).findByText('RUN FINISHED');
 
     rerender(<LiveRunConsole port={port} category="ASI05" signedIn now={NOW} />);
@@ -390,7 +394,7 @@ describe('LiveRunConsole · the selection notice on a finished run', () => {
     expect(notice).toHaveTextContent(
       'You now have ASI05 Unexpected Code Execution (RCE) (ATTACK RUN) selected above.',
     );
-    expect(notice).toHaveTextContent('A new selection takes effect on the next run you issue.');
+    expect(notice).toHaveTextContent('A new selection takes effect on the next run you start.');
     expect(notice).not.toHaveTextContent(/endpoint|token|task goal|on this page/i);
   });
 });
@@ -407,7 +411,7 @@ describe('LiveRunConsole · guards: the other states are unchanged', () => {
     expect(screen.getByText(TICKET.taskGoal)).toBeVisible();
     expect(screen.queryByRole('region', { name: 'See the result.' })).not.toBeInTheDocument();
     expect(detail()).not.toHaveTextContent(SETUP_GONE);
-    expect(detail()).toHaveTextContent(`EXPIRES ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(EXPIRES_LOCAL);
   };
 
   it('an awaiting run still shows its whole setup', async () => {
@@ -419,7 +423,7 @@ describe('LiveRunConsole · guards: the other states are unchanged', () => {
       })),
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn now={NOW} />);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await within(dock()).findByText('AWAITING AGENT');
 
     expectFullSetup();
@@ -428,7 +432,7 @@ describe('LiveRunConsole · guards: the other states are unchanged', () => {
   it('a connected run still shows its whole setup, and how to end it', async () => {
     const user = userEvent.setup();
     render(<LiveRunConsole port={portWith()} category="ASI01" signedIn now={NOW} />);
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await within(dock()).findByText('AGENT CONNECTED');
 
     expectFullSetup();
@@ -451,17 +455,17 @@ describe('LiveRunConsole · guards: the other states are unchanged', () => {
         now={() => new Date('2099-01-01T00:00:01.000Z')}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     await within(dock()).findByText('RUN EXPIRED');
 
     expect(detail()).toHaveTextContent(
-      'This run passed its expiry before it finished, so its endpoint and token no longer accept connections. Issue a new run to try again.',
+      'This run expired before it finished, so its endpoint and token no longer work. Start a new run to try again.',
     );
     expect(detail()).toHaveTextContent('SERVING ASI01');
-    expect(detail()).toHaveTextContent(`EXPIRED ${TICKET.expiresAt}`);
+    expect(detail()).toHaveTextContent(EXPIRED_LOCAL);
     expect(detail()).not.toHaveTextContent(SETUP_GONE);
     expect(screen.queryByRole('region', { name: 'See the result.' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /issue a fresh run/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /start a new run/i })).toHaveLength(1);
   });
 });
 
@@ -472,10 +476,10 @@ describe('ConnectScreen · the section 03 heading on a finished run', () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn livePort={portWith()} />);
     await user.click(screen.getByRole('button', { name: /^LIVE/ }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
     expect(heading()).toHaveTextContent('YOUR RUN ENDPOINT');
 
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
     const label = await within(dock()).findByText('RUN FINISHED');
 
     await waitFor(() => expect(heading()).toHaveTextContent('RUN FINISHED'));
@@ -488,11 +492,11 @@ describe('ConnectScreen · the section 03 heading on a finished run', () => {
     const user = userEvent.setup();
     render(<ConnectScreen signedIn livePort={portWith()} />);
     await user.click(screen.getByRole('button', { name: /^LIVE/ }));
-    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
-    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
+    await user.click(await screen.findByRole('button', { name: /end run and get result/i }));
     await waitFor(() => expect(heading()).toHaveTextContent('RUN FINISHED'));
 
-    await user.click(within(dock()).getByRole('button', { name: /fresh run/i }));
+    await user.click(within(dock()).getByRole('button', { name: /start a new run/i }));
 
     await waitFor(() => expect(heading()).toHaveTextContent('YOUR RUN ENDPOINT'));
   });

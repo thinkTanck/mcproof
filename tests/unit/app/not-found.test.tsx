@@ -15,7 +15,7 @@ vi.mock('next/headers', () => ({
 describe('NotFound (custom 404)', () => {
   it('names the dead end with a page heading', async () => {
     render(await NotFound());
-    expect(screen.getByRole('heading', { level: 1, name: /route not found/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /page not found/i })).toBeInTheDocument();
   });
 
   it('echoes the requested path from the x-pathname header', async () => {

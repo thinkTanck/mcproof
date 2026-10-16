@@ -16,7 +16,7 @@ export function FindingsEmpty({ id }: { id: string }) {
         No report for run <span className="text-readout">{id}</span>
       </h1>
       <p className="reading measure mt-3">
-        This run has no fix report. It may be an unfinished run, or the id may be wrong.
+        This run has no report. It may still be running, or the address may be wrong.
       </p>
       <Link
         href="/"

@@ -56,6 +56,12 @@ export interface RunView {
   readonly provenance: string;
   /** The same label as a person reads it on screen: human dates (2026-10-14). */
   readonly displayProvenance: string;
+  /**
+   * When a LIVE run ran (the stored row's ISO timestamp), so the screen can draw
+   * that day in the viewer's own time zone (owner ruling 2026-10-15). Null for a
+   * sample, whose dates are recorded and the same for every reader.
+   */
+  readonly runAt: string | null;
 }
 
 /** A fix report, with the same label. */
@@ -65,18 +71,21 @@ export interface FixReportView {
   readonly provenance: string;
   /** The label as a person reads it on screen: human dates (2026-10-14). */
   readonly displayProvenance: string;
+  /** As on `RunView`: a live run's ISO timestamp, null for a sample. */
+  readonly runAt: string | null;
 }
 
 /**
  * How a live verdict is labelled.
  *
- * It names what we can stand behind and nothing more: this run was judged by the
- * operator-locked validated judge, on the date it was recorded. It does NOT
+ * It names what we can stand behind and nothing more: this run was graded by the
+ * MCProof detector (the operator-locked validated judge), on the date it was
+ * recorded. It does NOT
  * quote an accuracy figure (those are measured on labeled fixtures, and a live
  * run is unlabeled) and it does not name a model, because the stored row does not
  * record which one answered.
  */
-export const LIVE_VERDICT_PROVENANCE = 'live run · verdict from the locked validated judge';
+export const LIVE_VERDICT_PROVENANCE = 'live run · graded by the MCProof detector';
 
 /** The live label, dated from the stored row. An unparseable date is dropped. */
 export function liveVerdictProvenance(createdAt: string): string {
@@ -92,7 +101,13 @@ async function sampleView(id: string): Promise<RunView | null> {
   // A verdict travels with its provenance or not at all. A run the port can serve
   // but cannot label is not shown at all, rather than shown unlabelled.
   if (!run || provenance === null) return null;
-  return { run, origin: 'sample', provenance, displayProvenance: sampleDisplayProvenance() };
+  return {
+    run,
+    origin: 'sample',
+    provenance,
+    displayProvenance: sampleDisplayProvenance(),
+    runAt: null,
+  };
 }
 
 /** One of the signed-in user's own persisted runs, or nothing. */
@@ -117,6 +132,7 @@ async function liveView(id: string): Promise<RunView | null> {
     origin: 'live',
     provenance: liveVerdictProvenance(stored.createdAt),
     displayProvenance: liveDisplayProvenance(stored.createdAt),
+    runAt: stored.createdAt,
   };
 }
 
@@ -164,5 +180,6 @@ export async function resolveFixReport(id: string): Promise<FixReportView | null
     origin: view.origin,
     provenance: view.provenance,
     displayProvenance: view.displayProvenance,
+    runAt: view.runAt,
   };
 }

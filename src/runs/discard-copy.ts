@@ -20,7 +20,7 @@ export const DISCARD_RUN_LABEL = 'DISCARD RUN';
 
 /** The confirm step. The approved wording, exactly. */
 export const DISCARD_CONFIRM_QUESTION =
-  'Discard this run? It ends now, its token stops working, and it is not judged.';
+  'Discard this run? It ends now, its token stops working, and the detector does not grade it.';
 export const DISCARD_CONFIRM_YES = 'DISCARD';
 export const DISCARD_CONFIRM_NO = 'KEEP RUNNING';
 
@@ -29,7 +29,7 @@ export const DISCARDING_LABEL = 'DISCARDING';
 export const RUN_DISCARDED_LABEL = 'RUN DISCARDED';
 
 /** The one sentence every screen says about a discarded run. */
-export const RUN_DISCARDED_SENTENCE = 'This run was discarded and not judged.';
+export const RUN_DISCARDED_SENTENCE = 'This run was discarded, so the detector did not grade it.';
 
 /** The tab title of a discarded run's replay and report pages. */
 export const RUN_DISCARDED_TITLE = 'Run discarded · MCProof';

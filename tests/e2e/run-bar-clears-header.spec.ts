@@ -46,7 +46,7 @@ const PHONES = [
 /** Sub-pixel rounding. */
 const TOLERANCE = 1;
 
-const bar = (page: Page) => page.getByRole('region', { name: /what we have actually seen/i });
+const bar = (page: Page) => page.getByRole('region', { name: /what we have recorded so far/i });
 
 async function settle(page: Page) {
   await page.evaluate(async () => {
@@ -66,7 +66,7 @@ async function issue(page: Page, state: 'waiting' | 'connected') {
   await page.context().route(/\.woff2?(\?|$)/, (route) => route.abort());
   await page.goto(`/e2e/connect-states?state=${state}`);
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
+  await page.getByRole('button', { name: /start a run/i }).click();
   await expect(
     bar(page).getByText(state === 'connected' ? 'AGENT CONNECTED' : 'AWAITING AGENT'),
   ).toBeVisible();

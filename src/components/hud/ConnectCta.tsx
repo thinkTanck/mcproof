@@ -31,7 +31,7 @@ export function ConnectCta() {
     <Link
       href={CONNECT_CTA_HREF}
       data-cta="connect-agent"
-      className="glow-accent target-min inline-flex items-center justify-center gap-2 rounded-md border border-nominal bg-transparent px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-nominal transition-colors hover:bg-nominal/10 hover:text-readout"
+      className="glow-accent target-min inline-flex items-center justify-center gap-2 rounded-md border border-nominal bg-transparent px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-ink transition-colors hover:bg-nominal/10 hover:text-readout"
     >
       {CONNECT_CTA_LABEL}
       <span aria-hidden="true">→</span>

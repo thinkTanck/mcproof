@@ -86,7 +86,7 @@ class FakeResizeObserver {
   }
 }
 
-const dock = () => screen.getByRole('region', { name: /what we have actually seen/i });
+const dock = () => screen.getByRole('region', { name: /what we have recorded so far/i });
 const clearance = () => document.documentElement.style.getPropertyValue(RUN_BAR_CLEAR_VAR);
 const sorted = (classes: string) => classes.split(/\s+/).filter(Boolean).sort();
 
@@ -107,7 +107,7 @@ function ConsoleWithSlot() {
 
 async function issue() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+  await user.click(screen.getByRole('button', { name: /start a run/i }));
   await within(dock()).findByText('AGENT CONNECTED');
   return user;
 }
@@ -153,7 +153,9 @@ describe('on a phone held upright', () => {
 
     const slot = screen.getByTestId('slot');
     expect(slot).toContainElement(dock());
-    expect(screen.getAllByRole('region', { name: /what we have actually seen/i })).toHaveLength(1);
+    expect(screen.getAllByRole('region', { name: /what we have recorded so far/i })).toHaveLength(
+      1,
+    );
     // Last in the document: every other control of the run comes before it.
     const copy = screen.getByRole('button', { name: /copy task goal/i });
     expect(copy.compareDocumentPosition(dock()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -166,7 +168,7 @@ describe('on a phone held upright', () => {
     const statuses = within(dock()).getAllByRole('status');
     expect(statuses).toHaveLength(1);
     expect(statuses[0]).toHaveTextContent('AGENT CONNECTED');
-    expect(screen.getByRole('heading', { name: 'What we have actually seen.' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'What we have recorded so far.' })).toBeVisible();
   });
 
   it('is not sticky itself and never fixed: the slot is what holds it', async () => {
@@ -184,7 +186,7 @@ describe('on a phone held upright', () => {
     render(<ConsoleWithSlot />);
     await issue();
 
-    expect(within(dock()).getByRole('button', { name: /end run and judge/i })).toBeVisible();
+    expect(within(dock()).getByRole('button', { name: /end run and get result/i })).toBeVisible();
     const narrow = within(screen.getByTestId('discard-run-narrow')).getByRole('button');
     expect(dock()).not.toContainElement(narrow);
     expect(narrow.compareDocumentPosition(dock()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -206,7 +208,7 @@ describe('on a phone held upright', () => {
     await issue();
 
     const column = screen.getByRole('heading', {
-      name: 'What we have actually seen.',
+      name: 'What we have recorded so far.',
     }).parentElement!;
     expect(sorted(column.className)).toContain(
       'phone-tall:[&_:is(a,button,[tabindex])]:scroll-mt-0',
@@ -261,7 +263,7 @@ describe('everywhere else', () => {
     expect(column.className).toContain('panel-in');
     // It leads the column, directly after the heading that names it.
     expect(dock().previousElementSibling).toBe(
-      screen.getByRole('heading', { name: 'What we have actually seen.' }),
+      screen.getByRole('heading', { name: 'What we have recorded so far.' }),
     );
     expect(clearance()).toBe('');
   });

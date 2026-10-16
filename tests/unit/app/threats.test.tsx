@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import ThreatsPage from '@/app/(hud)/threats/page';
 import { getDataSource } from '@/data/source';
+import { asi10 } from '@/attacks/asi10';
 
 /**
  * /threats — Threat Model / Coverage. An editorial reference over all ten OWASP
@@ -38,9 +39,11 @@ describe('Threat Model / Coverage (/threats)', () => {
 
   it('states the measurability bar in the header', async () => {
     await renderPage();
-    expect(screen.getByText(/observable in the agent.s own steps/i)).toBeInTheDocument();
-    expect(screen.getByText(/inside one bounded run/i)).toBeInTheDocument();
-    expect(screen.getByText(/compromised at step N, or not/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only if the harm shows up in the agent.s own steps during one run/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/^compromised at step N$/)).toBeInTheDocument();
+    expect(screen.getByText(/^not compromised$/)).toBeInTheDocument();
   });
 
   it('renders all ten codes with their pinned titles verbatim', async () => {
@@ -57,36 +60,36 @@ describe('Threat Model / Coverage (/threats)', () => {
     expect(screen.queryByText(/Agentic Supply Chain Compromise/i)).not.toBeInTheDocument();
   });
 
-  it('shows a three-state legend: covered, not measurable, addable', async () => {
+  it('shows a three-state legend: covered, not testable, could be added later', async () => {
     await renderPage();
     const legend = screen.getByRole('list', { name: /coverage legend/i });
     expect(within(legend).getByText(/covered/i)).toBeInTheDocument();
-    expect(within(legend).getByText(/not measurable/i)).toBeInTheDocument();
-    expect(within(legend).getByText(/addable/i)).toBeInTheDocument();
+    expect(within(legend).getByText(/not testable/i)).toBeInTheDocument();
+    expect(within(legend).getByText(/could be added later/i)).toBeInTheDocument();
   });
 
-  it('marks ASI07/08/09 NOT MEASURABLE with their honest reasons', async () => {
+  it('marks ASI07/08/09 NOT TESTABLE with their honest reasons', async () => {
     await renderPage();
     const cases: Array<[string, RegExp]> = [
-      ['ASI07', /no agent-to-agent step type/i],
-      ['ASI08', /propagation of a fault/i],
-      ['ASI09', /human.s decision/i],
+      ['ASI07', /no step for messages between agents/i],
+      ['ASI08', /a fault spreading from one part to the next/i],
+      ['ASI09', /a person acts on what the agent said/i],
     ];
     for (const [code, reason] of cases) {
       const entry = screen.getByTestId(`threat-${code}`);
       expect(entry).toHaveAttribute('data-state', 'inert');
-      expect(within(entry).getByText(/not measurable/i)).toBeInTheDocument();
+      expect(within(entry).getByText(/not testable/i)).toBeInTheDocument();
       expect(within(entry).getByText(reason)).toBeInTheDocument();
     }
   });
 
-  it('keeps the not-measurable rows on the Measurability bar link, not a run', async () => {
+  it('keeps the not-testable rows on the "What we can test" link, not a run', async () => {
     await renderPage();
     for (const code of ['ASI07', 'ASI08', 'ASI09']) {
       const entry = screen.getByTestId(`threat-${code}`);
-      expect(within(entry).getByRole('link', { name: /measurability bar/i })).toBeInTheDocument();
+      expect(within(entry).getByRole('link', { name: /what we can test/i })).toBeInTheDocument();
       expect(
-        within(entry).queryByRole('link', { name: /watch a real run/i }),
+        within(entry).queryByRole('link', { name: /watch a sample run/i }),
       ).not.toBeInTheDocument();
     }
   });
@@ -125,7 +128,7 @@ describe('Threat Model / Coverage (/threats)', () => {
     const featuredHref = `/runs/${runIdByCategory.ASI02}`;
     for (const code of COVERED) {
       const entry = screen.getByTestId(`threat-${code}`);
-      const watch = within(entry).getByRole('link', { name: /watch a real run/i });
+      const watch = within(entry).getByRole('link', { name: /watch a sample run/i });
       expect(watch).toHaveAttribute('href', `/runs/${runIdByCategory[code]}`);
       if (code !== 'ASI02') {
         expect(watch).not.toHaveAttribute('href', featuredHref);
@@ -145,16 +148,16 @@ describe('Threat Model / Coverage (/threats)', () => {
       const entry = screen.getByTestId('threat-ASI10');
       expect(entry).toHaveAttribute('data-state', 'covered');
       expect(within(entry).getByText(/covered/i)).toBeInTheDocument();
-      expect(within(entry).queryByText(/not measurable/i)).not.toBeInTheDocument();
+      expect(within(entry).queryByText(/not testable/i)).not.toBeInTheDocument();
     });
 
     it('states the measured split: detection holds, classification does not', async () => {
       await renderPage();
       const entry = screen.getByTestId('threat-ASI10');
-      expect(within(entry).getByText(/detection reliable/i)).toBeInTheDocument();
-      expect(within(entry).getByText(/classification unreliable/i)).toBeInTheDocument();
+      expect(within(entry).getByText(/caught reliably/i)).toBeInTheDocument();
+      expect(within(entry).getByText(/attack type often wrong/i)).toBeInTheDocument();
       expect(within(entry).getByText(/0 of 4/)).toBeInTheDocument();
-      expect(within(entry).getByText(/category-v2/i)).toBeInTheDocument();
+      expect(within(entry).getByText(/fix reports leave out fix steps/i)).toBeInTheDocument();
     });
 
     it('renders the caveat in the neutral inert token, never breach red', async () => {
@@ -162,6 +165,18 @@ describe('Threat Model / Coverage (/threats)', () => {
       const caveat = screen.getByTestId('threat-caveat-ASI10');
       expect(caveat.innerHTML).not.toMatch(/breach|status-breach|glow-breach/i);
       expect(caveat.innerHTML).toContain('var(--status-inert)');
+    });
+
+    it('counts the rogue-behavior kinds it tests from the attack itself', async () => {
+      // The row once said "three signatures" while src/attacks/asi10.ts held four
+      // pairs. The number in the sentence is the number of malicious realizations.
+      const kinds = asi10.variants.filter((v) => v.kind === 'malicious').length;
+      const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+      await renderPage();
+      const entry = screen.getByTestId('threat-ASI10');
+      expect(
+        within(entry).getByText(new RegExp(`We test ${words[kinds]} kinds of rogue behavior`)),
+      ).toBeInTheDocument();
     });
 
     it('carries no caveat on the categories that have none', async () => {

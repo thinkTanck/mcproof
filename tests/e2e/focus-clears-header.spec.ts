@@ -103,7 +103,7 @@ test.describe('Home', () => {
 });
 
 test.describe('Connect', () => {
-  const MODES = [/^SAMPLE · no sign-in/, /^LIVE · your agent connects to us/];
+  const MODES = [/^SAMPLE · no sign-in/, /^LIVE · your agent connects to our server/];
 
   test('390, Shift+Tab, sample mode: both MODE buttons are not under the header', async ({
     page,
@@ -141,19 +141,19 @@ test.describe('Connect', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/e2e/connect-states?state=waiting');
     await page.getByRole('button', { name: /^LIVE/ }).click();
-    await page.getByRole('button', { name: /issue run endpoint/i }).click();
-    await expect(page.getByRole('region', { name: /what we have actually seen/i })).toBeVisible();
+    await page.getByRole('button', { name: /start a run/i }).click();
+    await expect(page.getByRole('region', { name: /what we have recorded so far/i })).toBeVisible();
 
     expectClear(await walkBackward(page, 30), MODES);
   });
 });
 
 test.describe('Replay', () => {
-  test('320, Shift+Tab: the export links are not under the header', async ({ page }) => {
+  test('320, Shift+Tab: the export buttons are not under the header', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/runs/sample');
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
 
-    expectClear(await walkBackward(page, 14), [/^Export fix report/, /^Decline export/]);
+    expectClear(await walkBackward(page, 14), [/^Open fix report/, /^Not now/]);
   });
 });

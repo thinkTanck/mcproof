@@ -129,7 +129,7 @@ export function BootSplash() {
   return (
     <div
       role="status"
-      aria-label="MCProof booting"
+      aria-label="MCProof is loading"
       aria-live="off"
       className={cn(
         'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-base transition-opacity duration-[400ms] ease-out',
@@ -211,14 +211,14 @@ export function BootSplash() {
 
       {/* Readout */}
       <div className="mt-8 flex flex-col items-center gap-2.5 text-center font-mono">
-        <div className="micro-label text-ink-faint">Target lock · Core-7</div>
+        <div className="micro-label text-ink-faint">{N} attack types</div>
         <div className="text-[15px] tracking-[0.14em]">
           {online ? (
             <span className="text-readout">SYSTEM ONLINE</span>
           ) : (
             <>
               <span className="tabular-nums text-readout">{locked}</span>
-              <span className="text-ink-faint"> / {N} SIGNATURES ACQUIRED</span>
+              <span className="text-ink-faint"> / {N} ATTACK TYPES LOADED</span>
             </>
           )}
         </div>
@@ -227,13 +227,13 @@ export function BootSplash() {
       {/* One terminal SR announcement — the overlay's aria-live is off so the
           per-lock count does not churn a polite live region; only the end lands. */}
       <span className="sr-only" aria-live="polite">
-        {online ? 'MCProof ready. Core-7 signatures locked.' : ''}
+        {online ? `MCProof is ready. ${N} attack types loaded.` : ''}
       </span>
 
       <button
         type="button"
         onClick={finish}
-        className="mt-8 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-line px-3 font-mono text-(length:--text-floor) uppercase tracking-[0.12em] text-ink-faint transition-colors hover:border-line-em hover:text-ink"
+        className="mt-8 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-line px-3 font-mono text-(length:--instrument-label) uppercase tracking-[0.12em] text-ink transition-colors hover:border-line-em hover:text-ink"
       >
         Skip
         <span aria-hidden="true">→</span>

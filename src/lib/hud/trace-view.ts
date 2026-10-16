@@ -52,7 +52,7 @@ export function offendingStepLabel(step: Step): string {
     case 'memory_write':
       return 'memory write';
     case 'principal_instruction':
-      return 'principal instruction';
+      return "operator's task";
     case 'agent_reasoning':
       return 'agent reasoning';
     case 'task_complete':

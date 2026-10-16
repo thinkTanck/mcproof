@@ -553,8 +553,10 @@ test.describe('no policy violation on any page', () => {
     for (const state of ['waiting', 'connected']) {
       await page.goto(`/e2e/connect-states?state=${state}`);
       await page.getByRole('button', { name: /^LIVE/ }).click();
-      await page.getByRole('button', { name: /issue run endpoint/i }).click();
-      await expect(page.getByRole('region', { name: /what we have actually seen/i })).toBeVisible();
+      await page.getByRole('button', { name: /start a run/i }).click();
+      await expect(
+        page.getByRole('region', { name: /what we have recorded so far/i }),
+      ).toBeVisible();
       await settle(page);
     }
     for (const url of [

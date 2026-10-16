@@ -93,8 +93,8 @@ async function openIssuedRun(page: Page) {
   await suppressBootSplash(page);
   await page.goto('/e2e/connect-states?state=waiting');
   await page.getByRole('button', { name: /^LIVE/ }).click();
-  await page.getByRole('button', { name: /issue run endpoint/i }).click();
-  await expect(page.getByRole('region', { name: /what we have actually seen/i })).toBeVisible();
+  await page.getByRole('button', { name: /start a run/i }).click();
+  await expect(page.getByRole('region', { name: /what we have recorded so far/i })).toBeVisible();
   await settle(page);
 }
 
@@ -346,10 +346,21 @@ for (const viewport of VIEWPORTS) {
       });
 
       expect(m.map((x) => x.id)).toEqual(['precision', 'recall', 'classification-accuracy']);
+      // The label is the count behind the figure and the sentence says what that
+      // count is, in words (copy pass 2026-10-15: "precision" and "recall" are
+      // no longer on screen).
+      const MEANINGS: Record<string, RegExp> = {
+        precision: /^It flagged \d+ runs as compromised, and \d+ of them were\.$/,
+        recall: /^It caught (all \d+|\d+ of \d+) real compromises\.$/,
+        'classification-accuracy':
+          /^For those \d+ compromises, it named the right attack type .*\d+ times\.$/,
+      };
       for (const metric of m) {
-        expect(metric.label?.text.length, `${metric.id} has a label`).toBeGreaterThan(3);
+        expect(metric.label?.text, `${metric.id} has a count as its label`).toMatch(/^\d+ of \d+$/);
         expect(metric.value?.text, `${metric.id} is a figure`).toMatch(/^[01]\.\d\d$/);
-        expect(metric.meaning?.text, `${metric.id} says what it measures`).toMatch(/^Of the /);
+        expect(metric.meaning?.text, `${metric.id} says what it measures`).toMatch(
+          MEANINGS[metric.id!]!,
+        );
       }
       // One size for the values, one for the labels, one for the sentences.
       for (const part of ['label', 'value', 'meaning'] as const) {
@@ -364,8 +375,9 @@ for (const viewport of VIEWPORTS) {
       expect(px(m[0]!.meaning?.size)).toBeGreaterThan(px(m[0]!.label?.size));
       expect(m[0]!.label?.family).toMatch(/mono/i);
       expect(m[0]!.meaning?.family).not.toMatch(/mono/i);
-      // The classification figure is named for what it is.
-      expect(m[2]!.label?.text).toMatch(/^category classification accuracy$/i);
+      // The classification figure is named for what it is, never plain "accuracy".
+      expect(m[2]!.meaning?.text).toMatch(/right attack type/);
+      expect(`${m[2]!.label?.text} ${m[2]!.meaning?.text}`).not.toMatch(/accuracy/i);
       // No figure is drawn anywhere else on the page at a size of its own.
       const strays = await page.evaluate(() =>
         [...document.querySelectorAll('main *')]
@@ -407,43 +419,44 @@ for (const viewport of VIEWPORTS) {
       expect(compromise).toMatchObject({
         id: 'compromise',
         role: 'group',
-        name: 'Compromise detection',
+        name: 'Catching compromises',
         metrics: ['precision', 'recall'],
         provenanceShown: true,
       });
       expect(classification).toMatchObject({
         id: 'classification',
         role: 'group',
-        name: 'Category classification',
+        name: 'Naming the attack type',
         metrics: ['classification-accuracy'],
         provenanceShown: true,
       });
-      // Each line is its own: how many were scored, how many passes, when, which judge.
+      // Each line is its own: how many were scored, how many passes, when (the
+      // UTC day), which detector. The plain-words form of the frozen lines.
       expect(compromise!.provenance).toHaveLength(1);
       expect(classification!.provenance).toHaveLength(1);
       expect(compromise!.provenance[0]).toMatch(
-        /^measured · N=\d+ labeled realizations · 5 passes · \d{4}-\d\d-\d\d · judge \S+$/,
+        /^measured [A-Z][a-z]{2} \d{1,2}, \d{4} \(UTC\) · \d+ test runs · graded 5 times each · detector \S+$/,
       );
       expect(classification!.provenance[0]).toMatch(
-        /^category accuracy · n=22 scored · 5 passes · \d{4}-\d\d-\d\d · judge \S+$/,
+        /^attack type measured [A-Z][a-z]{2} \d{1,2}, \d{4} \(UTC\) · 22 compromised test runs · graded 5 times each · detector \S+$/,
       );
       // Never one heading over both.
       await expect(page.getByText(/detector accuracy/i)).toHaveCount(0);
     });
   });
 
-  test.describe(`4. "Read full results" at ${viewport.width}`, () => {
+  test.describe(`4. "Read the full results" at ${viewport.width}`, () => {
     test.use({ viewport });
 
     test('is a link on a line of its own under the figures', async ({ page, browserName }) => {
       test.skip(browserName === 'webkit' && viewport.width >= 768, WEBKIT_IS_A_PHONE);
       await open(page, '/');
-      const link = page.getByRole('link', { name: /^Read full results/ });
+      const link = page.getByRole('link', { name: /^Read the full results/ });
       await expect(link).toHaveCount(1);
       await expect(link).toBeVisible();
       await expect(link).toHaveAttribute('href', /\/RESULTS\.md$/);
-      // The name says results of what, and where the link goes.
-      await expect(link).toHaveAccessibleName(/measured results/i);
+      // The name says which results, and where the link goes.
+      await expect(link).toHaveAccessibleName(/^Read the full results/);
       await expect(link).toHaveAccessibleName(/GitHub/);
 
       const m = await link.evaluate((el) => {
@@ -487,7 +500,7 @@ for (const viewport of VIEWPORTS) {
       // A link by more than colour.
       expect(m.underlined, 'underlined').toBe(true);
       expect(m.height).toBeGreaterThanOrEqual(TARGET_MIN - 0.5);
-      expect(m.visibleText).toMatch(/^Read full results/);
+      expect(m.visibleText).toMatch(/^Read the full results/);
     });
   });
 }
@@ -536,7 +549,7 @@ for (const viewport of VIEWPORTS) {
       await expect(note).toHaveCount(1);
       await expect(note).toBeVisible();
       await expect(note).toContainText('3 free live runs');
-      await expect(note).toContainText(/life of the account/i);
+      await expect(note).toContainText(/in total. The count does not reset/i);
 
       const m = await note.evaluate((el) => {
         const cta = document.querySelector('[data-cta="connect-agent"]')!;
@@ -624,7 +637,7 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole('button', { name: /^LIVE/ }).click();
         const control =
           who === 'signed in'
-            ? page.getByRole('button', { name: /issue run endpoint/i })
+            ? page.getByRole('button', { name: /start a run/i })
             : page.getByRole('main').getByRole('link', { name: 'SIGN IN', exact: true });
         await expect(control).toBeVisible();
         const note = page.locator(NOTE);
@@ -632,7 +645,7 @@ for (const viewport of VIEWPORTS) {
         await expect(note).toContainText('3 free live runs');
         const m = await note.evaluate((el, selector) => {
           const control = [...document.querySelectorAll(selector)].find((c) =>
-            /issue run endpoint|^sign in$/i.test((c.textContent ?? '').trim()),
+            /start a run|^sign in$/i.test((c.textContent ?? '').trim()),
           )!;
           const group = document.getElementById('run-controls')!;
           const rect = el.getBoundingClientRect();
