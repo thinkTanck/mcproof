@@ -219,7 +219,7 @@ export function HeroReplay({
                   {label(step)}
                 </span>
                 {breach && (
-                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) uppercase tracking-[0.1em] text-breach-text">
+                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) leading-(--instrument-line-single-label) uppercase tracking-[0.1em] text-breach-text">
                     Breach
                   </span>
                 )}

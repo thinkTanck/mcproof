@@ -96,7 +96,7 @@ for (const viewport of [
         await expect(panel(page).getByTestId('config-block')).toHaveCount(1);
         await expect(panel(page).getByTestId('agent-status')).toHaveText('AWAITING AGENT');
         await expect(panel(page).getByTestId('finish-line')).toHaveText(
-          'When your agent is done, End run and get result.',
+          'When your agent is done, press End run and get result.',
         );
         expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
         // Every control the tab added is a 44px target too.

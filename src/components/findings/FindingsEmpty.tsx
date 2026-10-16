@@ -20,7 +20,7 @@ export function FindingsEmpty({ id }: { id: string }) {
       </p>
       <Link
         href="/"
-        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-line-em bg-nominal/5 px-4 py-2 font-mono text-[14px] tracking-[0.08em] text-nominal hover:bg-nominal/10"
+        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md border border-line-em bg-nominal/5 px-4 py-2 font-mono text-[14px] tracking-[0.08em] text-ink hover:bg-nominal/10"
       >
         Back to home
       </Link>

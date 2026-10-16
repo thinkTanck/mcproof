@@ -96,7 +96,7 @@ export function SampleTrailer({
         })}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-faint">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-mono text-[13px] tracking-[0.04em] text-ink-faint">
         <span>{`${stepLabel(1)} · ${firstLabel}`}</span>
         <span className="text-breach-text">
           {`${stepLabel(compromiseIndex)} · ${offendingTool}, compromised here`}

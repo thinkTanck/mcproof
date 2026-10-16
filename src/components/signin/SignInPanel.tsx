@@ -308,7 +308,7 @@ export function SignInPanel({
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? errorId : undefined}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_CEILING))}
-              className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
+              className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-ink placeholder:text-ink-faint focus-visible:border-nominal"
             />
           </div>
 
@@ -419,7 +419,7 @@ export function SignInPanel({
             aria-describedby={error ? `${helpId} ${errorId}` : helpId}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-line bg-base px-3 py-3 font-mono text-[14px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
+            className="w-full rounded-md border border-line bg-base px-3 py-3 font-mono text-[14px] text-ink placeholder:text-ink-faint focus-visible:border-nominal"
           />
         </div>
 

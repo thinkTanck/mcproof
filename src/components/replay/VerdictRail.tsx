@@ -40,8 +40,13 @@ const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
 const PROMPT_COLOR = 'var(--terminal-prompt)';
 const PROMPT = `${DETECTOR_HANDLE}:~`;
-/** The key column, wide enough for the longest key ("compromised at") and a space. */
-const KEY_WIDTH = 15;
+/**
+ * The key column: 11 characters, as it has always been, so the short keys
+ * still fit a 320px screen at doubled text. The one longer key ("compromised
+ * at") runs past it by a few characters and keeps one space before its value.
+ */
+const KEY_WIDTH = 11;
+const keyCell = (k: string) => (k.length >= KEY_WIDTH ? `${k} ` : k.padEnd(KEY_WIDTH, ' '));
 
 /**
  * The two answers to the export question. Each is a real control with a box of
@@ -50,14 +55,14 @@ const KEY_WIDTH = 15;
  * `:focus-visible` outline is the one ring.
  */
 const OPEN_ANSWER =
-  'target-min inline-flex items-center justify-center rounded-md border border-nominal bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.06em] text-readout glow-accent transition-colors hover:bg-nominal/20';
+  'target-min inline-flex items-center justify-center rounded-md border border-nominal bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:bg-nominal/20';
 const NOT_NOW_ANSWER =
-  'target-min inline-flex items-center justify-center rounded-md border border-line-em bg-transparent px-4 font-mono text-[14px] tracking-[0.06em] text-nominal glow-accent transition-colors hover:border-nominal hover:bg-nominal/10';
+  'target-min inline-flex items-center justify-center rounded-md border border-line-em bg-transparent px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:border-nominal hover:bg-nominal/10';
 
 function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolean }) {
   return (
     <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
-      <span style={{ opacity: 0.85 }}>{k.padEnd(KEY_WIDTH, ' ')}</span>
+      <span style={{ opacity: 0.85 }}>{keyCell(k)}</span>
       <span style={{ color: breachValue ? BREACH : CYAN }}>{v}</span>
     </div>
   );
@@ -165,7 +170,7 @@ export function VerdictRail({
           relabelled: it only gets its name, like any other code. The status
           bar's chip points here for the name it has no room for. */}
       <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
-        <span style={{ opacity: 0.85 }}>{'category'.padEnd(KEY_WIDTH, ' ')}</span>
+        <span style={{ opacity: 0.85 }}>{keyCell('category')}</span>
         <AsiLabel code={verdict.category} id={RUN_CATEGORY_NAME_ID} />
       </div>
       <Row k="severity" v={verdict.severity.toUpperCase()} breachValue={compromised} />
