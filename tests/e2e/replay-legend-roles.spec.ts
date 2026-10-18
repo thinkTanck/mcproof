@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 import {
   ROLES,
   SENTINEL_GLOSSARY_HREF,
@@ -762,6 +763,8 @@ for (const width of [1024, 1280, 1440] as const) {
             await page.context().route(/\.woff2?(\?|$)/, (route) => route.abort());
           }
           await openReplay(page, run);
+          // The rail's verdict lines are drawn once it is revealed.
+          await revealVerdict(page);
           const m = await page.evaluate(() => {
             const cut: string[] = [];
             const check = (root: Element, name: string) => {

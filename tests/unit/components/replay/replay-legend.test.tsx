@@ -142,7 +142,8 @@ describe('the legend: one strip, directly above the terminal', () => {
     expect(legend().matches(LIVE)).toBe(false);
     expect(legend().querySelector(LIVE)).toBeNull();
     expect(legend().closest(LIVE)).toBeNull();
-    expect(document.querySelectorAll(LIVE)).toHaveLength(1);
+    // The step detail and the verdict announcement (verdict reveal, 2026-10-17).
+    expect(document.querySelectorAll(LIVE)).toHaveLength(2);
   });
 
   it('the first "@sentinel" on the page is a link to the glossary entry', () => {

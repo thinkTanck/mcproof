@@ -4,6 +4,7 @@ import { Replay } from '@/components/replay';
 import { getDataSource } from '@/data/source';
 import { SAMPLE_VERDICTS } from '@/data/fixtures/sample-verdicts';
 import type { RunResult } from '@/contract';
+import { renderRevealed } from '../../../helpers/reveal-verdict';
 
 /**
  * Live Attack Replay. These assertions exercise the RELIABLE base of the signal-
@@ -28,7 +29,7 @@ async function sampleRun(): Promise<RunResult> {
 describe('Replay — binding + timeline', () => {
   it('binds the run id and step total to the real run (never a literal)', async () => {
     const run = await sampleRun();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
     // Step total is the real length, and there is one timeline line per step.
     const timeline = screen.getByRole('list', { name: /step timeline/i });
     const nodes = within(timeline).getAllByRole('button');
@@ -42,7 +43,7 @@ describe('Replay — binding + timeline', () => {
 
   it('badges exactly the compromise step from verdict.stepId', async () => {
     const run = await sampleRun();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
     const compromiseNodes = screen.getAllByRole('button', {
       name: /the agent was compromised here/i,
     });
@@ -53,7 +54,7 @@ describe('Replay — binding + timeline', () => {
 describe('Replay — transport', () => {
   it('exposes play, step, scrub and speed controls', async () => {
     const run = await sampleRun();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
     expect(screen.getByRole('button', { name: /^Play$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /restart/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /previous step/i })).toBeInTheDocument();
@@ -69,7 +70,7 @@ describe('Replay — transport', () => {
 describe('Replay — header describes the run it shows', () => {
   it('derives the h1 narrative from the run category, never a hardcoded storyline', async () => {
     const run = await sampleRun();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
     const heading = screen.getByRole('heading', { level: 1 });
     // The category code leads the title and the narrative is the ASI06 storyline
     // for the sample; a non-ASI06 run must not inherit "memory poisoning".
@@ -83,7 +84,7 @@ describe('Replay — header describes the run it shows', () => {
 describe('Replay — fix-report off-ramp', () => {
   it('links to the fix report for this run', async () => {
     const run = await sampleRun();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
     // The verdict summary and the export are shown throughout (only the rationale
     // prose is sealed), so the off-ramp is available from the start.
     const link = screen.getByRole('link', { name: /fix report/i });
@@ -94,7 +95,7 @@ describe('Replay — fix-report off-ramp', () => {
 describe('Replay — outcome and provenance', () => {
   it('states the compromise and the step number it is anchored to', async () => {
     const run = await sampleRun();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
     const outcome = screen.getByTestId('run-outcome');
     expect(outcome).toHaveTextContent(/compromised at step/i);
     const compromiseIndex = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId);
@@ -131,7 +132,7 @@ describe('Replay — outcome and provenance', () => {
         rationale: 'The agent did not act on the injected instruction.',
       },
     };
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
 
     expect(screen.getByTestId('run-outcome')).toHaveTextContent(/agent resisted/i);
     expect(
@@ -165,7 +166,7 @@ describe('Replay — outcome and provenance', () => {
         rationale: 'The agent did not act on the injected instruction.',
       },
     };
-    const { unmount } = render(<Replay run={clean} routeId={ROUTE_ID} />);
+    const { unmount } = renderRevealed(<Replay run={clean} routeId={ROUTE_ID} />);
     expect(screen.getByRole('link', { name: 'Open run result' })).toHaveAttribute(
       'href',
       `/findings/${ROUTE_ID}`,
@@ -173,7 +174,7 @@ describe('Replay — outcome and provenance', () => {
     expect(screen.queryByRole('link', { name: /fix report/i })).not.toBeInTheDocument();
     unmount();
 
-    render(<Replay run={compromisedRun} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={compromisedRun} routeId={ROUTE_ID} />);
     expect(screen.getByRole('link', { name: 'Open fix report' })).toBeInTheDocument();
   });
 });
@@ -191,7 +192,7 @@ describe('Replay — verdict terminal', () => {
     const run = await sampleRun();
     if (!run.verdict.compromised) throw new Error('sample must be compromised');
     const user = userEvent.setup();
-    render(<Replay run={run} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={run} routeId={ROUTE_ID} />);
 
     const verdict = screen.getByRole('complementary', { name: /detector verdict/i });
     // Outcome is shown as terminal output; the rationale prose is gone.
@@ -219,7 +220,7 @@ describe('Replay · the verdict panel is about the run in the URL', () => {
       runId: 'session-d15f376e',
       verdict: { ...sample.verdict, runId: 'session-d15f376e' },
     };
-    render(<Replay run={run} routeId="row-3bf49c2a" />);
+    renderRevealed(<Replay run={run} routeId="row-3bf49c2a" />);
 
     const panel = screen.getByRole('complementary', { name: /detector verdict/i });
     expect(within(panel).getByText(/verdict --run row-3bf49c2a/)).toBeInTheDocument();
@@ -239,7 +240,7 @@ describe('Replay · the verdict panel is about the run in the URL', () => {
         rationale: 'The agent did the task and nothing else.',
       },
     };
-    render(<Replay run={run} routeId="row-3bf49c2a" />);
+    renderRevealed(<Replay run={run} routeId="row-3bf49c2a" />);
 
     const panel = screen.getByRole('complementary', { name: /detector verdict/i });
     expect(panel.textContent).toMatch(/outcome\s+NOT COMPROMISED/);

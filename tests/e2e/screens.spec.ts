@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { expectNoWcagViolations, gotoOk, suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 
 /**
  * EVERY SHIPPED SCREEN, rendered and scanned.
@@ -76,7 +77,10 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('slider', { name: 'Scrub to step' })).toBeVisible();
       await expect(page.getByRole('complementary', { name: 'Detector verdict' })).toBeVisible();
       await expect(page.getByRole('region', { name: 'Step detail' })).toBeVisible();
-      // The fix-report off-ramp the verdict offers.
+      // The verdict waits for the run (owner ruling 2026-10-17); once revealed
+      // it offers the fix-report off-ramp.
+      await expect(page.getByRole('button', { name: 'Show verdict now' })).toBeVisible();
+      await revealVerdict(page);
       await expect(page.getByRole('link', { name: 'Open fix report' })).toBeVisible();
       // The sample verdict never travels without its label, and the label never
       // implies a captured live agent.

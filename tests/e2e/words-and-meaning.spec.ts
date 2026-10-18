@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressBootSplash } from './support/screen';
 import { probeAsiCodes, probeBreachColour, type AsiMention } from './support/words-meaning';
+import { revealVerdict } from './support/reveal-verdict';
 
 /**
  * WORDS AND MEANING (UI audit 2026-10-12, batch C; WCAG 1.4.1, 3.1.3, 3.1.4, 4.1.2).
@@ -107,6 +108,8 @@ async function toLastStep(page: Page) {
 
 /** Step a replay to the step its verdict is anchored to. */
 async function toCompromiseStep(page: Page) {
+  // The step number is in the verdict's badge, which waits to be revealed.
+  await revealVerdict(page);
   const outcome = await page.getByTestId('run-outcome').first().innerText();
   const anchored = Number(/STEP (\d+)/.exec(outcome)?.[1] ?? 1);
   const next = nextStep(page);

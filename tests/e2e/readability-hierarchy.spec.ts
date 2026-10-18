@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 
 /**
  * READABILITY AND HIERARCHY (UI audit 2026-10-12, batch D; WCAG 1.3.1, 1.4.1,
@@ -683,6 +684,8 @@ for (const viewport of VIEWPORTS) {
     }) => {
       test.skip(browserName === 'webkit' && viewport.width >= 768, WEBKIT_IS_A_PHONE);
       await open(page, '/runs/sample');
+      // The breach mark is drawn on the transcript once the verdict is revealed.
+      await revealVerdict(page);
       const timeline = page.getByRole('list', { name: 'Attack replay step timeline' });
       const id = await timeline.getAttribute('aria-describedby');
       expect(id, 'the timeline is described by a key').toBeTruthy();
@@ -830,7 +833,14 @@ const LIVE_ON_MAIN: { name: string; path: string; count: number; note: string }[
   { name: 'threats', path: '/threats', count: 0, note: 'nothing announces' },
   { name: 'connect, sample mode', path: '/connect', count: 1, note: 'the task preview' },
   { name: 'report', path: '/findings/sample', count: 1, note: 'the copy button label' },
-  { name: 'replay, at rest', path: '/runs/sample', count: 1, note: 'the step detail' },
+  // Two since the verdict reveal (owner ruling 2026-10-17): the step detail,
+  // and the polite line that announces the verdict once it is revealed.
+  {
+    name: 'replay, at rest',
+    path: '/runs/sample',
+    count: 2,
+    note: 'the step detail and the verdict announcement',
+  },
 ];
 
 for (const viewport of VIEWPORTS) {
@@ -846,7 +856,7 @@ for (const viewport of VIEWPORTS) {
       });
     }
 
-    test('replay, while it plays: still exactly one, the step detail', async ({
+    test('replay, while it plays: the step detail and the verdict announcement', async ({
       page,
       browserName,
     }) => {
@@ -856,7 +866,13 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
       await expect(page.getByText(/STEP 0[2-9]/).first()).toBeVisible();
       const found = await liveRegions(page);
-      expect(found).toEqual([{ what: 'aria-live=polite', label: 'Step detail' }]);
+      expect(found).toEqual(
+        expect.arrayContaining([
+          { what: 'aria-live=polite', label: 'Step detail' },
+          { what: 'aria-live=polite', label: 'verdict-announcement' },
+        ]),
+      );
+      expect(found).toHaveLength(2);
     });
 
     test('connect, a run issued: the five main has, and no sixth', async ({
