@@ -139,11 +139,16 @@ describe('DTCG token layer (globals.css)', () => {
     // `--header-h` until it does. `--run-bar-clear` is a third: the run bar a
     // phone holds at the bottom writes its measured height there while it is
     // pinned, and the scroll padding that reads it falls back to 0.
+    // `--hero-reveal-at` and `--hero-plain-ink` are set inline by the Home
+    // hero (the moment its breach is applied, and each text span's ordinary
+    // ink), with fallbacks where they are read (owner ruling 2026-10-18).
     const externallyProvided = new Set([
       '--font-geist-sans',
       '--font-geist-mono',
       '--header-live-h',
       '--run-bar-clear',
+      '--hero-reveal-at',
+      '--hero-plain-ink',
     ]);
     const missing = tokenRefs(cssNoComments).filter(
       (name) => !vars.has(name) && !externallyProvided.has(name),

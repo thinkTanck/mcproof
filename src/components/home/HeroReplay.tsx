@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { stepColorToken } from '@/lib/hud/trace-view';
 import type { Step } from '@/contract';
@@ -32,10 +33,30 @@ import { core7RowId } from './core7';
  * picture with a text alternative, and what is inside a picture is not read;
  * the picture points at the key with `aria-describedby`, once, so the key is
  * its description. Static text, never a live region.
+ *
+ * THE BREACH WAITS FOR THE SWEEP (owner ruling 2026-10-18, with the VERDICT
+ * REVEAL of 2026-10-17). The detector reads the whole run before it says
+ * anything, so while the first sweep travels down the rail the breach row
+ * looks like any other step: a plain node where the reticle will be, no
+ * BREACH badge, no red tint, its text in the ordinary inks. When the light
+ * peaks on the LAST step (`--hero-reveal-at`), the marker and the badge are
+ * applied. This is CSS alone and the component stays a Server Component: each
+ * "before" look is a one-millisecond hold animation that fills BACKWARDS
+ * through its delay and then ends (`.hero-reveal-*` in globals.css), so the
+ * resting style IS the finished picture. Under reduced motion the holds are
+ * switched off, and in any render where no animation runs the marker is
+ * simply there. Nothing changes size, so nothing moves. There is no "Show
+ * verdict now" here: the hero is a picture, and the picture's text
+ * alternative states the finding.
  */
 
 /** How long after the node above it each node lights, in seconds. */
 const SWEEP_STAGGER_SECONDS = 0.15;
+/**
+ * Where in its own 3.2s loop a node's glow is brightest: the 6% stop of the
+ * `hero-sweep` keyframes in globals.css, so 0.192s.
+ */
+const SWEEP_PEAK_SECONDS = 0.192;
 
 /** A reader-locatable label for a step: the tool it called, or the kind of step. */
 function label(step: Step): string {
@@ -119,7 +140,16 @@ export function HeroReplay({
         {/* The rail is the content. A thin spine threads the step nodes into one
           signal trace, and the breach node breaks it: a larger reticle, a red
           band and a bolder label make the compromise the focal point. */}
-        <ol aria-hidden="true" className="relative flex flex-col">
+        <ol
+          aria-hidden="true"
+          className="relative flex flex-col"
+          // The moment the first sweep's light peaks on the last step.
+          style={
+            {
+              '--hero-reveal-at': `${((total - 1) * SWEEP_STAGGER_SECONDS + SWEEP_PEAK_SECONDS).toFixed(3)}s`,
+            } as CSSProperties
+          }
+        >
           {steps.map((step, i) => {
             const breach = i + 1 === compromiseIndex;
             const id = `s${i + 1}`;
@@ -146,39 +176,60 @@ export function HeroReplay({
                 key={step.id}
                 data-testid="hero-step"
                 data-breach={breach ? 'true' : 'false'}
-                className={cn('flex items-center gap-3 rounded-md', breach ? 'py-1.5' : 'py-[3px]')}
-                style={
-                  breach
-                    ? { backgroundColor: 'color-mix(in srgb, var(--red-400) 9%, transparent)' }
-                    : undefined
-                }
+                className={cn(
+                  'flex items-center gap-3 rounded-md',
+                  breach ? 'relative isolate py-1.5' : 'py-[3px]',
+                )}
               >
+                {/* The breach row's red tint, behind the row, applied with the marker. */}
+                {breach && (
+                  <span
+                    data-hero-reveal="tint"
+                    aria-hidden="true"
+                    className="hero-reveal-hold pointer-events-none absolute inset-0 -z-10 rounded-md"
+                    style={{
+                      backgroundColor: 'color-mix(in srgb, var(--red-400) 9%, transparent)',
+                    }}
+                  />
+                )}
                 <div className="relative flex w-5 shrink-0 items-center justify-center self-stretch">
                   <span
                     aria-hidden="true"
                     className={cn('absolute left-1/2 w-px -translate-x-1/2 bg-line', spine)}
                   />
-                  {breach ? (
+                  {breach && (
+                    // The plain node that stands where the reticle will be while
+                    // the sweep runs; gone at rest.
                     <span
-                      data-testid="hero-breach-marker"
-                      className="hero-breach-dot relative z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-raised"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                        <circle
-                          cx="9"
-                          cy="9"
-                          r="7"
-                          fill="none"
-                          stroke="var(--status-breach)"
-                          strokeWidth="1.4"
-                        />
-                        <circle cx="9" cy="9" r="2.6" fill="var(--status-breach)" />
-                        <path
-                          d="M9 0.5v2.4M9 15.1v2.4M0.5 9h2.4M15.1 9h2.4"
-                          stroke="var(--status-breach)"
-                          strokeWidth="1.2"
-                        />
-                      </svg>
+                      data-hero-reveal="pending-node"
+                      aria-hidden="true"
+                      className="hero-reveal-pending absolute top-1/2 left-1/2 z-10 h-[13px] w-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+                      style={{ background: stepColorToken(step.type) }}
+                    />
+                  )}
+                  {breach ? (
+                    <span data-hero-reveal="marker" className="hero-reveal-hold relative z-10">
+                      <span
+                        data-testid="hero-breach-marker"
+                        className="hero-breach-dot relative z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-raised"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                          <circle
+                            cx="9"
+                            cy="9"
+                            r="7"
+                            fill="none"
+                            stroke="var(--status-breach)"
+                            strokeWidth="1.4"
+                          />
+                          <circle cx="9" cy="9" r="2.6" fill="var(--status-breach)" />
+                          <path
+                            d="M9 0.5v2.4M9 15.1v2.4M0.5 9h2.4M15.1 9h2.4"
+                            stroke="var(--status-breach)"
+                            strokeWidth="1.2"
+                          />
+                        </svg>
+                      </span>
                     </span>
                   ) : (
                     // 13px, up from 10: large enough for the passing sweep to read.
@@ -203,25 +254,38 @@ export function HeroReplay({
                   )}
                 </div>
                 <span
+                  data-hero-reveal={breach ? 'ink' : undefined}
                   className={cn(
                     'w-[22px] shrink-0 font-mono text-(length:--text-floor) tabular-nums',
-                    breach ? 'text-breach-text' : 'text-ink-muted',
+                    breach ? 'hero-reveal-ink text-breach-text' : 'text-ink-muted',
                   )}
+                  style={
+                    breach
+                      ? ({ '--hero-plain-ink': 'var(--text-muted)' } as CSSProperties)
+                      : undefined
+                  }
                 >
                   {id}
                 </span>
                 <span
+                  data-hero-reveal={breach ? 'ink' : undefined}
                   className={cn(
                     'min-w-0 flex-1 font-mono text-[13px] [overflow-wrap:anywhere]',
-                    breach ? 'font-semibold text-breach-text' : 'text-ink',
+                    breach ? 'hero-reveal-ink font-semibold text-breach-text' : 'text-ink',
                   )}
+                  style={
+                    breach ? ({ '--hero-plain-ink': 'var(--text)' } as CSSProperties) : undefined
+                  }
                 >
                   {label(step)}
                 </span>
                 {/* 13px text (small uppercase is never below 13px) in the 18px line box
                     the 12px chip had, so the breach row keeps its height. */}
                 {breach && (
-                  <span className="shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) leading-[18px] uppercase tracking-[0.1em] text-breach-text">
+                  <span
+                    data-hero-reveal="badge"
+                    className="hero-reveal-hold shrink-0 rounded-sm border border-breach/50 bg-breach/10 px-1.5 py-0.5 font-mono text-(length:--instrument-label) leading-[18px] uppercase tracking-[0.1em] text-breach-text"
+                  >
                     Breach
                   </span>
                 )}

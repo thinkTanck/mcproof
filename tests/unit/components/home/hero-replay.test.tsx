@@ -389,3 +389,73 @@ describe('HeroReplay · the sweep glow at rest', () => {
     expect(ends).toMatch(/opacity:\s*0\b/);
   });
 });
+
+/**
+ * THE HERO'S BREACH WAITS FOR THE SWEEP (owner ruling 2026-10-18, with the
+ * VERDICT REVEAL of 2026-10-17). While the first sweep travels down the rail
+ * the breach row looks like any other step: no reticle, no BREACH badge, no
+ * red tint, no red text. When the sweep's light reaches the last step the
+ * marker and the badge are applied. It is CSS alone: each "before" look is a
+ * hold animation that fills BACKWARDS through its delay and then ends, so the
+ * resting style is the finished picture. Reduced motion, and any render where
+ * no animation runs, therefore show the marker at once. There is no "Show
+ * verdict now" here.
+ */
+describe('HeroReplay · the breach is applied when the sweep reaches the last step', () => {
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  const PEAK = 0.192; // 6% of the 3.2s sweep, where the light is brightest.
+
+  it('times the reveal to the moment the light peaks on the last step', async () => {
+    const { container } = await renderHero();
+    const rail = container.querySelector<HTMLElement>('ol')!;
+    const rows = container.querySelectorAll('[data-testid="hero-step"]');
+    const at = parseFloat(rail.style.getPropertyValue('--hero-reveal-at'));
+    expect(at).toBeCloseTo((rows.length - 1) * 0.15 + PEAK, 3);
+  });
+
+  it('draws the finished picture in the markup, so a static render shows the marker', async () => {
+    const { container } = await renderHero();
+    const breach = container.querySelector<HTMLElement>('[data-breach="true"]')!;
+    expect(breach.querySelector('[data-testid="hero-breach-marker"]')).not.toBeNull();
+    expect(breach).toHaveTextContent('Breach');
+    for (const part of ['marker', 'badge', 'tint', 'ink', 'pending-node']) {
+      expect(breach.querySelector(`[data-hero-reveal="${part}"]`), part).not.toBeNull();
+    }
+    // Only the breach row waits; every other row is drawn as it always was.
+    expect(container.querySelectorAll('[data-hero-reveal]')).toHaveLength(
+      breach.querySelectorAll('[data-hero-reveal]').length,
+    );
+  });
+
+  it('holds each "before" look by filling backwards, never forwards', () => {
+    for (const name of ['hero-hold-hidden', 'hero-hold-shown', 'hero-hold-plain-ink']) {
+      expect(css, name).toMatch(new RegExp(`@keyframes ${name}\\s*\\{`));
+    }
+    const rule = (sel: string) => new RegExp(`\\.${sel}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+    for (const sel of ['hero-reveal-hold', 'hero-reveal-pending', 'hero-reveal-ink']) {
+      expect(rule(sel), sel).toMatch(/var\(--hero-reveal-at, 0s\)\s+backwards/);
+      expect(rule(sel), sel).not.toMatch(/\bforwards\b|\bboth\b|infinite/);
+    }
+    // The plain node that stands in during the sweep is gone at rest.
+    expect(rule('hero-reveal-pending')).toMatch(/opacity:\s*0/);
+  });
+
+  it('is switched off under reduced motion, which leaves the finished picture', () => {
+    const reduce =
+      /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*)\}\s*$/.exec(
+        css.slice(0, css.indexOf('@utility measure')),
+      )?.[1] ?? '';
+    const off = /([^{}]*)\{\s*animation:\s*none;\s*\}/.exec(reduce)?.[1] ?? '';
+    for (const sel of ['hero-reveal-hold', 'hero-reveal-pending', 'hero-reveal-ink']) {
+      expect(off, sel).toContain(`.${sel}`);
+    }
+  });
+
+  it('offers no "Show verdict now" on the hero', async () => {
+    await renderHero();
+    expect(screen.queryByRole('button', { name: /show verdict now/i })).toBeNull();
+  });
+});
