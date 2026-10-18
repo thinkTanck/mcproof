@@ -5,6 +5,7 @@ import type { Leaderboard, LeaderboardCell } from '@/data/source';
 import { BandShape } from './BandShape';
 import { CountUp } from './CountUp';
 import { InertMark } from './InertMark';
+import { SwipeCue } from './SwipeCue';
 
 /**
  * ROBUSTNESS LEADERBOARD heatmap (register: PRODUCT). A model × category matrix
@@ -51,6 +52,9 @@ const TONE: Record<Band, { value: string; tint: string }> = {
 };
 
 const fmt = (n: number) => n.toFixed(2);
+
+/** The one scroll region on the page, which the swipe cue measures. */
+const SCROLL_REGION_ID = 'leaderboard-scroll';
 
 /** A cell that has runs behind it, so it has a number and a provenance. */
 type ScoredCell = Extract<LeaderboardCell, { robustness: number }>;
@@ -134,6 +138,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
     <figure className="m-0">
       {weakestBody ? (
         <p
+          data-weakest=""
           className={cn(
             'mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3.5 py-2.5',
             weakestFrame,
@@ -223,26 +228,15 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
         ))}
       </ul>
 
-      {/* Swipe / scroll affordance: says the board scrolls sideways and the model
-          column stays put. It is two sentences, so it wears the READING role
-          (prose never wears an INSTRUMENT one), in the muted tone. */}
-      <p className="reading mb-2.5 flex items-center gap-2 text-ink-muted">
-        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <path
-            d="M6 3 2 8l4 5M10 3l4 5-4 5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        Swipe to see all {categories.length} attack types. The model column stays in place.
-      </p>
+      {/* Swipe / scroll affordance, drawn only when the table really overflows
+          its region (owner ruling 2026-10-18): measured in the browser, so it
+          is never shown at a width where every column fits. */}
+      <SwipeCue regionId={SCROLL_REGION_ID} count={categories.length} />
 
       {/* Focusable, labelled 2-D scroll region. */}
       <div className="relative">
         <div
+          id={SCROLL_REGION_ID}
           role="region"
           aria-label={`${measured ? 'Measured' : 'Fixture'} model by category robustness heatmap`}
           tabIndex={0}
@@ -289,7 +283,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
             </thead>
             <tbody>
               {rows.map((row) => {
-                const overallBand = bandFor(row.overall);
+                const overallBand = row.overall === null ? null : bandFor(row.overall);
                 return (
                   <tr key={row.model}>
                     <th
@@ -304,6 +298,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
                             'bg-nominal': overallBand === 'nominal',
                             'bg-caution': overallBand === 'caution',
                             'bg-breach': overallBand === 'breach',
+                            'bg-[color:var(--status-inert)]': overallBand === null,
                           })}
                         />
                         <span className="font-mono text-[14px] text-ink-hi">{row.model}</span>
@@ -362,12 +357,30 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
                         </td>
                       );
                     })}
-                    <td className="border-b border-l border-r border-line px-3.5 py-3 text-right">
-                      <CountUp
-                        value={row.overall}
-                        className={cn('display-md font-mono', TONE[overallBand].value)}
-                      />
-                    </td>
+                    {row.overall === null || overallBand === null ? (
+                      // No valid run left to score: No data, never 0.
+                      <td
+                        data-overall=""
+                        data-cell-state="none"
+                        className="border-b border-l border-r border-line px-3.5 py-3 text-right"
+                        style={{ color: 'var(--status-inert)' }}
+                      >
+                        <span className="inline-flex items-center gap-1.5 font-mono text-[13px] uppercase tracking-[0.1em]">
+                          <InertMark />
+                          No data
+                        </span>
+                      </td>
+                    ) : (
+                      <td
+                        data-overall=""
+                        className="border-b border-l border-r border-line px-3.5 py-3 text-right"
+                      >
+                        <CountUp
+                          value={row.overall}
+                          className={cn('display-md font-mono', TONE[overallBand].value)}
+                        />
+                      </td>
+                    )}
                   </tr>
                 );
               })}

@@ -13,6 +13,7 @@ import { REPLAY_KEY_ID } from './ReplayKey';
 import { ReplayLegend } from './ReplayLegend';
 import { SpeakerDefinitions } from './SpeakerHandle';
 import { useReplayLayout } from './phone-layout';
+import { SCORING_EXCLUSION_LABEL, type ScoringExclusion } from '@/leaderboard/scoring-rules';
 
 /**
  * Replay (the hero) — two terminals over a full-width transport. The
@@ -86,6 +87,12 @@ interface ReplayProps {
    * zone (owner ruling 2026-10-15). Absent for a sample.
    */
   runAt?: string | null;
+  /**
+   * Why the leaderboard does not score this run, if it does not (owner ruling
+   * 2026-10-18). Said once under the provenance line. It is not part of the
+   * verdict, so it is shown from the start.
+   */
+  scoringExclusion?: ScoringExclusion | null;
 }
 
 /** One replay, and the one place that holds which prompt's definition is open. */
@@ -97,7 +104,7 @@ export function Replay(props: ReplayProps) {
   );
 }
 
-function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
+function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: ReplayProps) {
   const steps = run.trace.steps;
   const total = steps.length;
   const compromiseIndex = steps.findIndex((s) => s.id === run.verdict.stepId);
@@ -281,6 +288,14 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
         {provenance ? (
           <p className="instrument mt-(--instrument-stack) text-ink-faint">
             <RunProvenance text={provenance} runAt={runAt} />
+          </p>
+        ) : null}
+        {scoringExclusion ? (
+          <p
+            data-scoring-exclusion={scoringExclusion}
+            className="instrument mt-(--instrument-stack-rows) text-ink-muted"
+          >
+            {SCORING_EXCLUSION_LABEL[scoringExclusion]}
           </p>
         ) : null}
       </header>

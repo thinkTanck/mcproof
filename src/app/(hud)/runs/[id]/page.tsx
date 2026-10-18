@@ -72,6 +72,12 @@ export default async function RunReplay({ params }: Props) {
     );
   }
   return (
-    <Replay run={view.run} routeId={id} provenance={view.displayProvenance} runAt={view.runAt} />
+    <Replay
+      run={view.run}
+      routeId={id}
+      provenance={view.displayProvenance}
+      runAt={view.runAt}
+      scoringExclusion={view.scoringExclusion}
+    />
   );
 }

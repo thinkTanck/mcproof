@@ -179,8 +179,38 @@ describe('LeaderboardHeatmap', () => {
     renderHeatmap();
     const region = screen.getByRole('region', { name: /heatmap/i });
     expect(region).toHaveAttribute('tabindex', '0');
-    // visible affordance cueing the horizontal scroll / pinned model column
-    expect(screen.getByText(/The model column stays in place/i)).toBeInTheDocument();
+    // The swipe cue (owner ruling 2026-10-18): one sentence, pointing at this
+    // region, and drawn only when the table really overflows it. Before it is
+    // measured it is in the markup, ready, and not yet decided.
+    const cue = screen.getByText('Swipe the table left to see all 7 attack types.');
+    expect(cue.closest('[data-swipe-cue]')).toHaveAttribute('data-swipe-cue', region.id);
+    expect(screen.queryByText(/The model column stays in place/i)).toBeNull();
+  });
+
+  it('shows No data for an OVERALL with no valid runs, never 0.00, and names no weakest cell', () => {
+    const allExcluded: Leaderboard = {
+      source: 'measured',
+      runs: 0,
+      categories: CATS,
+      rows: [
+        {
+          model: 'only-broken',
+          overall: null,
+          runs: 0,
+          state: 'measured',
+          cells: CATS.map((c) => noData('only-broken', c.id)),
+        },
+      ],
+    };
+    const { container } = render(<LeaderboardHeatmap leaderboard={allExcluded} />);
+    const row = screen.getByRole('row', { name: /only-broken/ });
+    expect(row).not.toHaveTextContent('0.00');
+    const overall = row.querySelector('[data-overall]')!;
+    expect(overall).toHaveTextContent('No data');
+    expect(overall).toHaveAttribute('data-cell-state', 'none');
+    // No cell has data, so no weakest (or strongest) is named.
+    expect(screen.queryByText(/weakest/i)).toBeNull();
+    expect(container.querySelector('[data-weakest]')).toBeNull();
   });
 
   describe('a MEASURED board', () => {

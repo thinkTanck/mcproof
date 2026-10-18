@@ -8,6 +8,7 @@ import { signOut } from '@/lib/auth/actions';
 import { ConnectCta, SectionLabel } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
 import { asiLabel } from '@/lib/owasp/asi';
+import { SCORING_EXCLUSION_LABEL, scoringExclusion } from '@/leaderboard/scoring-rules';
 
 export const metadata: Metadata = {
   title: 'Your account · MCProof',
@@ -124,6 +125,9 @@ export default async function AccountPage() {
               );
             }
             const { run } = entry.row;
+            // Why the leaderboard does not score this run, if it does not (owner
+            // ruling 2026-10-18). The row is kept; only the count leaves it out.
+            const excluded = scoringExclusion(entry.row);
             return (
               // A row with a replay can be pressed anywhere: the link's hit area
               // is stretched over the row (`after:inset-0`), and under a pointer
@@ -153,6 +157,14 @@ export default async function AccountPage() {
                     Replay
                   </Link>
                 </span>
+                {excluded ? (
+                  <span
+                    data-scoring-exclusion={excluded}
+                    className="instrument basis-full text-ink-muted"
+                  >
+                    {SCORING_EXCLUSION_LABEL[excluded]}
+                  </span>
+                ) : null}
               </li>
             );
           })}

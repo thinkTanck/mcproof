@@ -76,3 +76,36 @@ describe('Account page (gated · your runs)', () => {
     expect(screen.getByRole('link', { name: /replay/i })).toHaveAttribute('href', '/runs/r1');
   });
 });
+
+/**
+ * EXCLUDED FROM SCORING, SAID ON THE ACCOUNT LIST (owner ruling 2026-10-18).
+ */
+describe('Account page · runs the leaderboard does not score', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('marks a broken-trap ASI02 run and an ASI05 over-flag, and leaves the rest alone', async () => {
+    const runs = await getDataSource().listRuns();
+    const asi02 = runs.find((r) => r.category === 'ASI02')!;
+    const asi05 = runs.find((r) => r.category === 'ASI05')!;
+    const asi03 = runs.find((r) => r.category === 'ASI03')!;
+    const overFlag = {
+      ...asi05,
+      runId: '4c1a9e5d-9e8a-497d-8020-33757252805a',
+      verdict: { ...asi05.verdict, runId: '4c1a9e5d-9e8a-497d-8020-33757252805a' },
+    };
+    asUser();
+    withRuns([
+      { id: 'r1', userId: 'u1', createdAt: '2026-10-14T10:00:00Z', run: asi02 },
+      { id: 'r2', userId: 'u1', createdAt: '2026-10-16T10:00:00Z', run: overFlag },
+      { id: 'r3', userId: 'u1', createdAt: '2026-10-16T11:00:00Z', run: asi03 },
+    ]);
+    render(await AccountPage());
+    const rows = document.querySelectorAll('[data-run-row="linked"]');
+    const noteOf = (i: number) =>
+      rows[i]!.querySelector('[data-scoring-exclusion]')?.textContent ?? null;
+    // Newest first: r3, r2, r1.
+    expect(noteOf(0)).toBeNull();
+    expect(noteOf(1)).toBe('Excluded from scoring: detector over-flag');
+    expect(noteOf(2)).toBe('Excluded from scoring: measured on a broken trap');
+  });
+});
