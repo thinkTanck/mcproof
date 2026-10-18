@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ConnectCta, SectionLabel } from '@/components/hud';
 import { InertMark, LeaderboardHeatmap } from '@/components/leaderboard';
 import { getRunRepository } from '@/data/run-repository.factory';
-import { measuredLeaderboard } from '@/leaderboard/measured';
+import { measuredLeaderboardFromStored } from '@/leaderboard/measured';
 import { getUser } from '@/lib/auth/user';
 
 export const metadata: Metadata = {
@@ -37,7 +37,9 @@ export default async function LeaderboardPage() {
 
   // Owner-scoped: a leaderboard is only ever built from runs the caller owns.
   const stored = user ? await (await getRunRepository()).listRuns(user.id) : [];
-  const measured = measuredLeaderboard(stored.map((row) => row.run));
+  // Scored by the written rules (`src/leaderboard/scoring-rules.ts`): manual
+  // clients are not on the board, and excluded runs count toward nothing.
+  const measured = measuredLeaderboardFromStored(stored);
 
   return (
     <section

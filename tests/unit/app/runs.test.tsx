@@ -58,11 +58,11 @@ function liveRun(compromised: boolean): RunResult {
   });
 }
 
-function stored(run: RunResult): StoredRun {
+function stored(run: RunResult, createdAt = '2026-08-05T09:41:07.123456+00:00'): StoredRun {
   return {
     id: '44444444-4444-4444-8444-444444449876',
     userId: 'user-1',
-    createdAt: '2026-08-05T09:41:07.123456+00:00',
+    createdAt,
     run,
   };
 }
@@ -248,5 +248,34 @@ describe('Replay — an id that resolves to nothing', () => {
     await expect(renderPage('44444444-4444-4444-8444-444444449876')).rejects.toMatchObject({
       digest: 'NEXT_HTTP_ERROR_FALLBACK;404',
     });
+  });
+});
+
+/**
+ * EXCLUDED FROM SCORING, SAID ON THE RUN'S OWN PAGE (owner ruling 2026-10-18).
+ * The stored row is kept as it is; its owner is told it does not count.
+ */
+describe('Replay — a run the leaderboard does not score', () => {
+  function signedInWithAt(run: RunResult, createdAt: string) {
+    asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+    asMock(getRunRepository).mockResolvedValue(repoWith([stored(run, createdAt)]));
+  }
+
+  it('marks an ASI02 run judged before the V1 fix as measured on a broken trap', async () => {
+    signedInWithAt(liveRun(true), '2026-10-14T19:00:00.000Z');
+    await renderPage('44444444-4444-4444-8444-444444449876');
+    const note = screen.getByText('Excluded from scoring: measured on a broken trap');
+    expect(note).toHaveAttribute('data-scoring-exclusion', 'broken-trap');
+  });
+
+  it('says nothing of the kind for an ASI02 run judged after the fix', async () => {
+    signedInWithAt(liveRun(true), '2026-10-15T19:00:00.000Z');
+    await renderPage('44444444-4444-4444-8444-444444449876');
+    expect(screen.queryByText(/Excluded from scoring/)).toBeNull();
+  });
+
+  it('never marks a sample', async () => {
+    await renderPage('sample');
+    expect(screen.queryByText(/Excluded from scoring/)).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import type { RunResult } from '@/contract';
 import { buildLeaderboard } from './index';
 import { CORE7_AXIS, CORE7_TITLES } from './axis';
 import { toLeaderboardView, type Leaderboard } from './view';
+import { isManualClient, scoringExclusion, type ScorableRun } from './scoring-rules';
 
 /**
  * THE MEASURED BOARD — per-model robustness over the runs that were actually
@@ -27,5 +28,24 @@ export function measuredLeaderboard(runs: RunResult[]): Leaderboard {
     titles: CORE7_TITLES,
     categories: CORE7_AXIS,
     source: 'measured',
+  });
+}
+
+/**
+ * THE MEASURED BOARD OVER STORED ROWS, with the scoring rules applied
+ * (owner ruling 2026-10-18; `scoring-rules.ts`). Nothing is removed from the
+ * store: a manual client's runs are left off the board, a run excluded from
+ * scoring counts toward no cell and no OVERALL, and an agent whose runs were
+ * all excluded keeps its row, which reads No data throughout.
+ */
+export function measuredLeaderboardFromStored(stored: readonly ScorableRun[]): Leaderboard {
+  const agents = stored.filter((row) => !isManualClient(row.run.model));
+  const scored = agents.filter((row) => scoringExclusion(row) === null).map((row) => row.run);
+  const models = [...new Set(agents.map((row) => row.run.model))].sort();
+  return toLeaderboardView(buildLeaderboard(scored), {
+    titles: CORE7_TITLES,
+    categories: CORE7_AXIS,
+    source: 'measured',
+    keepModels: models,
   });
 }

@@ -66,8 +66,12 @@ export type LeaderboardCell =
 export type LeaderboardRow = {
   model: string;
   cells: LeaderboardCell[];
-  /** Run-weighted across every run of this model, from the aggregator's own total. */
-  overall: number;
+  /**
+   * Run-weighted across every run of this model, from the aggregator's own
+   * total. Null when the model has no valid run left to score (every one was
+   * excluded), which the screen draws as No data, never as 0.
+   */
+  overall: number | null;
   runs: number;
   state: BoardProvenance;
 };
@@ -93,6 +97,13 @@ export interface LeaderboardViewOptions {
    * has and this function does not.
    */
   source: BoardProvenance;
+  /**
+   * Models to show as rows even with no scored run behind them, after the
+   * aggregate's own. Their every cell, and their OVERALL, is No data. Used for
+   * an agent whose runs were all excluded from scoring: the row says it was
+   * run, and the No data says none of it counts.
+   */
+  keepModels?: readonly string[];
 }
 
 export function toLeaderboardView(
@@ -134,6 +145,23 @@ export function toLeaderboardView(
     runs: total.runs,
     state: options.source,
   }));
+
+  for (const model of options.keepModels ?? []) {
+    if (model in board.byModel) continue;
+    rows.push({
+      model,
+      cells: axis.map((category) => ({
+        model,
+        category,
+        state: 'none',
+        robustness: null,
+        runs: 0,
+      })),
+      overall: null,
+      runs: 0,
+      state: options.source,
+    });
+  }
 
   return { categories, rows, source: options.source, runs: board.overall.runs };
 }

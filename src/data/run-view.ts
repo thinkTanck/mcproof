@@ -8,6 +8,7 @@ import { getDiscardedRunStore } from './discarded-run-store.factory';
 import type { StoredDiscardedRun } from './run-repository';
 import { getRunRepository } from './run-repository.factory';
 import { getDataSource } from './source';
+import { scoringExclusion, type ScoringExclusion } from '@/leaderboard/scoring-rules';
 
 /**
  * WHAT A RUN SCREEN READS THROUGH.
@@ -62,6 +63,12 @@ export interface RunView {
    * sample, whose dates are recorded and the same for every reader.
    */
   readonly runAt: string | null;
+  /**
+   * Why the leaderboard does not score this run, or null (owner ruling
+   * 2026-10-18, `src/leaderboard/scoring-rules.ts`). The row itself is kept
+   * as it was; its owner is told on its page. Always null for a sample.
+   */
+  readonly scoringExclusion: ScoringExclusion | null;
 }
 
 /** A fix report, with the same label. */
@@ -107,6 +114,7 @@ async function sampleView(id: string): Promise<RunView | null> {
     provenance,
     displayProvenance: sampleDisplayProvenance(),
     runAt: null,
+    scoringExclusion: null,
   };
 }
 
@@ -133,6 +141,7 @@ async function liveView(id: string): Promise<RunView | null> {
     provenance: liveVerdictProvenance(stored.createdAt),
     displayProvenance: liveDisplayProvenance(stored.createdAt),
     runAt: stored.createdAt,
+    scoringExclusion: scoringExclusion(stored),
   };
 }
 
