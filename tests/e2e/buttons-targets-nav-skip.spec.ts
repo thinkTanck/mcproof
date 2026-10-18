@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 import {
   installAudit,
   probeContrastOf,
@@ -326,6 +327,8 @@ const SCREENS: Screen[] = [
     name: 'Replay, export declined',
     arrive: async (page) => {
       await open(page, '/runs/sample');
+      // The export question is part of the verdict, which waits to be revealed.
+      await revealVerdict(page);
       await page.getByRole('button', { name: 'Not now' }).click();
       await settle(page);
     },
