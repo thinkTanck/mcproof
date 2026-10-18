@@ -105,13 +105,19 @@ describe('the replay transcript and its key', () => {
     expect(key.compareDocumentPosition(play) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('the replay still has exactly one live region, and the key is not it', async () => {
+  // Two since the verdict reveal (owner ruling 2026-10-17): the step detail
+  // and the polite line that announces the revealed verdict.
+  it('the replay has exactly two live regions, and the key is in neither', async () => {
     const run = await sampleRun();
     render(<Replay run={run} routeId="sample" />);
     const live = [...document.querySelectorAll(LIVE)];
-    expect(live).toHaveLength(1);
-    expect(live[0]).toHaveAttribute('aria-label', 'Step detail');
-    expect(live[0]!.contains(document.getElementById(REPLAY_KEY_ID))).toBe(false);
+    expect(live).toHaveLength(2);
+    expect(
+      live.map((el) => el.getAttribute('aria-label') ?? el.getAttribute('data-testid')),
+    ).toEqual(expect.arrayContaining(['Step detail', 'verdict-announcement']));
+    for (const region of live) {
+      expect(region.contains(document.getElementById(REPLAY_KEY_ID))).toBe(false);
+    }
   });
 });
 

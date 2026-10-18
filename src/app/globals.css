@@ -962,6 +962,15 @@ html {
   will-change: transform;
 }
 
+/* THE HEADER'S RUN VERDICT WAITS FOR THE REPLAY (owner ruling 2026-10-17).
+ * While a replay on the page has not revealed its verdict (its root carries
+ * `data-verdict-pending`), the header's run chip is held invisible in its own
+ * place, so nothing in the header moves when it appears. `visibility` also
+ * hides it from assistive technology. */
+body:has([data-verdict-pending]) [data-run-verdict] {
+  visibility: hidden;
+}
+
 /* The header pulse track (see StatusBar). The colour is the mode, from the
  * status tokens and never a new one: no run is the inert line tone, a sample is
  * the nominal hue mixed well down, a live run is the nominal hue near full. It

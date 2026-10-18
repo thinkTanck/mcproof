@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 
 /**
  * TAB NEVER LANDS ON SOMETHING YOU CANNOT SEE (sweep 2026-10-07, R1; WCAG 2.4.7).
@@ -92,6 +93,10 @@ for (const [width, height] of [
         .getByRole('button');
 
       await expect(steps).toHaveCount(8);
+      // The compromise is named only once the verdict is revealed (owner
+      // ruling 2026-10-17).
+      await expect(steps.nth(5)).toHaveAccessibleName('Step 6: Tool call');
+      await revealVerdict(page);
       await expect(steps.nth(5)).toHaveAccessibleName(
         'Step 6: Tool call, the agent was compromised here',
       );

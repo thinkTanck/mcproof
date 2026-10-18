@@ -3,6 +3,7 @@ import { ModeBadge } from '@/components/shell/ModeBadge';
 import { StatusBar } from '@/components/shell/StatusBar';
 import { stepColorToken } from '@/lib/hud/trace-view';
 import RunReplay from '@/app/(hud)/runs/[id]/page';
+import { revealVerdict } from '../../../helpers/reveal-verdict';
 
 describe('ModeBadge', () => {
   it('names the mode it is given: SAMPLE or LIVE', () => {
@@ -43,6 +44,8 @@ describe('runs/[id] replay', () => {
   it('resolves the run and renders the operable replay bound to the run id', async () => {
     const ui = await RunReplay({ params: Promise.resolve({ id: 'asi06-run' }) });
     render(ui);
+    // The off-ramp is part of the verdict, which waits to be revealed.
+    revealVerdict();
     // Run id is surfaced (bound to the record, not a literal) via the export off-ramp.
     expect(screen.getByRole('link', { name: 'Open fix report' })).toHaveAttribute(
       'href',

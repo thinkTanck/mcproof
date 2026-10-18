@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RunResult } from '@/contract';
-import { AsiLabel, StatusChip } from '@/components/hud';
+import { AsiLabel, Button, StatusChip } from '@/components/hud';
+import { cn } from '@/lib/utils';
 import { RunProvenance } from '@/components/hud/RunProvenance';
 import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
@@ -44,6 +45,22 @@ import { useReplayLayout } from './phone-layout';
  * EACH PROMPT OPENS ITS DEFINITION (`SpeakerHandle`), one at a time across the
  * transcript and the verdict rail, which is why both sit inside one
  * `SpeakerDefinitions`.
+ *
+ * THE VERDICT IS REVEALED, NOT SHOWN AT LOAD (owner ruling 2026-10-17). The
+ * detector reads the whole trace after the run, so while the replay plays it
+ * shows no verdict: the rail waits, the title has no badge, no step is marked
+ * and the header's run chip is held invisible. It is revealed when the playhead
+ * reaches the last step (played, stepped or scrubbed to), or at once by "Show
+ * verdict now", which stands where the badge will be and so is the first thing
+ * in the replay's focus order. Once revealed it stays revealed until RESET.
+ * The reveal is announced in a polite live region that is there, empty, from
+ * the start. The fix report is not a replay and shows its verdict at once.
+ *
+ * THE HEADER'S RUN CHIP (BREACH or CLEAR, the category and the severity) is
+ * drawn by the server-rendered shell, not here. While the verdict waits, the
+ * replay's root carries `data-verdict-pending`, and one rule in globals.css
+ * holds that chip invisible in its place while such a root is on the page, so
+ * the header does not move when it appears. It holds before hydration too.
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -93,18 +110,44 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
   const [speed, setSpeed] = useState(1);
   // Bumped on RESET so the verdict terminal's export prompt re-arms (keyed remount).
   const [resetKey, setResetKey] = useState(0);
+  // Latched once the verdict has been shown; only RESET clears it.
+  const [shown, setShown] = useState(false);
+  const outcomeRef = useRef<HTMLSpanElement>(null);
+  const focusOutcome = useRef(false);
 
   const atEnd = current >= total - 1;
+  const revealed = shown || atEnd;
+
+  // Move the playhead. Reaching the last step reveals the verdict, and it
+  // stays revealed after that (latched here, where the playhead moves).
+  const goTo = (i: number) => {
+    const next = Math.max(0, Math.min(total - 1, i));
+    setCurrent(next);
+    if (next >= total - 1) setShown(true);
+  };
+
+  // "Show verdict now" is gone once pressed, so focus goes to the outcome it
+  // revealed rather than falling back to the page.
+  useEffect(() => {
+    if (revealed && focusOutcome.current) {
+      focusOutcome.current = false;
+      outcomeRef.current?.focus({ preventScroll: true });
+    }
+  }, [revealed]);
   const layout = useReplayLayout();
 
   useEffect(() => {
     if (!playing || atEnd) return;
-    const t = setTimeout(() => setCurrent((c) => Math.min(c + 1, total - 1)), 1100 / speed);
+    const t = setTimeout(() => {
+      const next = Math.min(current + 1, total - 1);
+      setCurrent(next);
+      if (next >= total - 1) setShown(true);
+    }, 1100 / speed);
     return () => clearTimeout(t);
   }, [playing, current, atEnd, total, speed]);
 
   const step = steps[current]!;
-  const compromised = current === compromiseIndex;
+  const compromised = revealed && current === compromiseIndex;
 
   const playToggle = () => {
     if (atEnd) {
@@ -116,15 +159,16 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
   };
   const stepBy = (d: number) => {
     setPlaying(false);
-    setCurrent((c) => Math.max(0, Math.min(total - 1, c + d)));
+    goTo(current + d);
   };
   const scrubTo = (i: number) => {
     setPlaying(false);
-    setCurrent(Math.max(0, Math.min(total - 1, i)));
+    goTo(i);
   };
   const restart = () => {
     setPlaying(false);
     setCurrent(0);
+    setShown(false);
     setResetKey((k) => k + 1);
   };
 
@@ -152,9 +196,22 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
       ? 'COMPROMISED'
       : `COMPROMISED AT STEP ${compromiseStepNumber}`
     : 'AGENT RESISTED';
+  // What the live region says when the verdict is revealed. No em dash.
+  const announcement = run.verdict.compromised
+    ? compromiseStepNumber === null
+      ? 'Verdict: compromised.'
+      : `Verdict: compromised at step ${compromiseStepNumber}.`
+    : 'Verdict: agent resisted.';
+  const showNow = () => {
+    focusOutcome.current = true;
+    setShown(true);
+  };
 
   return (
-    <div className="flex min-h-[calc(100dvh-var(--header-h))] flex-col">
+    <div
+      data-verdict-pending={revealed ? undefined : ''}
+      className="flex min-h-[calc(100dvh-var(--header-h))] flex-col"
+    >
       {/* Header — kicker + title + the run's outcome and provenance.
           THE OUTCOME IS STATED UP FRONT, both ways round. A compromise names the
           step it is anchored to; a run the agent resisted says so in the nominal
@@ -170,13 +227,41 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
                 from the board's spelling. */}
             <AsiLabel code={run.category} separator=" · " />
           </h1>
-          <span data-testid="run-outcome" className="shrink-0">
-            <StatusChip
-              state={run.verdict.compromised ? 'breach' : 'nominal'}
-              label={outcomeLabel}
-            />
+          {/* ONE SLOT FOR BOTH, so the reveal moves nothing. The button and the
+              badge share a grid cell, sized by the larger of the two, and the
+              one not on show is `invisible` (out of the tab order and the
+              accessibility tree, its box kept). Swapping one for the other
+              changed the title row's height, and everything under it moved. */}
+          <span className="inline-grid shrink-0 items-center">
+            <span
+              ref={outcomeRef}
+              tabIndex={revealed ? -1 : undefined}
+              data-testid={revealed ? 'run-outcome' : undefined}
+              aria-hidden={revealed ? undefined : true}
+              className={cn('[grid-area:1/1]', !revealed && 'invisible')}
+            >
+              <StatusChip
+                state={revealed && run.verdict.compromised ? 'breach' : 'nominal'}
+                label={revealed ? outcomeLabel : outcomeLabel.replace(/\S/g, ' ')}
+              />
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-hidden={revealed ? true : undefined}
+              tabIndex={revealed ? -1 : undefined}
+              className={cn('target-min [grid-area:1/1]', revealed && 'invisible')}
+              onClick={showNow}
+            >
+              Show verdict now
+            </Button>
           </span>
         </div>
+        {/* The reveal, said once to a screen reader. There, empty, from the
+            start, so the words are announced when they arrive. */}
+        <p data-testid="verdict-announcement" aria-live="polite" className="sr-only">
+          {revealed ? announcement : ''}
+        </p>
         {/* The run telemetry, under the title (G option B, owner ruling
             2026-10-14). It used to be cut to one line in the header bar; here
             it wraps, so a long run id or model name is printed in full. The
@@ -233,7 +318,7 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
             <ReplayTerminal
               steps={steps}
               current={current}
-              compromiseIndex={compromiseIndex}
+              compromiseIndex={revealed ? compromiseIndex : -1}
               model={run.model}
               onSelect={scrubTo}
             />
@@ -242,6 +327,7 @@ function ReplayStage({ run, routeId, provenance, runAt }: ReplayProps) {
           <VerdictRail
             key={resetKey}
             verdict={run.verdict}
+            revealed={revealed}
             routeId={routeId}
             compromiseStepNumber={compromiseStepNumber}
             offendingLabel={offendingLabel}

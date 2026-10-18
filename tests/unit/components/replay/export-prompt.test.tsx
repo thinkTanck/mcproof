@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Replay } from '@/components/replay';
 import { getDataSource } from '@/data/source';
 import type { RunResult } from '@/contract';
+import { renderRevealed } from '../../../helpers/reveal-verdict';
 
 /**
  * THE EXPORT PROMPT HAS TWO REAL BUTTONS (owner ruling 2026-10-15 20:26).
@@ -41,7 +42,7 @@ const verdictPanel = () => screen.getByRole('complementary', { name: /detector v
 
 describe('the export prompt: two real buttons', () => {
   it('offers "Open fix report" (to this run’s report) and "Not now" on a compromise', async () => {
-    render(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
     const panel = verdictPanel();
     const open = within(panel).getByRole('link', { name: 'Open fix report' });
     expect(open).toHaveAttribute('href', `/findings/${ROUTE_ID}`);
@@ -52,7 +53,7 @@ describe('the export prompt: two real buttons', () => {
   });
 
   it('reads "Open run result" for a clean run, never "fix report"', async () => {
-    render(<Replay run={cleanOf(await sampleRun())} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={cleanOf(await sampleRun())} routeId={ROUTE_ID} />);
     const panel = verdictPanel();
     expect(within(panel).getByRole('link', { name: 'Open run result' })).toHaveAttribute(
       'href',
@@ -62,7 +63,7 @@ describe('the export prompt: two real buttons', () => {
   });
 
   it('gives both a pointer target of at least --target-min (the target-min utility)', async () => {
-    render(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
     const panel = verdictPanel();
     for (const el of [
       within(panel).getByRole('link', { name: 'Open fix report' }),
@@ -76,7 +77,7 @@ describe('the export prompt: two real buttons', () => {
 
   it('puts both in the tab order, Open first', async () => {
     const user = userEvent.setup();
-    render(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
+    renderRevealed(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
     const panel = verdictPanel();
     const open = within(panel).getByRole('link', { name: 'Open fix report' });
     const notNow = within(panel).getByRole('button', { name: 'Not now' });
@@ -99,7 +100,7 @@ describe('the export prompt: two real buttons', () => {
     };
     document.addEventListener('click', onClick);
     try {
-      render(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
+      renderRevealed(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
       const panel = verdictPanel();
       await user.click(within(panel).getByRole('button', { name: 'Not now' }));
       expect(clicks).toEqual([]);
@@ -125,12 +126,12 @@ describe('the export prompt: two real buttons', () => {
     };
     document.addEventListener('click', onClick);
     try {
-      const { unmount } = render(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
+      const { unmount } = renderRevealed(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
       await user.keyboard('y');
       expect(clicks).toEqual([`/findings/${ROUTE_ID}`]);
       unmount();
 
-      render(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
+      renderRevealed(<Replay run={await sampleRun()} routeId={ROUTE_ID} />);
       await user.keyboard('n');
       const panel = verdictPanel();
       expect(within(panel).getByText(/^>\s*ok$/)).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { gotoOk, suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 
 /**
  * THE CRITICAL PATH, walked as a user walks it:
@@ -39,8 +40,12 @@ test('connect -> replay -> fix report -> clipboard', async ({ page }) => {
   await expect(scrubber).toHaveAttribute('aria-valuetext', /^Step 2 of \d+$/);
   await expect(page.getByRole('region', { name: 'Step detail' })).toBeVisible();
 
-  // The verdict rail states the outcome throughout, not only at the end.
+  // The verdict waits for the run to finish (owner ruling 2026-10-17), and
+  // "Show verdict now" reveals it at once.
   const verdict = page.getByRole('complementary', { name: 'Detector verdict' });
+  await expect(verdict).toContainText('waiting for the run to finish...');
+  await expect(verdict).not.toContainText('COMPROMISED');
+  await revealVerdict(page);
   await expect(verdict).toContainText('COMPROMISED');
 
   // 4. Open the fix report. "Open fix report" is a real link, so it is keyboard

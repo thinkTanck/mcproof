@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressBootSplash } from './support/screen';
+import { revealVerdict } from './support/reveal-verdict';
 
 /**
  * KEYBOARD FOCUS IS NEVER PARKED UNDER THE HEADER (sweep 2026-10-07, X1;
@@ -153,6 +154,8 @@ test.describe('Replay', () => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/runs/sample');
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+    // The export buttons are part of the verdict, which waits to be revealed.
+    await revealVerdict(page);
 
     expectClear(await walkBackward(page, 14), [/^Open fix report/, /^Not now/]);
   });

@@ -8,6 +8,7 @@ import { sampleDisplayProvenance } from '@/lib/display/dates';
 import { getUser } from '@/lib/auth/user';
 import { getRunRepository } from '@/data/run-repository.factory';
 import type { StoredRun } from '@/data/run-repository';
+import { revealVerdict } from '../../helpers/reveal-verdict';
 
 vi.mock('@/lib/auth/user', () => ({ getUser: vi.fn() }));
 vi.mock('@/data/run-repository.factory', () => ({ getRunRepository: vi.fn() }));
@@ -79,8 +80,13 @@ function repoWith(rows: StoredRun[]) {
   };
 }
 
-const renderPage = async (id: string) =>
-  render(await RunReplayPage({ params: Promise.resolve({ id }) }));
+// A replay shows no verdict until it is revealed (owner ruling 2026-10-17), so
+// these tests about the run's verdict reveal it first, as a reader would.
+const renderPage = async (id: string) => {
+  const result = render(await RunReplayPage({ params: Promise.resolve({ id }) }));
+  if (screen.queryByRole('button', { name: 'Show verdict now' })) revealVerdict();
+  return result;
+};
 
 /** Sign in as the owner of one persisted run. */
 function signedInWith(run: RunResult) {

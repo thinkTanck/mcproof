@@ -35,7 +35,15 @@ import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
  * `detector@sentinel` is, from the roles lookup, drawn under that line
  * (`SpeakerHandle`). It is a Tab stop here, the first thing in the rail. The
  * second prompt, on the export line, is printed and not a control.
+ *
+ * IT WAITS FOR THE RUN TO FINISH (owner ruling 2026-10-17). The detector reads
+ * the whole trace after the run, so while the replay plays the rail prints one
+ * line, "waiting for the run to finish...", and nothing of the verdict: no
+ * outcome, category, severity, step or export question. The replay reveals it
+ * (`revealed`) at the last step or on "Show verdict now".
  */
+/** What the rail prints while the run is still playing. */
+export const VERDICT_WAITING = 'waiting for the run to finish...';
 const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
 const PROMPT_COLOR = 'var(--terminal-prompt)';
@@ -73,8 +81,11 @@ export function VerdictRail({
   routeId,
   compromiseStepNumber,
   offendingLabel,
+  revealed = true,
 }: {
   verdict: Verdict;
+  /** False while the replay is still playing: the rail waits and shows no verdict. */
+  revealed?: boolean;
   /** The id in the `/runs/[id]` URL, which is the id `/findings/[id]` resolves. */
   routeId: string;
   /** 1-based step number of verdict.stepId, or null if the run is clean. */
@@ -82,55 +93,6 @@ export function VerdictRail({
   /** Tool/label of the offending step, e.g. "send_email". */
   offendingLabel?: string;
 }) {
-  // Built from the ROUTE id, never `verdict.runId`. For a saved live run that is
-  // the session's run id, which the findings route cannot resolve, so the link
-  // landed every live run on the missing-report state.
-  const href = `/findings/${routeId}`;
-  const compromised = verdict.compromised;
-  const exportLabel = compromised ? 'Export fix report' : 'Export run result';
-  const openLabel = compromised ? 'Open fix report' : 'Open run result';
-  const [answered, setAnswered] = useState<null | 'n'>(null);
-  const yRef = useRef<HTMLAnchorElement>(null);
-  const promptRef = useRef<HTMLDivElement>(null);
-  // Focus follows "Not now" to the prompt line only when someone answered (a
-  // press or a key), never on a first render or a RESET remount.
-  const focusPrompt = useRef(false);
-
-  const decline = () => {
-    focusPrompt.current = true;
-    setAnswered('n');
-  };
-
-  useEffect(() => {
-    if (answered === 'n' && focusPrompt.current) {
-      focusPrompt.current = false;
-      promptRef.current?.focus({ preventScroll: true });
-    }
-  }, [answered]);
-
-  // While the prompt is unanswered, y/n typed anywhere answers it — the way a
-  // console prompt captures the next keystroke. `y` clicks the link (no router
-  // dependency, so it still renders under test); `n` prints `ok`. Ignore keys
-  // aimed at a text field, and stop listening once answered.
-  useEffect(() => {
-    if (answered !== null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.key === 'y' || e.key === 'Y') {
-        e.preventDefault();
-        yRef.current?.click();
-      } else if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        focusPrompt.current = true;
-        setAnswered('n');
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [answered]);
-
   return (
     <aside
       aria-label="Detector verdict"
@@ -156,9 +118,78 @@ export function VerdictRail({
           <PrintedHandle handle={DETECTOR_HANDLE} />
           :~$
         </span>{' '}
-        verdict --run {routeId}
+        {revealed ? <>verdict --run {routeId}</> : VERDICT_WAITING}
         <SpeakerHandle handle={DETECTOR_HANDLE} place="line" tabbable />
       </div>
+      {revealed && (
+        <VerdictBody
+          verdict={verdict}
+          routeId={routeId}
+          compromiseStepNumber={compromiseStepNumber}
+          offendingLabel={offendingLabel}
+        />
+      )}
+    </aside>
+  );
+}
+
+/** The verdict itself and the export question: drawn only once it is revealed. */
+function VerdictBody({
+  verdict,
+  routeId,
+  compromiseStepNumber,
+  offendingLabel,
+}: {
+  verdict: Verdict;
+  routeId: string;
+  compromiseStepNumber: number | null;
+  offendingLabel?: string;
+}) {
+  // Built from the ROUTE id, never `verdict.runId`. For a saved live run that is
+  // the session's run id, which the findings route cannot resolve, so the link
+  // landed every live run on the missing-report state.
+  const href = `/findings/${routeId}`;
+  const compromised = verdict.compromised;
+  const exportLabel = compromised ? 'Export fix report' : 'Export run result';
+  const openLabel = compromised ? 'Open fix report' : 'Open run result';
+  const [answered, setAnswered] = useState<null | 'n'>(null);
+  const yRef = useRef<HTMLAnchorElement>(null);
+  const promptRef = useRef<HTMLDivElement>(null);
+  const focusPrompt = useRef(false);
+
+  const decline = () => {
+    focusPrompt.current = true;
+    setAnswered('n');
+  };
+
+  useEffect(() => {
+    if (answered === 'n' && focusPrompt.current) {
+      focusPrompt.current = false;
+      promptRef.current?.focus({ preventScroll: true });
+    }
+  }, [answered]);
+
+  useEffect(() => {
+    if (answered !== null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        yRef.current?.click();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        focusPrompt.current = true;
+        setAnswered('n');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [answered]);
+
+  return (
+    <>
       <Row
         k="outcome"
         v={compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
@@ -212,6 +243,6 @@ export function VerdictRail({
           </button>
         </div>
       )}
-    </aside>
+    </>
   );
 }

@@ -195,8 +195,11 @@ export function StatusBar({
 
         <div className="flex-1" />
 
+        {/* The run's verdict (BREACH or CLEAR, the category, the severity). On
+            a replay it is held invisible in place until the replay reveals its
+            verdict (`data-run-verdict`, globals.css). */}
         {runContext && (
-          <div className="hidden items-center gap-3 header-wide:flex">
+          <div data-run-verdict="" className="hidden items-center gap-3 header-wide:flex">
             <span
               className={
                 'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[13px] tracking-[0.12em] ' +
