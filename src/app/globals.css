@@ -924,6 +924,45 @@ html {
   animation: breach-pulse 2.4s ease-in-out infinite;
 }
 
+/* THE HERO'S BREACH WAITS FOR THE SWEEP (owner ruling 2026-10-18). Each part
+ * of the breach row that says "breach" (the reticle, the BREACH badge, the red
+ * tint, the red text) is held in its "before" look by a one-millisecond
+ * animation that fills BACKWARDS through its delay, `--hero-reveal-at` (set
+ * on the rail: when the first sweep's light peaks on the last step), and then
+ * ends. Nothing fills forwards, so the resting style is the finished picture:
+ * under reduced motion (switched off below) and in any render where no
+ * animation runs, the marker is simply there. Opacity and colour only, so
+ * nothing changes size. */
+@keyframes hero-hold-hidden {
+  from,
+  to {
+    opacity: 0;
+  }
+}
+@keyframes hero-hold-shown {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+@keyframes hero-hold-plain-ink {
+  from,
+  to {
+    color: var(--hero-plain-ink, var(--text));
+  }
+}
+.hero-reveal-hold {
+  animation: hero-hold-hidden 1ms linear var(--hero-reveal-at, 0s) backwards;
+}
+/* The plain node that stands where the reticle will be: gone at rest. */
+.hero-reveal-pending {
+  opacity: 0;
+  animation: hero-hold-shown 1ms linear var(--hero-reveal-at, 0s) backwards;
+}
+.hero-reveal-ink {
+  animation: hero-hold-plain-ink 1ms linear var(--hero-reveal-at, 0s) backwards;
+}
+
 /* The hero box's frame accent. The element covers the box and is masked down to
  * a ring two pixels wide (its padding): the two mask layers are the whole box and
  * the box minus that padding, and `exclude` keeps only the difference. A mask
@@ -1022,6 +1061,9 @@ body:has([data-verdict-pending]) [data-run-verdict] {
   .verdict-in,
   .hero-sweep,
   .hero-breach-dot,
+  .hero-reveal-hold,
+  .hero-reveal-pending,
+  .hero-reveal-ink,
   .header-pulse-glint,
   .hero-frame-accent-light {
     animation: none;
