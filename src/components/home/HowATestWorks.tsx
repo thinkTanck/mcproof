@@ -1,4 +1,5 @@
 import { ROLES } from '@/lib/replay/roles';
+import { HOW_A_TEST_WORKS_TITLE } from '@/lib/site-copy';
 
 /**
  * HOW A TEST WORKS, in five steps (Batch G, 2026-10-13).
@@ -49,7 +50,7 @@ export function HowATestWorks() {
       className="border-t border-line pt-3"
     >
       <h2 id="how-a-test-works-title" className="micro-label text-nominal">
-        How a test works
+        {HOW_A_TEST_WORKS_TITLE}
       </h2>
       <ol className="measure mt-(--instrument-stack-rows) flex flex-col gap-x-2 gap-y-1 sm:flex-row sm:flex-wrap sm:items-baseline">
         {HOW_A_TEST_WORKS.map((step, i) => (

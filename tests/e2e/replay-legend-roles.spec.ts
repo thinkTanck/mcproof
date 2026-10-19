@@ -4,7 +4,7 @@ import { revealVerdict } from './support/reveal-verdict';
 import {
   ROLES,
   SENTINEL_GLOSSARY_HREF,
-  SENTINEL_GLOSSARY_TEXT,
+  SENTINEL_DEFINITION,
   handleName,
   roleForHandle,
 } from '../../src/lib/replay/roles';
@@ -607,9 +607,9 @@ for (const viewport of [
       const definition = page.locator('#sentinel dd');
       await expect(definition).toBeVisible();
       expect(await definition.innerText()).toBe(
-        "Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches.",
+        "A sentinel is a guard posted to keep watch. Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches every step. In a replay, anything marked @sentinel happened inside it. MCProof is the proof. Sentinel is where we prove it.",
       );
-      expect(SENTINEL_GLOSSARY_TEXT).toBe(await definition.innerText());
+      expect(SENTINEL_DEFINITION).toBe(await definition.innerText());
       expect(
         await definition.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
       ).toBeGreaterThanOrEqual(16);
@@ -653,7 +653,7 @@ for (const viewport of [
         await expect(page).toHaveURL(/\/threats#sentinel$/);
         const entry = page.locator('#sentinel');
         await expect(entry).toBeVisible();
-        await expect(entry.locator('dd')).toHaveText(SENTINEL_GLOSSARY_TEXT);
+        await expect(entry.locator('dd')).toHaveText(SENTINEL_DEFINITION);
         await expect(entry).toBeInViewport();
       });
     }

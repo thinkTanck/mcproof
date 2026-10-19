@@ -6,7 +6,7 @@ import { HOW_A_TEST_WORKS } from '@/components/home/HowATestWorks';
 import { findTells, NEUTRALITY_TELLS } from '@/harness/server/surface';
 import { buildHostedSurface, HOSTED_CATEGORIES } from '@/harness/server/surfaces';
 import { SERVER_NAME, TASK_PROMPT_NAME } from '@/harness/server/server';
-import { ROLES, SENTINEL_GLOSSARY_ID, SENTINEL_GLOSSARY_TEXT } from '@/lib/replay/roles';
+import { ROLES, SENTINEL_GLOSSARY_ID, SENTINEL_DEFINITION } from '@/lib/replay/roles';
 
 /**
  * WORDS ADDED AND WORDS REMOVED (Batch G, 2026-10-13).
@@ -26,9 +26,9 @@ describe('the glossary entry for Sentinel on /threats', () => {
     expect(entry, 'an element with the glossary id').not.toBeNull();
     const definition = entry.querySelector('dd')!;
     expect(definition.textContent).toBe(
-      "Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches.",
+      "A sentinel is a guard posted to keep watch. Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches every step. In a replay, anything marked @sentinel happened inside it. MCProof is the proof. Sentinel is where we prove it.",
     );
-    expect(definition.textContent).toBe(SENTINEL_GLOSSARY_TEXT);
+    expect(definition.textContent).toBe(SENTINEL_DEFINITION);
     expect(entry.querySelector('dt')!.textContent).toBe('Sentinel');
     // Prose, so the reading role.
     expect(definition.className.split(/\s+/)).toContain('reading');

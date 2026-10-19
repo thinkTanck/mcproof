@@ -33,6 +33,7 @@ const DECK_NAMES = [
   'Leaderboard',
   'Findings',
   'Threat Model',
+  'About',
 ] as const;
 
 /** The marker the rail's short visible word carries. */

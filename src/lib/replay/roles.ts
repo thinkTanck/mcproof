@@ -130,9 +130,15 @@ export function handleForStep(step: Pick<Step, 'type'>, model: string): string |
   }
 }
 
-/** The glossary entry for Sentinel. The owner's sentence, held verbatim by test. */
-export const SENTINEL_GLOSSARY_TEXT =
-  "Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches.";
+/**
+ * What Sentinel is, in the owner's words (SENTINEL + KEY, 2026-10-18), held
+ * verbatim by test. ONE constant: the /threats glossary entry and the /about
+ * "Why \"Sentinel\"" terminal both render it. Human-facing only, like the
+ * rest of this file: "sentinel" and "proving ground" are tells the served
+ * surface is tested against.
+ */
+export const SENTINEL_DEFINITION =
+  "A sentinel is a guard posted to keep watch. Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches every step. In a replay, anything marked @sentinel happened inside it. MCProof is the proof. Sentinel is where we prove it.";
 /** The id of that entry on the page that holds the glossary. */
 export const SENTINEL_GLOSSARY_ID = 'sentinel';
 /** Where a handle's "@sentinel" links to. */

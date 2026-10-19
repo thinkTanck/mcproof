@@ -25,6 +25,7 @@ describe('command-deck nav availability', () => {
       '/leaderboard',
       '/findings/sample',
       '/threats',
+      '/about',
     ]);
   });
 

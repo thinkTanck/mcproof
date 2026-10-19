@@ -17,6 +17,7 @@ import {
 import { offendingStepLabel } from '@/lib/hud/trace-view';
 import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 import type { RunResult, Step } from '@/contract';
+import { METRIC_HEADING_CLASSIFICATION, METRIC_HEADING_COMPROMISE } from '@/lib/site-copy';
 
 /**
  * Home — the BRAND-register front door. The pitch + the measured-detector claim
@@ -216,7 +217,7 @@ export default async function Home() {
               >
                 <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
                   <span id="metric-compromise-label" className={METRIC_GROUP_HEADING}>
-                    Catching compromises
+                    {METRIC_HEADING_COMPROMISE}
                   </span>
                   <span data-metric-provenance="" className="instrument-faint">
                     {compromiseDisplayProvenance()}
@@ -256,7 +257,7 @@ export default async function Home() {
               >
                 <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-(--instrument-stack-rows)">
                   <span id="metric-classification-label" className={METRIC_GROUP_HEADING}>
-                    Naming the attack type
+                    {METRIC_HEADING_CLASSIFICATION}
                   </span>
                   <span data-metric-provenance="" className="instrument-faint">
                     {classificationDisplayProvenance()}

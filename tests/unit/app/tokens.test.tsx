@@ -149,6 +149,9 @@ describe('DTCG token layer (globals.css)', () => {
       '--run-bar-clear',
       '--hero-reveal-at',
       '--hero-plain-ink',
+      // `--i` is each /about roadmap card's place in the stagger, set inline,
+      // read with a fallback of 0.
+      '--i',
     ]);
     const missing = tokenRefs(cssNoComments).filter(
       (name) => !vars.has(name) && !externallyProvided.has(name),
