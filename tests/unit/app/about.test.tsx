@@ -72,7 +72,10 @@ describe('/about · the page', () => {
     const line = screen.getByText(ABOUT_AGENTRIFI_LINE);
     expect(line.closest('a')).toBeNull();
     const linkedin = screen.getByRole('link', { name: /LinkedIn/ });
+    expect(ABOUT_LINKEDIN_HREF).toBe('https://www.linkedin.com/in/dameion-a-662aa880/');
     expect(linkedin).toHaveAttribute('href', ABOUT_LINKEDIN_HREF);
+    expect(linkedin).toHaveAttribute('target', '_blank');
+    expect(linkedin).toHaveAttribute('rel', 'noopener noreferrer');
     // Owner ruling 1: no Contact link until an Agentrifi address exists, and
     // the security.txt address is never on the page.
     expect(screen.queryByRole('link', { name: /contact/i })).toBeNull();

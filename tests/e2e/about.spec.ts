@@ -31,26 +31,20 @@ async function playAll(page: Page) {
     const part = page.locator(selector);
     await part.scrollIntoViewIfNeeded();
     await expect(part).toHaveAttribute('data-state', 'done', { timeout: 20_000 });
+    // Then wait for THIS part's own animations to finish (owner ruling ABOUT
+    // FLAKE 2): the career line drawing, each roadmap card coming in. Style is
+    // read first, so a transition the state flip starts exists before it is
+    // looked for; an animation that never ends (the terminal caret's blink) is
+    // left out; with nothing running this resolves at once. No timeout.
+    await part.evaluate(async (root) => {
+      const targets = [root, ...root.querySelectorAll('.career-path, [data-roadmap-card]')];
+      for (const el of targets) void getComputedStyle(el).opacity;
+      const own = targets
+        .flatMap((el) => el.getAnimations())
+        .filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)));
+      await Promise.all(own.map((a) => a.finished.catch(() => undefined)));
+    });
   }
-  // The reveal's own CSS transitions (the line drawing, the cards coming in)
-  // run on after the state flips. Wait for THEIR end values only (owner ruling
-  // ABOUT FLAKE): the visible career line fully drawn, every roadmap card
-  // fully in. Waiting on every transition in the document also waited on the
-  // shell's, which WebKit can leave running, and that was the flake.
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const drawn = [...document.querySelectorAll('.career-path')]
-          .filter((p) => (p as SVGGraphicsElement).getBoundingClientRect().width > 0)
-          .every((p) => parseFloat(getComputedStyle(p).strokeDashoffset) === 0);
-        const cardsIn = [...document.querySelectorAll('[data-roadmap-card]')].every((card) => {
-          const style = getComputedStyle(card);
-          return Number(style.opacity) === 1 && style.transform === 'none';
-        });
-        return drawn && cardsIn;
-      }),
-    )
-    .toBe(true);
 }
 
 /**

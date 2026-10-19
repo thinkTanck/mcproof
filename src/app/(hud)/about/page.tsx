@@ -54,6 +54,8 @@ export default function AboutPage() {
       <p className="mt-2">
         <a
           href={ABOUT_LINKEDIN_HREF}
+          target="_blank"
+          rel="noopener noreferrer"
           className="reading target-min inline-flex items-center text-ink underline underline-offset-4"
         >
           LinkedIn

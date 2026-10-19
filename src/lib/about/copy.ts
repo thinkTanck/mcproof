@@ -19,11 +19,8 @@ export const ABOUT_BIO =
 /** Plain text: Agentrifi is not a link. */
 export const ABOUT_AGENTRIFI_LINE = 'MCProof is a project of Agentrifi, my AI company.';
 
-/**
- * The LinkedIn profile. A PLACEHOLDER until the owner supplies the URL, and
- * the merge is held until then (owner ruling 5). One line to change.
- */
-export const ABOUT_LINKEDIN_HREF = '#';
+/** The LinkedIn profile (owner, 2026-10-19). Opens in a new tab. */
+export const ABOUT_LINKEDIN_HREF = 'https://www.linkedin.com/in/dameion-a-662aa880/';
 
 export const CAREER_NODES: readonly string[] = [
   'B.S. Mathematics',
