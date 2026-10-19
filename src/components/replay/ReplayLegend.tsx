@@ -7,6 +7,7 @@ import {
   ROLES,
   SENTINEL_GLOSSARY_HREF,
   SENTINEL_HOST,
+  SENTINEL_KEY_ROW,
   agentHandle,
   type RoleId,
 } from '@/lib/replay/roles';
@@ -58,23 +59,37 @@ function handleFor(role: RoleId, model: string): string | null {
 /** A handle, boxed: the chip each entry opens with. It may wrap; a long client name does. */
 const CHIP = 'instrument rounded border border-line px-1.5 py-0.5 [overflow-wrap:anywhere]';
 /** What stands where a handle would, for the role that has none on screen. */
-export const TOOL_TERM = 'tool or server';
+export const TOOL_TERM = 'served tool';
+
+/**
+ * EVERY "@sentinel" IN THE KEY LOOKS THE SAME (SENTINEL + KEY, B): one dotted
+ * underline, whether it is the link to the glossary (the first handle) or
+ * plain text (the other handle, the Sentinel row's chip).
+ */
+const SENTINEL_MARK = 'underline decoration-dotted underline-offset-4';
 
 /** A handle as the legend prints it. The first "@sentinel" is the glossary link. */
 function LegendHandle({ handle, linked }: { handle: string; linked: boolean }) {
   const at = `@${SENTINEL_HOST}`;
-  if (!linked || !handle.endsWith(at)) return <>{handle}</>;
+  if (!handle.endsWith(at)) return <>{handle}</>;
   return (
     <>
       {handle.slice(0, -at.length)}
-      <Link
-        href={SENTINEL_GLOSSARY_HREF}
-        // A link inside a label: its line is kept and a hit area of
-        // `--target-min` is laid over it (`target-area`, globals.css).
-        className="target-area whitespace-nowrap underline underline-offset-4"
-      >
-        {at}
-      </Link>
+      {linked ? (
+        <Link
+          href={SENTINEL_GLOSSARY_HREF}
+          data-sentinel-mark=""
+          // A link inside a label: its line is kept and a hit area of
+          // `--target-min` is laid over it (`target-area`, globals.css).
+          className={cn('target-area whitespace-nowrap', SENTINEL_MARK)}
+        >
+          {at}
+        </Link>
+      ) : (
+        <span data-sentinel-mark="" className={cn('whitespace-nowrap', SENTINEL_MARK)}>
+          {at}
+        </span>
+      )}
     </>
   );
 }
@@ -119,8 +134,28 @@ function LegendBody({ model, keyId }: { model: string; keyId?: string }) {
             </div>
           );
         })}
+        {/* Sentinel itself, last: where every test runs, and a link to what
+            it is. Its chip is not a prompt anyone types under, so it is not
+            in the prompt colour. */}
+        <div data-role="sentinel" className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <dt className={CHIP}>
+            <span data-sentinel-mark="" className={cn('whitespace-nowrap', SENTINEL_MARK)}>
+              {SENTINEL_KEY_ROW.chip}
+            </span>
+          </dt>
+          <dd className="reading measure min-w-0">
+            <span className="font-semibold text-ink-hi">{SENTINEL_KEY_ROW.name}.</span>{' '}
+            {SENTINEL_KEY_ROW.definition}{' '}
+            <Link
+              href={SENTINEL_GLOSSARY_HREF}
+              className="target-area whitespace-nowrap text-nominal underline underline-offset-4"
+            >
+              {SENTINEL_KEY_ROW.link}
+            </Link>
+          </dd>
+        </div>
       </dl>
-      <ReplayKey id={keyId} entries={transcriptKeyEntries()} />
+      <ReplayKey id={keyId} entries={transcriptKeyEntries()} label="Colors" />
     </div>
   );
 }

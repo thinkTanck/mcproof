@@ -737,7 +737,7 @@ for (const viewport of VIEWPORTS) {
         expect(entry.marked, `${entry.id} shows its colour or mark`).toBe(true);
         expect(entry.size).toBeGreaterThanOrEqual(12);
       }
-      expect(m.entries[2]!.text).toMatch(/compromise step/i);
+      expect(m.entries[2]!.text).toBe('Where the agent was compromised');
       // The key shows the very diamond the transcript draws on the compromise step.
       expect(m.sameMark, 'the same breach mark as the transcript').toBe(true);
       expect(m.live, 'the key is not a live region').toBe(false);
