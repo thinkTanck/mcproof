@@ -44,6 +44,7 @@ const EXPECTED_NAMES = [
   'Leaderboard',
   'Findings',
   'Threat Model',
+  'About',
   'Sign in. Sign-in is not set up on this preview build.',
 ] as const;
 
@@ -55,6 +56,7 @@ const FULL_LABELS = [
   'Leaderboard',
   'Findings',
   'Threat Model',
+  'About',
 ] as const;
 
 /** 44px, less a hair for sub-pixel layout. */

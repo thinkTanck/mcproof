@@ -33,13 +33,24 @@ async function playAll(page: Page) {
     await expect(part).toHaveAttribute('data-state', 'done', { timeout: 20_000 });
   }
   // The reveal's own CSS transitions (the line drawing, the cards coming in)
-  // run on after the state flips; wait for them to end, then read.
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .filter((a) => a instanceof CSSTransition)
-      .every((a) => a.playState === 'finished'),
-  );
+  // run on after the state flips. Wait for THEIR end values only (owner ruling
+  // ABOUT FLAKE): the visible career line fully drawn, every roadmap card
+  // fully in. Waiting on every transition in the document also waited on the
+  // shell's, which WebKit can leave running, and that was the flake.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const drawn = [...document.querySelectorAll('.career-path')]
+          .filter((p) => (p as SVGGraphicsElement).getBoundingClientRect().width > 0)
+          .every((p) => parseFloat(getComputedStyle(p).strokeDashoffset) === 0);
+        const cardsIn = [...document.querySelectorAll('[data-roadmap-card]')].every((card) => {
+          const style = getComputedStyle(card);
+          return Number(style.opacity) === 1 && style.transform === 'none';
+        });
+        return drawn && cardsIn;
+      }),
+    )
+    .toBe(true);
 }
 
 /** What the finished page draws: every word, the line, every card. */
