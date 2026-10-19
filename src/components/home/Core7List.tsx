@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CORE7, core7RowId } from './core7';
+import { CORE7_LIST_LABEL } from '@/lib/site-copy';
 
 /**
  * The Core-7 as a "pick a sample" launcher — one row per category, each a link to
@@ -14,9 +15,7 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
   return (
     <nav aria-label="Core-7 sample runs" className="min-w-0">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <span className="micro-label !tracking-[0.16em] text-nominal">
-          The 7 attack types we test · pick a sample
-        </span>
+        <span className="micro-label !tracking-[0.16em] text-nominal">{CORE7_LIST_LABEL}</span>
         <span className="instrument-faint hidden sm:inline">Tap to watch</span>
       </div>
       <ul className="flex flex-col">

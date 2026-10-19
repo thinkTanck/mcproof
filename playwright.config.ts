@@ -15,7 +15,7 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 /** The only specs the WebKit project runs. Everything else is Chromium-only. */
 const WEBKIT_SPECS =
-  /(small-text-line-spacing|phone-replay-layout|run-bar-short-screens|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate|large-text-wraps|run-bar-clears-header|phone-run-bar|contrast-text-floor-focus|buttons-targets-nav-skip|words-and-meaning|readability-hierarchy|no-sideways-scroll|replay-rows-no-transition|security-headers|depth-and-glow|replay-legend-roles)\.spec\.ts$/;
+  /(small-text-line-spacing|phone-replay-layout|run-bar-short-screens|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate|large-text-wraps|run-bar-clears-header|phone-run-bar|contrast-text-floor-focus|buttons-targets-nav-skip|words-and-meaning|readability-hierarchy|no-sideways-scroll|replay-rows-no-transition|security-headers|depth-and-glow|replay-legend-roles|about)\.spec\.ts$/;
 
 /**
  * The WebKit specs that put a style tag of their own into the page with

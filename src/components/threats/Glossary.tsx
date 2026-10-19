@@ -1,4 +1,4 @@
-import { SENTINEL_GLOSSARY_ID, SENTINEL_GLOSSARY_TEXT } from '@/lib/replay/roles';
+import { SENTINEL_DEFINITION, SENTINEL_GLOSSARY_ID } from '@/lib/replay/roles';
 
 /**
  * THE GLOSSARY (Batch G, 2026-10-13).
@@ -26,7 +26,7 @@ export function Glossary() {
             lands on it. */}
         <div id={SENTINEL_GLOSSARY_ID} className="scroll-mt-24">
           <dt className="reading font-semibold text-ink-hi">Sentinel</dt>
-          <dd className="reading measure">{SENTINEL_GLOSSARY_TEXT}</dd>
+          <dd className="reading measure">{SENTINEL_DEFINITION}</dd>
         </div>
       </dl>
     </section>

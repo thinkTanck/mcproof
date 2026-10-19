@@ -14,6 +14,7 @@ import {
 import { CopyOut } from './CopyOut';
 import { asiLabel } from '@/lib/owasp/asi';
 import type { LiveRunPhase, LiveRunTicketView } from './live-run-port';
+import { CONNECT_CLIENT_TABS, type ConnectClientId } from '@/lib/site-copy';
 
 /**
  * HOW TO ACTUALLY CONNECT: one three-step setup, the same for six agents.
@@ -179,17 +180,10 @@ export function authorizationValue(_endpoint: string, token: string): string {
 /** The swapped panel, named so each picker button can point at it. */
 const PANEL_ID = 'connect-client-panel';
 
-type ClientId = 'claude-code' | 'vscode' | 'cursor' | 'codex' | 'gemini' | 'other';
+type ClientId = ConnectClientId;
 
-/** The tabs, in the order they are offered. */
-const CLIENTS: readonly { id: ClientId; label: string }[] = [
-  { id: 'claude-code', label: 'CLAUDE CODE' },
-  { id: 'vscode', label: 'GITHUB COPILOT / VS CODE' },
-  { id: 'cursor', label: 'CURSOR' },
-  { id: 'codex', label: 'CODEX' },
-  { id: 'gemini', label: 'GEMINI CLI' },
-  { id: 'other', label: 'OTHER AGENT' },
-];
+/** The tabs, in the order they are offered (`src/lib/site-copy.ts`). */
+const CLIENTS = CONNECT_CLIENT_TABS;
 
 const WarningIcon = () => (
   <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true" className="shrink-0">

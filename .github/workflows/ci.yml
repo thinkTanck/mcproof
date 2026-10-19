@@ -127,6 +127,8 @@ jobs:
             url: http://localhost:3000/leaderboard
           - screen: threats
             url: http://localhost:3000/threats
+          - screen: about
+            url: http://localhost:3000/about
     steps:
       - name: Checkout
         uses: actions/checkout@v7

@@ -8,7 +8,7 @@ import {
   ROLES,
   SENTINEL_GLOSSARY_HREF,
   SENTINEL_GLOSSARY_ID,
-  SENTINEL_GLOSSARY_TEXT,
+  SENTINEL_DEFINITION,
   agentHandle,
   handleForStep,
   handleName,
@@ -136,8 +136,8 @@ describe('the roles lookup: which handle a step is drawn under', () => {
 
 describe('the glossary entry for Sentinel', () => {
   it('is the exact sentence, with a straight apostrophe', () => {
-    expect(SENTINEL_GLOSSARY_TEXT).toBe(
-      "Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches.",
+    expect(SENTINEL_DEFINITION).toBe(
+      "A sentinel is a guard posted to keep watch. Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches every step. In a replay, anything marked @sentinel happened inside it. MCProof is the proof. Sentinel is where we prove it.",
     );
   });
 

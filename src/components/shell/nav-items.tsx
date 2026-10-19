@@ -123,6 +123,22 @@ export const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
+  {
+    label: 'About',
+    short: 'About',
+    href: '/about',
+    matchPrefix: '/about',
+    available: true,
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+        <g {...stroke}>
+          <circle cx="8" cy="8" r="6" />
+          <path d="M8 7.2V11.2" />
+          <path d="M8 4.8v.4" />
+        </g>
+      </svg>
+    ),
+  },
 ];
 
 export function isActive(pathname: string, item: NavItem): boolean {
