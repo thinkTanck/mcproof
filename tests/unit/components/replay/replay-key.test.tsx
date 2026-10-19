@@ -56,7 +56,7 @@ describe('ReplayKey', () => {
   it('names the compromise step and shows the same diamond the transcript draws on it', () => {
     const { container } = render(<ReplayKey id="k" entries={transcriptKeyEntries()} />);
     const breach = container.querySelector('[data-replay-key-entry="breach"]')!;
-    expect(breach).toHaveTextContent(/compromise step/i);
+    expect(breach).toHaveTextContent('Where the agent was compromised');
     expect(breach.querySelector('[data-key-mark="breach"] svg')).not.toBeNull();
   });
 
@@ -85,7 +85,7 @@ describe('the replay transcript and its key', () => {
     const key = document.getElementById(REPLAY_KEY_ID)!;
     expect(key).not.toBeNull();
     expect(key).toHaveAttribute('data-replay-key');
-    expect(key).toHaveTextContent(/compromise step/i);
+    expect(key).toHaveTextContent('Where the agent was compromised');
     // One key, however many transports the server sends.
     expect(document.querySelectorAll('[data-replay-key]')).toHaveLength(1);
   });

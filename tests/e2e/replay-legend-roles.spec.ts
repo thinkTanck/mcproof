@@ -195,7 +195,7 @@ for (const viewport of [...WIDE, ...PHONES]) {
       expect(m.legendOpen).toBe(false);
     });
 
-    test('who is who: four roles, each in the words of the roles lookup', async ({
+    test('who is who: four roles in the words of the roles lookup, then Sentinel', async ({
       page,
       browserName,
     }) => {
@@ -205,7 +205,9 @@ for (const viewport of [...WIDE, ...PHONES]) {
       // The Key is closed when the page opens, at every width: open it first.
       await legend.locator('summary').click();
       const entries = legend.locator('[data-whos-who] [data-role]');
-      await expect(entries).toHaveCount(4);
+      // Four roles, then Sentinel itself (SENTINEL + KEY, B).
+      await expect(entries).toHaveCount(5);
+      await expect(entries.last()).toHaveAttribute('data-role', 'sentinel');
       for (const id of ['operator', 'agent', 'detector', 'tool'] as const) {
         const entry = legend.locator(`[data-role="${id}"]`);
         await expect(entry).toBeVisible();
@@ -435,7 +437,7 @@ for (const viewport of [
       await settle(page);
       const panel = handle.locator('[data-speaker-panel]');
       await expect(panel).toBeVisible();
-      await expect(panel).toContainText('Agent under test. The AI agent this run tests.');
+      await expect(panel).toContainText('Agent under test. The AI agent being tested.');
       expect(await readout.first().innerText()).toBe(before);
 
       const m = await panel.evaluate((el) => {
@@ -554,7 +556,7 @@ for (const viewport of [
       const panel = handle.locator('[data-speaker-panel]');
       await expect(panel).toBeVisible();
       await expect(panel).toContainText(
-        'MCProof detector. Flags the step where the agent is compromised, if it is.',
+        'MCProof detector. Reads the finished run and marks the step where the agent was compromised, if it was.',
       );
       const inside = await panel.evaluate((el) => {
         const r = el.getBoundingClientRect();
@@ -643,10 +645,15 @@ for (const viewport of [
         const summary = page.locator('details[data-replay-legend] > summary');
         await summary.focus();
         await page.keyboard.press('Enter');
-        const link = page
+        // The first "@sentinel" is the first of the Key's two glossary links;
+        // the other is "What is Sentinel?" on the Sentinel row.
+        const links = page
           .locator(`[data-replay-legend] a[href="${SENTINEL_GLOSSARY_HREF}"]`)
           .filter({ visible: true });
-        await expect(link).toHaveCount(1);
+        await expect(links).toHaveCount(2);
+        await expect(links.nth(1)).toHaveText('What is Sentinel?');
+        const link = links.first();
+        await expect(link).toHaveText('@sentinel');
         await link.focus();
         await expect(link).toBeFocused();
         await page.keyboard.press('Enter');
@@ -880,5 +887,71 @@ for (const viewport of [
         expect(m.strip.left).toBeGreaterThanOrEqual(m.cta.right - EDGE);
       }
     });
+  });
+}
+
+// ── 8. the Key's words (SENTINEL + KEY, B, 2026-10-18) ───────────────────────
+
+for (const viewport of [
+  { width: 1280, height: 900 },
+  { width: 390, height: 844 },
+] as const) {
+  test.describe(`8. the Key's words at ${viewport.width}x${viewport.height}`, () => {
+    test.use({ viewport });
+
+    for (const run of ['sample', 'asi03-identity-privilege-abuse', 'asi05-code-execution']) {
+      test(`/runs/${run}: one KEY, a Colors row, a Sentinel row, dotted marks`, async ({
+        page,
+        browserName,
+      }) => {
+        test.skip(browserName === 'webkit' && viewport.width >= 768, WEBKIT_IS_A_PHONE);
+        await openReplay(page, run);
+        const summary = page
+          .locator('details[data-replay-legend] > summary')
+          .filter({ visible: true });
+        await summary.click();
+        const legend = page.locator('details[data-replay-legend][open]');
+        await expect(legend).toHaveCount(1);
+        const m = await legend.evaluate((el) => {
+          const own = (node: Element) =>
+            [...node.childNodes]
+              .map((n) => (n.nodeType === Node.TEXT_NODE ? n.textContent : ''))
+              .join('')
+              .trim();
+          return {
+            keyWords: [...el.querySelectorAll('*')].filter((n) => /^key$/i.test(own(n))).length,
+            colors: el.querySelector('[data-replay-key-label]')?.textContent?.trim(),
+            entries: [...el.querySelectorAll('[data-replay-key-entry]')].map((e) =>
+              (e.textContent ?? '').trim(),
+            ),
+            tool: el.querySelector('[data-role="tool"] dt')?.textContent?.trim(),
+            marks: [...el.querySelectorAll('[data-sentinel-mark]')].map((mark) => ({
+              text: mark.textContent,
+              style: getComputedStyle(mark).textDecorationStyle,
+            })),
+          };
+        });
+        expect(m.keyWords).toBe(1);
+        expect(m.colors).toBe('Colors');
+        expect(m.entries).toEqual([
+          'Who is speaking',
+          'What they said or did',
+          'Where the agent was compromised',
+        ]);
+        expect(m.tool).toBe('served tool');
+        expect(m.marks).toEqual(
+          Array.from({ length: 3 }, () => ({ text: '@sentinel', style: 'dotted' })),
+        );
+        const row = legend.locator('[data-role="sentinel"]');
+        await expect(row).toContainText(
+          "Sentinel. MCProof's proving ground, where every test runs.",
+        );
+        const link = row.getByRole('link', { name: 'What is Sentinel?' });
+        await expect(link).toHaveAttribute('href', SENTINEL_GLOSSARY_HREF);
+        await link.click();
+        await expect(page).toHaveURL(/\/threats#sentinel$/);
+        await expect(page.locator('#sentinel dd')).toBeVisible();
+      });
+    }
   });
 }

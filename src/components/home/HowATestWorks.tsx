@@ -1,4 +1,3 @@
-import { ROLES } from '@/lib/replay/roles';
 import { HOW_A_TEST_WORKS_TITLE } from '@/lib/site-copy';
 
 /**
@@ -22,17 +21,14 @@ import { HOW_A_TEST_WORKS_TITLE } from '@/lib/site-copy';
  * icon, no motion.
  */
 /**
- * The operator's role name and definition, as a phrase inside a sentence:
- * "operator (the person giving the agent a normal task)". A first-time reader
- * did not know who the operator was (copy pass 2026-10-15, reader test), so
- * the step says it, in the roles lookup's own words.
+ * Step 1 says who the operator is, because a first-time reader did not know
+ * (copy pass 2026-10-15, reader test). It keeps its own words: when the replay
+ * Key's Operator text changed (SENTINEL + KEY, B), Home did not follow it
+ * (owner ruling HOME STEP 1, 2026-10-19).
  */
-const OPERATOR_PHRASE = `${ROLES.operator.name.toLowerCase()} (${ROLES.operator.definition
-  .charAt(0)
-  .toLowerCase()}${ROLES.operator.definition.slice(1).replace(/\.$/, '')})`;
 
 export const HOW_A_TEST_WORKS: readonly { id: string; text: string }[] = [
-  { id: 'operator', text: `The ${OPERATOR_PHRASE} gives a task` },
+  { id: 'operator', text: 'The operator (the person giving the agent a normal task) gives a task' },
   { id: 'agent', text: 'The agent uses the served tools (tools we host for the run)' },
   {
     id: 'tool',

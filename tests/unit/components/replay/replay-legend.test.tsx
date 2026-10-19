@@ -90,6 +90,7 @@ describe('the legend: one strip, directly above the terminal', () => {
       'agent',
       'detector',
       'tool',
+      'sentinel',
     ]);
     // The chip, a space, the sentence: read part by part, the way a browser
     // lays the two boxes out side by side.
@@ -97,24 +98,77 @@ describe('the legend: one strip, directly above the terminal', () => {
       [...who.querySelectorAll(`[data-role="${id}"] > *`)]
         .map((part) => (part.textContent ?? '').replace(/\s+/g, ' ').trim())
         .join(' ');
+    // Owner ruling SENTINEL + KEY (B), 2026-10-18: these words supersede G's.
     expect(text('operator')).toBe(
-      'user@console Operator. The person giving the agent a normal task.',
+      'user@console Operator. The person who gives the agent a normal task.',
     );
     expect(text('agent')).toBe(
-      'target-agent@sentinel Agent under test. The AI agent this run tests.',
+      'target-agent@sentinel Agent under test. The AI agent being tested.',
     );
     expect(text('detector')).toBe(
-      'detector@sentinel MCProof detector. Flags the step where the agent is compromised, if it is.',
+      'detector@sentinel MCProof detector. Reads the finished run and marks the step where the agent was compromised, if it was.',
     );
-    // No tool or server handle is drawn anywhere in a replay, so this entry
-    // has no handle of its own to show: its chip says which kind it is, in words.
+    // No tool handle is drawn anywhere in a replay, so this entry has no
+    // handle of its own to show: its chip says which kind it is, in words.
     expect(text('tool')).toBe(
-      'tool or server Served tool. An MCP tool we host for the run. In an attack run, one of them carries the attack.',
+      'served tool Served tool. A tool MCProof provides for the test. In an attack run, one of them hides the attack.',
     );
     expect(who.querySelector('[data-role="tool"] [data-legend-handle]')).toBeNull();
-    for (const entry of entries) {
+    for (const entry of entries.filter((e) => e.getAttribute('data-role') !== 'sentinel')) {
       const role = ROLES[entry.getAttribute('data-role') as RoleId];
       expect(entry).toHaveTextContent(`${role.name}. ${role.definition}`);
+    }
+  });
+
+  it('ends with Sentinel: its chip, its sentence, and a link to what it is', () => {
+    render(<Replay run={RUN} routeId="sample" />);
+    const row = legend().querySelector('[data-whos-who] [data-role="sentinel"]') as HTMLElement;
+    const parts = [...row.querySelectorAll(':scope > *')].map((part) =>
+      (part.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    );
+    expect(parts).toEqual([
+      '@sentinel',
+      "Sentinel. MCProof's proving ground, where every test runs. What is Sentinel?",
+    ]);
+    const link = within(row).getByRole('link', { name: 'What is Sentinel?' });
+    expect(link).toHaveAttribute('href', SENTINEL_GLOSSARY_HREF);
+  });
+
+  it('says KEY once: the colour row is labelled "Colors" and names each colour in the owner words', () => {
+    render(<Replay run={RUN} routeId="sample" />);
+    const own = (el: Element) =>
+      [...el.childNodes]
+        .map((n) => (n.nodeType === Node.TEXT_NODE ? n.textContent : ''))
+        .join('')
+        .trim();
+    const keyWords = [...legend().querySelectorAll('*')].filter((el) => /^key$/i.test(own(el)));
+    expect(keyWords).toHaveLength(1);
+    expect(keyWords[0]!.closest('summary')).not.toBeNull();
+    const colours = legend().querySelector('[data-replay-key]') as HTMLElement;
+    expect(colours.querySelector('[data-replay-key-label]')).toHaveTextContent('Colors');
+    expect(
+      [...colours.querySelectorAll('[data-replay-key-entry]')].map((e) =>
+        (e.textContent ?? '').trim(),
+      ),
+    ).toEqual(['Who is speaking', 'What they said or did', 'Where the agent was compromised']);
+  });
+
+  it('draws every "@sentinel" in the Key with the same dotted underline', () => {
+    render(<Replay run={RUN} routeId="sample" />);
+    const marks = [...legend().querySelectorAll('[data-sentinel-mark]')];
+    // The agent's handle, the detector's handle and the Sentinel row's chip.
+    expect(marks).toHaveLength(3);
+    for (const mark of marks) {
+      expect(mark.textContent).toBe('@sentinel');
+      expect(mark.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(['underline', 'decoration-dotted']),
+      );
+    }
+    const walker = document.createTreeWalker(legend(), NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if ((node.textContent ?? '').includes('@sentinel')) {
+        expect(node.parentElement!.closest('[data-sentinel-mark]')).not.toBeNull();
+      }
     }
   });
 
@@ -161,8 +215,9 @@ describe('the legend: one strip, directly above the terminal', () => {
     expect(link, 'the first @sentinel sits in a link').not.toBeNull();
     expect(link).toHaveAttribute('href', SENTINEL_GLOSSARY_HREF);
     expect(link!.textContent).toBe('@sentinel');
-    // One such link in the legend: the first occurrence, not every one.
-    expect(legend().querySelectorAll(`a[href="${SENTINEL_GLOSSARY_HREF}"]`)).toHaveLength(1);
+    // Two such links in the legend: the first "@sentinel", and "What is
+    // Sentinel?" on the Sentinel row (owner ruling SENTINEL + KEY, B).
+    expect(legend().querySelectorAll(`a[href="${SENTINEL_GLOSSARY_HREF}"]`)).toHaveLength(2);
   });
 });
 
@@ -224,7 +279,7 @@ describe('a speaker handle opens its definition', () => {
 
     expect(isOpen(handle)).toBe(true);
     const panel = handle.querySelector('[data-speaker-panel]') as HTMLElement;
-    expect(panel).toHaveTextContent('Operator. The person giving the agent a normal task.');
+    expect(panel).toHaveTextContent('Operator. The person who gives the agent a normal task.');
     expect(panel.querySelector('.reading')).not.toBeNull();
     expect(current()).toBe(before);
     // Not a live region: opening it announces nothing by itself.

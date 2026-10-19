@@ -67,12 +67,12 @@ export function transcriptKeyEntries(): ReplayKeyEntry[] {
     {
       id: 'prompt',
       mark: <Swatch color="var(--terminal-prompt)" />,
-      label: 'Prompt: who wrote this line',
+      label: 'Who is speaking',
     },
     {
       id: 'step',
       mark: <Swatch color="var(--text-readout)" />,
-      label: 'Step text, as recorded',
+      label: 'What they said or did',
     },
     {
       id: 'breach',
@@ -85,7 +85,7 @@ export function transcriptKeyEntries(): ReplayKeyEntry[] {
           <BandShape band="breach" />
         </span>
       ),
-      label: 'Compromise step',
+      label: 'Where the agent was compromised',
     },
   ];
 }
@@ -130,8 +130,15 @@ export function heroKeyEntries(steps: readonly { type: StepType }[]): ReplayKeyE
 export function ReplayKey({
   id,
   entries,
+  label = 'Key',
   className,
 }: {
+  /**
+   * The word before the entries. "Key" where this is the whole key (the Home
+   * hero); "Colors" inside the replay's legend, which is itself the Key, so
+   * the word is said once (SENTINEL + KEY, B).
+   */
+  label?: string;
   /**
    * The id the explained element names in `aria-describedby`. Left out for a
    * copy that is not the one pointed at: the replay sends its legend twice
@@ -150,7 +157,9 @@ export function ReplayKey({
         className,
       )}
     >
-      <span className="micro-label">Key</span>
+      <span data-replay-key-label="" className="micro-label">
+        {label}
+      </span>
       <ul className="flex flex-wrap items-baseline gap-x-4 gap-y-(--instrument-stack-rows)">
         {entries.map((entry) => (
           <li

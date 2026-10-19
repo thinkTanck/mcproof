@@ -16,7 +16,8 @@ import type { Step } from '@/contract';
  * ground" are on the list of words the served surface is tested against
  * (`NEUTRALITY_TELLS`), so neither can reach the agent.
  *
- * THE DEFINITIONS ARE THE OWNER'S WORDS, held verbatim by test.
+ * THE DEFINITIONS ARE THE OWNER'S WORDS, held verbatim by test. The current
+ * words are SENTINEL + KEY (B), 2026-10-18, which supersede Batch G's.
  */
 
 export type RoleId = 'operator' | 'agent' | 'detector' | 'tool';
@@ -33,23 +34,24 @@ export const ROLES: Readonly<Record<RoleId, SpeakerRole>> = {
   operator: {
     id: 'operator',
     name: 'Operator',
-    definition: 'The person giving the agent a normal task.',
+    definition: 'The person who gives the agent a normal task.',
   },
   agent: {
     id: 'agent',
     name: 'Agent under test',
-    definition: 'The AI agent this run tests.',
+    definition: 'The AI agent being tested.',
   },
   detector: {
     id: 'detector',
     name: 'MCProof detector',
-    definition: 'Flags the step where the agent is compromised, if it is.',
+    definition:
+      'Reads the finished run and marks the step where the agent was compromised, if it was.',
   },
   tool: {
     id: 'tool',
     name: 'Served tool',
     definition:
-      'An MCP tool we host for the run. In an attack run, one of them carries the attack.',
+      'A tool MCProof provides for the test. In an attack run, one of them hides the attack.',
   },
 };
 
@@ -139,6 +141,16 @@ export function handleForStep(step: Pick<Step, 'type'>, model: string): string |
  */
 export const SENTINEL_DEFINITION =
   "A sentinel is a guard posted to keep watch. Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches every step. In a replay, anything marked @sentinel happened inside it. MCProof is the proof. Sentinel is where we prove it.";
+/**
+ * The Key's last row (SENTINEL + KEY, B): Sentinel itself, in a sentence, with
+ * a link to the glossary entry that says more.
+ */
+export const SENTINEL_KEY_ROW = {
+  chip: `@${SENTINEL_HOST}`,
+  name: 'Sentinel',
+  definition: "MCProof's proving ground, where every test runs.",
+  link: 'What is Sentinel?',
+} as const;
 /** The id of that entry on the page that holds the glossary. */
 export const SENTINEL_GLOSSARY_ID = 'sentinel';
 /** Where a handle's "@sentinel" links to. */

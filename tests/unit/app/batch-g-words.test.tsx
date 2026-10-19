@@ -69,11 +69,11 @@ describe('Home: how a test works', () => {
     expect(items.map(text)).toEqual(HOW_A_TEST_WORKS.map((step) => step.text));
   });
 
-  it('takes the operator role name and definition it shares with the replay from the roles lookup', () => {
-    const definition = ROLES.operator.definition.replace(/\.$/, '');
-    expect(HOW_A_TEST_WORKS[0]!.text.toLowerCase()).toContain(
-      `${ROLES.operator.name} (${definition})`.toLowerCase(),
+  it('keeps step 1 in its own words, not the replay Key new Operator text (owner ruling HOME STEP 1)', () => {
+    expect(HOW_A_TEST_WORKS[0]!.text).toBe(
+      'The operator (the person giving the agent a normal task) gives a task',
     );
+    expect(HOW_A_TEST_WORKS[0]!.text).not.toContain('who gives the agent');
     // "Served tool" is the one name for a tool we host (copy pass 2026-10-15).
     expect(HOW_A_TEST_WORKS[1]!.text.toLowerCase()).toContain(
       ROLES.tool.name.toLowerCase().replace(/^served tool$/, 'served tools'),
