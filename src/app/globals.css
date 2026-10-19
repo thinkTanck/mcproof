@@ -1017,20 +1017,17 @@ body:has([data-verdict-pending]) [data-run-verdict] {
  * script the media block below shows the finished picture at once, so nothing
  * is ever drawn finished and then redrawn.
  *
- * Terminals: the final layer holds every word and the card's height; it is at
- * opacity 0 (still read, still indexed) until the typing is done. */
-[data-terminal][data-state='pending'] [data-terminal-final],
-[data-terminal][data-state='typing'] [data-terminal-final] {
+ * Terminals: the final layer holds every word and the card's height, in the
+ * accessibility tree and indexed. While motion is allowed and script runs, it
+ * is drawn at opacity 0 for good and the typed layer is what is SEEN, from
+ * the prompt to the last character and the caret after it. The final layer is
+ * never switched on late: text that turns visible after typing becomes the
+ * page's largest paint seconds in (CWV · about measured LCP 6.35s that way). */
+[data-terminal] [data-terminal-final] {
   opacity: 0;
-}
-[data-terminal][data-state='done'] [data-terminal-typed] {
-  visibility: hidden;
 }
 [data-terminal] [data-terminal-final] [data-terminal-caret] {
   visibility: hidden;
-}
-[data-terminal][data-state='done'] [data-terminal-final] [data-terminal-caret] {
-  visibility: visible;
 }
 .terminal-caret {
   animation: cursor-blink 1.05s step-end infinite;

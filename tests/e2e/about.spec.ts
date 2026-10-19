@@ -53,18 +53,31 @@ async function playAll(page: Page) {
     .toBe(true);
 }
 
-/** What the finished page draws: every word, the line, every card. */
+/**
+ * What the finished page draws: every word, the line, every card. A terminal
+ * is SEEN through one layer: the typed layer once typing has run, the final
+ * layer under reduced motion. Either way the seen words must be the final
+ * layer's words, with the caret after them.
+ */
 async function readFinished(page: Page) {
   return page.evaluate(() => {
     const opacity = (el: Element) => Number(getComputedStyle(el).opacity);
-    const terminals = [...document.querySelectorAll('[data-terminal]')].map((t) => ({
-      final: opacity(t.querySelector('[data-terminal-final]')!),
-      typedHidden:
-        getComputedStyle(t.querySelector('[data-terminal-typed]')!).visibility === 'hidden',
-      caret:
-        getComputedStyle(t.querySelector('[data-terminal-final] [data-terminal-caret]')!)
-          .visibility === 'visible',
-    }));
+    const shown = (el: Element) => opacity(el) > 0 && getComputedStyle(el).visibility !== 'hidden';
+    const words = (el: Element) =>
+      [...el.querySelectorAll('p')].map((p) => (p.textContent ?? '').replace(/s+/g, ' ').trim());
+    const terminals = [...document.querySelectorAll('[data-terminal]')].map((t) => {
+      const final = t.querySelector('[data-terminal-final]')!;
+      const typed = t.querySelector('[data-terminal-typed]')!;
+      const seen = [final, typed].filter(shown);
+      const layer = seen.length === 1 ? seen[0]! : null;
+      const caret = layer?.querySelector('[data-terminal-caret]');
+      return {
+        oneLayerSeen: layer !== null,
+        allWordsSeen:
+          layer !== null && JSON.stringify(words(layer)) === JSON.stringify(words(final)),
+        caret: caret ? getComputedStyle(caret).visibility === 'visible' : false,
+      };
+    });
     const paths = [...document.querySelectorAll('.career-path')]
       .filter((p) => (p as SVGGraphicsElement).getBoundingClientRect().width > 0)
       .map((p) => parseFloat(getComputedStyle(p).strokeDashoffset));
@@ -75,8 +88,8 @@ async function readFinished(page: Page) {
 
 const FINISHED = (terminals = 2) => ({
   terminals: Array.from({ length: terminals }, () => ({
-    final: 1,
-    typedHidden: true,
+    oneLayerSeen: true,
+    allWordsSeen: true,
     caret: true,
   })),
   paths: [0],
