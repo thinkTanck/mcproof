@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { ManTerminal } from '@/components/about/ManTerminal';
 import { Roadmap } from '@/components/about/Roadmap';
-import { ROADMAP_NOTE } from '@/lib/about/copy';
 
 export const metadata: Metadata = {
   title: 'About · MCProof',
@@ -15,7 +14,8 @@ export const metadata: Metadata = {
  *  1. one terminal, played on load: `man sentinel` printing the man page whose
  *     description is the one definition the /threats glossary prints too, then
  *     `whoami` printing the name and the bio, then a fresh prompt;
- *  2. "What's next": the roadmap board.
+ *  2. "What's next...": the roadmap board, with no note under its heading
+ *     (ROADMAP NOTE, 2026-10-20).
  *
  * The h1 is "About", visually hidden; there is no visible label above the
  * terminal and no heading over the man page. The page has no outbound link.
@@ -34,9 +34,8 @@ export default function AboutPage() {
 
       <section aria-labelledby="whats-next" className="mt-12">
         <h2 id="whats-next" className="reading-h2">
-          What&apos;s next
+          What&apos;s next...
         </h2>
-        <p className="reading measure mt-2 text-ink-muted">{ROADMAP_NOTE}</p>
         <Roadmap />
       </section>
     </article>

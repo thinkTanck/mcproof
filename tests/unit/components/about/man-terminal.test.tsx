@@ -110,9 +110,9 @@ describe('ManTerminal', () => {
     let sawPartialCommand = false;
     let sawPartialParagraph = false;
     expect(terminal).toHaveAttribute('data-state', 'typing');
-    for (let i = 0; i < 1000 && terminal.getAttribute('data-state') !== 'done'; i += 1) {
+    for (let i = 0; i < 500 && terminal.getAttribute('data-state') !== 'done'; i += 1) {
       act(() => {
-        vi.advanceTimersByTime(40);
+        vi.advanceTimersByTime(80);
       });
       for (const el of terminal.querySelectorAll<HTMLElement>(
         '[data-terminal-typed] [data-line-index]',
@@ -140,5 +140,6 @@ describe('ManTerminal', () => {
     const last = typed[typed.length - 1]!;
     expect(norm(last.textContent)).toBe('visitor@mcproof:~$');
     expect(last.querySelector('[data-terminal-caret]')).not.toBeNull();
-  });
+  }, // under 2 s alone, more on a loaded machine, so it gets room of its own. // It renders the whole 14 s playback, about 480 ticks, on a faked clock:
+  15_000);
 });

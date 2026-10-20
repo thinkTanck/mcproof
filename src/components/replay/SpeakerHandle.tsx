@@ -13,6 +13,7 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { followStepInside, scrollingBox } from './follow-step';
 import {
   SENTINEL_GLOSSARY_HREF,
   handleName,
@@ -75,7 +76,7 @@ export function SpeakerDefinitions({ children }: { children: ReactNode }) {
       if (event.key !== 'Escape') return;
       const handle = openOne();
       setOpenId(null);
-      handle?.querySelector<HTMLElement>(':scope > summary')?.focus();
+      handle?.querySelector<HTMLElement>(':scope > summary')?.focus({ preventScroll: true });
     };
     // A press outside closes it. On `click`, not on pointer down: closing takes
     // the definition out of the flow, the rows under it move up, and a press
@@ -139,11 +140,17 @@ export function SpeakerHandle({
   const role = roleForHandle(handle);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Bring the definition into view inside the box that scrolls. Guarded
-  // because jsdom (unit tests) does not implement scrollIntoView.
+  // Bring the definition into view inside the box that scrolls. While the
+  // replay plays, that box and nothing else: the page never moves under a
+  // viewer watching it (owner ruling REPLAY SCROLL, 2026-10-20). Paused or at
+  // rest, the page may also bring what the viewer just opened on screen.
+  // Guarded because jsdom (unit tests) does not implement scrollIntoView.
   useEffect(() => {
     const panel = panelRef.current;
-    if (open && panel && typeof panel.scrollIntoView === 'function') {
+    if (!open || !panel) return;
+    const box = scrollingBox(panel);
+    if (box) followStepInside(box, panel, false);
+    if (!panel.closest('[data-replay-playing]') && typeof panel.scrollIntoView === 'function') {
       panel.scrollIntoView({ block: 'nearest' });
     }
   }, [open]);
