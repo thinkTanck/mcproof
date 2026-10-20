@@ -60,7 +60,7 @@ describe('Home: how a test works', () => {
         .replace(/\s+/g, ' ')
         .trim();
     expect(items.map(text)).toEqual([
-      'The operator (the person giving the agent a normal task) gives a task',
+      'The operator gives the agent a normal task.',
       'The agent uses the served tools (tools we host for the run)',
       'In an attack run, one served tool carries the attack. In a control run, none does, so you can see how the agent behaves with no attack.',
       'The detector reads every step',
@@ -69,10 +69,8 @@ describe('Home: how a test works', () => {
     expect(items.map(text)).toEqual(HOW_A_TEST_WORKS.map((step) => step.text));
   });
 
-  it('keeps step 1 in its own words, not the replay Key new Operator text (owner ruling HOME STEP 1)', () => {
-    expect(HOW_A_TEST_WORKS[0]!.text).toBe(
-      'The operator (the person giving the agent a normal task) gives a task',
-    );
+  it('says step 1 once, in its own words (owner rulings HOME STEP 1 and 2026-10-19 17:47)', () => {
+    expect(HOW_A_TEST_WORKS[0]!.text).toBe('The operator gives the agent a normal task.');
     expect(HOW_A_TEST_WORKS[0]!.text).not.toContain('who gives the agent');
     // "Served tool" is the one name for a tool we host (copy pass 2026-10-15).
     expect(HOW_A_TEST_WORKS[1]!.text.toLowerCase()).toContain(

@@ -21,14 +21,13 @@ import { HOW_A_TEST_WORKS_TITLE } from '@/lib/site-copy';
  * icon, no motion.
  */
 /**
- * Step 1 says who the operator is, because a first-time reader did not know
- * (copy pass 2026-10-15, reader test). It keeps its own words: when the replay
- * Key's Operator text changed (SENTINEL + KEY, B), Home did not follow it
- * (owner ruling HOME STEP 1, 2026-10-19).
+ * Step 1 names the operator and what they do, once (owner ruling 2026-10-19
+ * 17:47: the earlier "gives a task" said task twice). It keeps its own words
+ * and does not read the replay Key's Operator text (owner ruling HOME STEP 1).
  */
 
 export const HOW_A_TEST_WORKS: readonly { id: string; text: string }[] = [
-  { id: 'operator', text: 'The operator (the person giving the agent a normal task) gives a task' },
+  { id: 'operator', text: 'The operator gives the agent a normal task.' },
   { id: 'agent', text: 'The agent uses the served tools (tools we host for the run)' },
   {
     id: 'tool',

@@ -839,7 +839,7 @@ for (const viewport of [
       const items = strip.locator('ol > li');
       await expect(items).toHaveCount(5);
       await expect(items.locator('[data-step-text]')).toHaveText([
-        'The operator (the person giving the agent a normal task) gives a task',
+        'The operator gives the agent a normal task.',
         'The agent uses the served tools (tools we host for the run)',
         'In an attack run, one served tool carries the attack. In a control run, none does, so you can see how the agent behaves with no attack.',
         'The detector reads every step',
