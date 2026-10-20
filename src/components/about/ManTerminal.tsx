@@ -21,11 +21,12 @@ import { usePrefersReducedMotionAfterMount } from './use-reveal';
  * THE WORDS ARE REAL DOM TEXT FROM THE FIRST BYTE. Two layers share one grid
  * cell: the FINAL layer holds every line and sets the box's height, so the
  * playback can never move the page; the TYPED layer, hidden from assistive
- * technology, is what a reader sees. While motion is allowed and script runs,
- * the final layer stays at opacity 0 for good: switched on after typing, it
- * became a late largest paint (CWV · about, LCP 6.35s). Under reduced motion
- * or with no script, CSS shows the final layer at once and hides the typed
- * one, before any script runs.
+ * technology, lies over it on the terminal's opaque background and is what a
+ * reader sees. The final text is painted from the first frame, so it is the
+ * page's largest paint at once: any text that first paints during playback is
+ * a late largest paint (a final layer switched on after typing gave LCP
+ * 6.35s; the NAME line printed whole gave 4.65s). Under reduced motion or with
+ * no script, CSS hides the typed layer before any script runs.
  *
  * Playback is time-based: a short tick works out what should be showing from
  * the time since it began, so a browser that stretches short timers (WebKit)

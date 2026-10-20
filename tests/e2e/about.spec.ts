@@ -96,7 +96,8 @@ async function playAll(page: Page) {
 
 /**
  * What the finished page draws. The terminal is SEEN through one layer (the
- * typed layer once playback has run, the final layer under reduced motion);
+ * typed layer, lying over the final one, once playback has run; the final
+ * layer under reduced motion);
  * either way the seen lines are the final screen, with the caret after the
  * last prompt.
  */
@@ -107,8 +108,18 @@ async function readFinished(page: Page) {
     const t = document.querySelector('[data-terminal]')!;
     const final = t.querySelector('[data-terminal-final]')!;
     const typed = t.querySelector('[data-terminal-typed]')!;
-    const seen = [final, typed].filter(shown);
-    const layer = seen.length === 1 ? seen[0]! : null;
+    // The typed layer, when shown, lies over the final one on an opaque
+    // background of the same size, so it is the one seen; otherwise the final.
+    const box = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map(Math.round).join(',');
+    };
+    const covers =
+      shown(typed) &&
+      box(typed) === box(final) &&
+      getComputedStyle(typed).position !== 'static' &&
+      !/rgba(.*,s*0)|transparent/.test(getComputedStyle(typed).backgroundColor);
+    const layer = shown(typed) ? (covers ? typed : null) : shown(final) ? final : null;
     const lines = layer
       ? [...layer.querySelectorAll('[data-line]')].map((p) =>
           (p.textContent ?? '').replace(/\s+/g, ' ').trim(),

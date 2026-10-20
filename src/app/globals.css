@@ -1018,13 +1018,17 @@ body:has([data-verdict-pending]) [data-run-verdict] {
  * is ever drawn finished and then redrawn.
  *
  * Terminals: the final layer holds every word and the card's height, in the
- * accessibility tree and indexed. While motion is allowed and script runs, it
- * is drawn at opacity 0 for good and the typed layer is what is SEEN, from
- * the prompt to the last character and the caret after it. The final layer is
- * never switched on late: text that turns visible after typing becomes the
- * page's largest paint seconds in (CWV · about measured LCP 6.35s that way). */
-[data-terminal] [data-terminal-final] {
-  opacity: 0;
+ * accessibility tree and indexed, and is PAINTED from the first frame. While
+ * motion is allowed and script runs, the typed layer lies over it on the
+ * terminal's own opaque background (positioned, so it paints above the final
+ * layer's text) and is what is SEEN, from the prompt to the last character and
+ * the caret after it. Nothing ever turns visible late: a final layer switched
+ * on after typing became the page's largest paint seconds in (LCP 6.35s), and
+ * a typed line printed whole becomes one too (the NAME line, LCP 4.65s), so
+ * the final text is the largest paint, at first paint. */
+[data-terminal] [data-terminal-typed] {
+  position: relative;
+  background: var(--terminal-bg);
 }
 [data-terminal] [data-terminal-final] [data-terminal-caret] {
   visibility: hidden;
@@ -1044,9 +1048,6 @@ body:has([data-verdict-pending]) [data-run-verdict] {
   transform: translateY(8px);
 }
 @media (prefers-reduced-motion: reduce), (scripting: none) {
-  [data-terminal] [data-terminal-final] {
-    opacity: 1 !important;
-  }
   [data-terminal] [data-terminal-typed] {
     visibility: hidden !important;
   }
