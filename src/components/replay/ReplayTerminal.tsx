@@ -11,6 +11,7 @@ import { useReplayLayout } from './phone-layout';
 import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 import { OPERATOR_HANDLE, agentHandle, handleForStep } from '@/lib/replay/roles';
 import type { Step } from '@/contract';
+import { TERMINAL_BG, TERMINAL_CARET_CLASS, TERMINAL_TEXT_CLASS } from './terminal-style';
 
 /**
  * The live agent-transcript terminal — the replay hero. It reads like a real
@@ -228,10 +229,10 @@ export function ReplayTerminal({
     <div
       ref={boxRef}
       data-elev="2"
-      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6] phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]! phone:[@media(min-height:500px)]:scroll-cap"
+      className={`overflow-y-auto ${TERMINAL_TEXT_CLASS} phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]! phone:[@media(min-height:500px)]:scroll-cap`}
       style={{
         height: 'clamp(280px, 40vh, 460px)',
-        background: 'var(--terminal-bg)',
+        background: TERMINAL_BG,
         containerType: 'size',
       }}
     >
@@ -319,7 +320,7 @@ export function ReplayTerminal({
                 {active && (
                   <span
                     aria-hidden="true"
-                    className="ml-px inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
+                    className={`${TERMINAL_CARET_CLASS} motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]`}
                     style={{ background: color }}
                   />
                 )}

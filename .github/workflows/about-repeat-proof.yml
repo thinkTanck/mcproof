@@ -1,0 +1,42 @@
+# TEMPORARY (owner rulings ABOUT FLAKE 2 and ABOUT REVISION, 2026-10-19). Proves the /about motion
+# spec in CI's Linux browsers: about.spec.ts, 20 repeats, no retries, Chromium
+# and WebKit, must be 100% (18 tests x 2 browsers x 20 = 720 of 720). Runs only on pushes to feat/about-revision, and is
+# deleted in the next commit, before the revision merges.
+name: About repeat proof
+
+on:
+  push:
+    branches: ['feat/about-revision']
+
+permissions:
+  contents: read
+
+jobs:
+  repeat:
+    name: about.spec.ts x20 (Chromium + WebKit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with e2e fixture routes
+        run: npm run build
+        env:
+          E2E_FIXTURES: '1'
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: about.spec.ts, 20 repeats, no retries
+        run: npx playwright test tests/e2e/about.spec.ts --project=chromium --project=webkit --repeat-each=20 --retries=0 --reporter=list
+        env:
+          E2E_FIXTURES: '1'

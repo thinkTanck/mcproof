@@ -34,7 +34,7 @@ const reducedNow = () =>
  * the server always sends pending, and CSS resolves pending to the finished
  * picture under reduced motion before any script runs.
  */
-function usePrefersReducedMotionAfterMount(): boolean {
+export function usePrefersReducedMotionAfterMount(): boolean {
   return useSyncExternalStore(subscribe, reducedNow, () => false);
 }
 

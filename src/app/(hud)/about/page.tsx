@@ -1,17 +1,8 @@
 import type { Metadata } from 'next';
 import { SectionLabel } from '@/components/hud';
-import { TerminalCard } from '@/components/about/TerminalCard';
-import { CareerLine } from '@/components/about/CareerLine';
+import { AboutTerminals } from '@/components/about/AboutTerminals';
 import { Roadmap } from '@/components/about/Roadmap';
-import {
-  ABOUT_AGENTRIFI_LINE,
-  ABOUT_BIO,
-  ABOUT_HEADING,
-  ABOUT_LINKEDIN_HREF,
-  ABOUT_WHOAMI,
-  ROADMAP_NOTE,
-} from '@/lib/about/copy';
-import { SENTINEL_DEFINITION } from '@/lib/replay/roles';
+import { ROADMAP_NOTE } from '@/lib/about/copy';
 
 export const metadata: Metadata = {
   title: 'About · MCProof',
@@ -19,66 +10,33 @@ export const metadata: Metadata = {
 };
 
 /**
- * ABOUT (route `/about`, register: BRAND; owner rulings 2026-10-18, plan in
- * claude/reports/about-plan.md). Four parts, in order:
+ * ABOUT (route `/about`, register: BRAND; owner rulings 2026-10-18 and ABOUT
+ * REVISION, 2026-10-19). In order:
  *
- *  1. "Built by Dameion Ayers": a `whoami` terminal that prints the bio, then
- *     the Agentrifi line and the one link, LinkedIn. No Contact link until an
- *     Agentrifi address exists, no GitHub link, no handle or alias, no photo.
+ *  1. a `whoami` terminal that prints the bio, streaming on load;
  *  2. "Why \"Sentinel\"": a `man sentinel` terminal printing the one
- *     definition the /threats glossary prints too.
- *  3. The career signal line, through four labelled nodes.
- *  4. "What's next": the roadmap board the line runs into.
+ *     definition the /threats glossary prints too, streaming when scrolled to;
+ *  3. "What's next": the roadmap board.
+ *
+ * The h1 is "About", visually hidden: the visible name heading, the Agentrifi
+ * line, the LinkedIn link and the career line were removed (19:09, 19:12), so
+ * the page has no outbound link. The visible "About" label is hidden from
+ * assistive technology, so the word is not read twice.
  *
  * A Server Component. The motion is two small client islands (the terminals
- * and the reveal) and CSS; every word is in the server's HTML.
+ * and the roadmap reveal) and CSS; every word is in the server's HTML.
  */
 export default function AboutPage() {
   return (
     <article className="type-flow mx-auto max-w-[1100px] px-6 py-10 sm:py-12">
-      <SectionLabel>About</SectionLabel>
-      <h1 className="reading-h1 mt-3">{ABOUT_HEADING}</h1>
-
-      <div className="mt-6 max-w-[760px]">
-        <TerminalCard
-          id="whoami"
-          label="whoami"
-          command="whoami"
-          lines={[
-            { kind: 'out', text: ABOUT_WHOAMI },
-            { kind: 'out', text: ABOUT_BIO },
-          ]}
-        />
+      <h1 className="sr-only">About</h1>
+      <div aria-hidden="true">
+        <SectionLabel>About</SectionLabel>
       </div>
-      <p className="reading measure mt-4 text-ink">{ABOUT_AGENTRIFI_LINE}</p>
-      <p className="mt-2">
-        <a
-          href={ABOUT_LINKEDIN_HREF}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="reading target-min inline-flex items-center text-ink underline underline-offset-4"
-        >
-          LinkedIn
-        </a>
-      </p>
 
-      <section aria-labelledby="why-sentinel" className="mt-12">
-        <h2 id="why-sentinel" className="reading-h2">
-          Why &quot;Sentinel&quot;
-        </h2>
-        <div className="mt-4 max-w-[760px]">
-          <TerminalCard
-            id="sentinel"
-            label="man sentinel"
-            command="man sentinel"
-            lines={[{ kind: 'out', text: SENTINEL_DEFINITION }]}
-          />
-        </div>
-      </section>
+      <AboutTerminals />
 
-      <CareerLine />
-
-      <section aria-labelledby="whats-next">
+      <section aria-labelledby="whats-next" className="mt-12">
         <h2 id="whats-next" className="reading-h2">
           What&apos;s next
         </h2>
