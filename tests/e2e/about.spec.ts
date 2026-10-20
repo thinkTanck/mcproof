@@ -2,53 +2,66 @@ import { test, expect, type Page } from '@playwright/test';
 import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
 
 /**
- * /about IN A REAL BROWSER (owner rulings 2026-10-18 and ABOUT REVISION,
- * 2026-10-19). Motion is checked by its END STATE only: the test waits for the
- * `data-state` the page sets, or for an element's own finite animations to
- * finish, and then reads what is drawn. No timing is asserted, and no timeout
- * is raised. Per the owner's rule, a flaky motion test is a stop, not a re-run.
+ * /about IN A REAL BROWSER (owner rulings 2026-10-18, ABOUT REVISION
+ * 2026-10-19, ABOUT FINAL and ABOUT FINAL TITLES 2026-10-20). Motion is
+ * checked by its END STATE only: the test waits for the `data-state` the page
+ * sets, or for an element's own finite animations to finish, and then reads
+ * what is drawn. The playback is read as what the typed layer held, in order,
+ * never as a time. No timing is asserted and no timeout is raised. Per the
+ * owner's rule, a flaky motion test is a stop, not a re-run.
  *
- * WHEN EACH TERMINAL TYPES: whoami on load; Why Sentinel only when scrolled to
- * (60% in view after a user scroll), or after whoami when it is already 60% in
- * view at load; never both at once.
+ * ONE TERMINAL, PLAYED ON LOAD: `man sentinel`, then `whoami`, then a fresh
+ * prompt with the caret.
  */
 
-/** Short enough that the Sentinel terminal is not 60% in view at load. */
-const SHORT = [
+const VIEWPORTS = [
   { width: 375, height: 667 },
-  { width: 1280, height: 500 },
+  { width: 1280, height: 800 },
 ] as const;
-/** Tall enough that it is fully in view at load. */
-const TALL = { width: 1280, height: 2000 } as const;
 
-const terminal = (page: Page, id: 'whoami' | 'sentinel') => page.locator(`[data-terminal="${id}"]`);
+const BIO =
+  "I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are vulnerable to tool misuse. Tool use is an attack vector in the agent harness, and it needs careful consideration.";
+const SENTINEL =
+  "A sentinel is a guard posted to keep watch. Sentinel is MCProof's proving ground: a sealed test environment where your agent meets booby-trapped tools while our detector watches every step. In a replay, anything marked @sentinel happened inside it. MCProof is the proof. Sentinel is where we prove it.";
 
-/**
- * Record every state each terminal passes through, in order, from the first
- * byte: the order they happen in, never the time.
- */
-async function recordStates(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as unknown as { __states: string[] };
-    w.__states = [];
-    const seen = new Map<Element, string>();
-    const read = () => {
-      for (const el of document.querySelectorAll('[data-terminal]')) {
-        const now = `${el.getAttribute('data-terminal')}:${el.getAttribute('data-state')}`;
-        if (seen.get(el) !== now) {
-          seen.set(el, now);
-          w.__states.push(now);
-        }
-      }
-    };
-    new MutationObserver(read).observe(document, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['data-state'],
-    });
-  });
-}
+/** The final screen, exactly, one entry a line. */
+const FINAL_SCREEN = [
+  'visitor@mcproof:~$ man sentinel',
+  'SENTINEL(7) MCProof Manual SENTINEL(7)',
+  '',
+  'NAME',
+  "sentinel - MCProof's proving ground",
+  '',
+  'DESCRIPTION',
+  SENTINEL,
+  '',
+  'visitor@mcproof:~$ whoami',
+  'Dameion Ayers',
+  BIO,
+  '',
+  'visitor@mcproof:~$',
+];
+
+/** Each line's kind, in order, as the script plays it. */
+const KINDS = [
+  'command',
+  'short',
+  'blank',
+  'short',
+  'short',
+  'blank',
+  'short',
+  'paragraph',
+  'blank',
+  'command',
+  'short',
+  'paragraph',
+  'blank',
+  'prompt',
+] as const;
+
+const terminal = (page: Page) => page.locator('[data-terminal="about"]');
+const DONE = { timeout: 25_000 };
 
 async function open(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize(viewport);
@@ -72,108 +85,154 @@ async function ownAnimationsDone(page: Page, selector: string) {
   });
 }
 
-/** Play the page to its end: whoami, then Sentinel scrolled to, then the roadmap. */
+/** Play the page to its end: the terminal, then the roadmap scrolled to. */
 async function playAll(page: Page) {
-  await expect(terminal(page, 'whoami')).toHaveAttribute('data-state', 'done', {
-    timeout: 20_000,
-  });
-  await terminal(page, 'sentinel').scrollIntoViewIfNeeded();
-  await expect(terminal(page, 'sentinel')).toHaveAttribute('data-state', 'done', {
-    timeout: 20_000,
-  });
+  await expect(terminal(page)).toHaveAttribute('data-state', 'done', DONE);
   const roadmap = page.locator('[data-reveal="roadmap"]');
   await roadmap.scrollIntoViewIfNeeded();
-  await expect(roadmap).toHaveAttribute('data-state', 'done', { timeout: 20_000 });
+  await expect(roadmap).toHaveAttribute('data-state', 'done', DONE);
   await ownAnimationsDone(page, '[data-reveal="roadmap"]');
 }
 
 /**
- * What the finished page draws. A terminal is SEEN through one layer (the
- * typed layer once typing has run, the final layer under reduced motion);
- * either way the seen words are the final layer's, with the caret after them.
+ * What the finished page draws. The terminal is SEEN through one layer (the
+ * typed layer once playback has run, the final layer under reduced motion);
+ * either way the seen lines are the final screen, with the caret after the
+ * last prompt.
  */
 async function readFinished(page: Page) {
   return page.evaluate(() => {
     const opacity = (el: Element) => Number(getComputedStyle(el).opacity);
     const shown = (el: Element) => opacity(el) > 0 && getComputedStyle(el).visibility !== 'hidden';
-    const words = (el: Element) =>
-      [...el.querySelectorAll('p')].map((p) => (p.textContent ?? '').replace(/\s+/g, ' ').trim());
-    const terminals = [...document.querySelectorAll('[data-terminal]')].map((t) => {
-      const final = t.querySelector('[data-terminal-final]')!;
-      const typed = t.querySelector('[data-terminal-typed]')!;
-      const seen = [final, typed].filter(shown);
-      const layer = seen.length === 1 ? seen[0]! : null;
-      const caret = layer?.querySelector('[data-terminal-caret]');
-      return {
-        oneLayerSeen: layer !== null,
-        allWordsSeen:
-          layer !== null && JSON.stringify(words(layer)) === JSON.stringify(words(final)),
-        caret: caret ? getComputedStyle(caret).visibility === 'visible' : false,
-      };
-    });
-    const cards = [...document.querySelectorAll('[data-roadmap-card]')].map(opacity);
-    return { terminals, cards };
+    const t = document.querySelector('[data-terminal]')!;
+    const final = t.querySelector('[data-terminal-final]')!;
+    const typed = t.querySelector('[data-terminal-typed]')!;
+    const seen = [final, typed].filter(shown);
+    const layer = seen.length === 1 ? seen[0]! : null;
+    const lines = layer
+      ? [...layer.querySelectorAll('[data-line]')].map((p) =>
+          (p.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        )
+      : [];
+    const lastLine = layer?.querySelector('[data-line]:last-child');
+    const caret = lastLine?.querySelector('[data-terminal-caret]');
+    return {
+      terminals: document.querySelectorAll('[data-terminal]').length,
+      oneLayerSeen: layer !== null,
+      lines,
+      caretAtEnd: caret ? getComputedStyle(caret).visibility === 'visible' : false,
+      cards: [...document.querySelectorAll('[data-roadmap-card]')].map(opacity),
+    };
   });
 }
 
 const FINISHED = {
-  terminals: Array.from({ length: 2 }, () => ({
-    oneLayerSeen: true,
-    allWordsSeen: true,
-    caret: true,
-  })),
-  cards: Array.from({ length: 18 }, () => 1),
+  terminals: 1,
+  oneLayerSeen: true,
+  lines: FINAL_SCREEN,
+  caretAtEnd: true,
+  cards: Array.from({ length: 13 }, () => 1),
 };
 
-test('the server sends every animated part pending, never finished and then retyped', async ({
+test('the server sends every animated part pending, with every word of the final screen', async ({
   request,
 }) => {
   const html = await (await request.get('/about')).text();
   const states = [
     ...html.matchAll(/data-(?:terminal|reveal)="[^"]+"[^>]*?data-state="(\w+)"/g),
   ].map((m) => m[1]);
-  expect(states).toEqual(['pending', 'pending', 'pending']);
+  expect(states).toEqual(['pending', 'pending']);
   expect(html).toContain('visitor@mcproof:~$');
+  expect(html).toContain('MCProof Manual');
+  expect(html).toContain('Dameion Ayers');
   expect(html).toContain('needs careful consideration.');
   expect(html).toContain('Sentinel is where we prove it.');
 });
 
-for (const viewport of SHORT) {
+for (const viewport of VIEWPORTS) {
   test.describe(`/about at ${viewport.width}x${viewport.height}`, () => {
-    test('whoami streams on load; Sentinel waits for a scroll, then streams', async ({ page }) => {
-      await open(page, viewport);
-      await expect(terminal(page, 'whoami')).toHaveAttribute('data-state', 'done', {
-        timeout: 20_000,
-      });
-      // Loaded, whoami finished, no scroll: Sentinel has not started.
-      await expect(terminal(page, 'sentinel')).toHaveAttribute('data-state', 'pending');
-      await terminal(page, 'sentinel').scrollIntoViewIfNeeded();
-      await expect(terminal(page, 'sentinel')).toHaveAttribute('data-state', 'done', {
-        timeout: 20_000,
-      });
-    });
-
-    test('plays to its finished state: every word, the caret, every card in', async ({ page }) => {
+    test('plays to the exact final screen: both commands, the man page, the name, the bio, the prompt', async ({
+      page,
+    }) => {
       await open(page, viewport);
       await playAll(page);
       expect(await readFinished(page)).toEqual(FINISHED);
     });
 
-    test('the typing never changes a terminal’s height', async ({ page }) => {
+    test('prints short lines whole and builds up commands and paragraphs; the final text is always in the accessibility tree', async ({
+      page,
+    }) => {
+      // Record what each typed line held, every time it changed, from the first byte.
+      await page.addInitScript(() => {
+        const w = window as unknown as { __seen: Record<string, string[]> };
+        w.__seen = {};
+        const read = () => {
+          for (const el of document.querySelectorAll<HTMLElement>(
+            '[data-terminal-typed] [data-line-index]',
+          )) {
+            const text = (el.querySelector('[data-line-text]')?.textContent ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+            const list = (w.__seen[el.dataset.lineIndex!] ??= []);
+            if (list[list.length - 1] !== text) list.push(text);
+          }
+        };
+        new MutationObserver(read).observe(document, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+        });
+      });
       await open(page, viewport);
-      const before = {
-        whoami: (await terminal(page, 'whoami').boundingBox())!.height,
-        sentinel: (await terminal(page, 'sentinel').boundingBox())!.height,
-      };
-      await playAll(page);
-      expect((await terminal(page, 'whoami').boundingBox())!.height).toBe(before.whoami);
-      expect((await terminal(page, 'sentinel').boundingBox())!.height).toBe(before.sentinel);
+      await expect(terminal(page)).toHaveAttribute('data-state', 'typing');
+      // Mid-playback, a reader of the accessibility tree already has every word.
+      const midway = await terminal(page).ariaSnapshot();
+      expect(midway).toContain('Dameion Ayers');
+      expect(midway).toContain('careful consideration.');
+      expect(midway).toContain('MCProof Manual');
+      await expect(terminal(page)).toHaveAttribute('data-state', 'done', DONE);
+
+      const seen = await page.evaluate(
+        () => (window as unknown as { __seen: Record<string, string[]> }).__seen,
+      );
+      for (const [i, kind] of KINDS.entries()) {
+        const full = FINAL_SCREEN[i]!.replace(/^visitor@mcproof:~\$ ?/, '');
+        const history = seen[String(i)] ?? [];
+        expect(history.at(-1), `line ${i} ends whole`).toBe(full);
+        if (kind === 'short') expect(history, `short line ${i} printed whole`).toEqual([full]);
+        if (kind === 'command' || kind === 'paragraph') {
+          expect(history.length, `${kind} ${i} built up`).toBeGreaterThan(2);
+          for (const step of history) expect(full.startsWith(step), `${kind} ${i}`).toBe(true);
+        }
+      }
     });
 
-    test('reduced motion shows the finished state at once', async ({ page }) => {
+    test('the playback never changes the terminal’s height', async ({ page }) => {
+      await open(page, viewport);
+      const before = (await terminal(page).boundingBox())!.height;
+      await playAll(page);
+      expect((await terminal(page).boundingBox())!.height).toBe(before);
+    });
+
+    test('reduced motion shows the finished screen at once', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await open(page, viewport);
       expect(await readFinished(page)).toEqual(FINISHED);
+    });
+
+    test('draws no visible About label and no Sentinel heading', async ({ page }) => {
+      await open(page, viewport);
+      await expect(page.getByRole('heading', { name: /sentinel/i })).toHaveCount(0);
+      const visibleAbout = await page.evaluate(
+        () =>
+          [...document.querySelectorAll('main *')].filter((el) => {
+            if (el.children.length > 0 || !/^about$/i.test((el.textContent ?? '').trim()))
+              return false;
+            const r = el.getBoundingClientRect();
+            return r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== 'hidden';
+          }).length,
+      );
+      expect(visibleAbout).toBe(0);
     });
 
     test('lays the roadmap out in the right number of columns, with no sideways scroll', async ({
@@ -187,7 +246,7 @@ for (const viewport of SHORT) {
           ),
         ),
       ]);
-      expect(lefts).toHaveLength(viewport.width >= 768 ? 3 : 1);
+      expect(lefts).toHaveLength(viewport.width >= 1024 ? 3 : 1);
       expect(await sideways(page)).toBe(0);
     });
 
@@ -208,31 +267,45 @@ for (const viewport of SHORT) {
   });
 }
 
-test.describe(`/about at ${TALL.width}x${TALL.height}, Sentinel in view at load`, () => {
-  test('Sentinel starts only after whoami finishes; never both typing', async ({ page }) => {
-    await recordStates(page);
-    await open(page, TALL);
-    await expect(terminal(page, 'sentinel')).toHaveAttribute('data-state', 'done', {
-      timeout: 20_000,
+test('the man page header closes up on a phone, with no sideways scroll', async ({ page }) => {
+  for (const width of [320, 375]) {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, { width, height: 700 });
+    expect(await sideways(page), `at ${width}`).toBe(0);
+    const inside = await page.evaluate(() => {
+      const box = document.querySelector('[data-terminal]')!.getBoundingClientRect();
+      return [
+        ...document.querySelectorAll('[data-terminal-final] [data-line="man-header"] span span'),
+      ].every((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left >= box.left && r.right <= box.right;
+      });
     });
-    const states = await page.evaluate(
-      () => (window as unknown as { __states: string[] }).__states,
-    );
-    // Sentinel's first move is after whoami is done, and it does finish.
-    const whoamiDone = states.indexOf('whoami:done');
-    const sentinelTyping = states.indexOf('sentinel:typing');
-    expect(whoamiDone, states.join(' > ')).toBeGreaterThanOrEqual(0);
-    expect(sentinelTyping, states.join(' > ')).toBeGreaterThan(whoamiDone);
-    expect(states, states.join(' > ')).toContain('sentinel:done');
-    // Never both typing: walk the order and track each one's state.
-    const now: Record<string, string> = {};
-    for (const entry of states) {
-      const [id, state] = entry.split(':') as [string, string];
-      now[id] = state;
-      expect(now.whoami === 'typing' && now.sentinel === 'typing', states.join(' > ')).toBe(false);
-    }
-  });
+    expect(inside, `at ${width}`).toBe(true);
+  }
 });
+
+for (const width of [1024, 1280]) {
+  test(`every roadmap card title holds one line at ${width}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, { width, height: 900 });
+    await page.evaluate(() => document.fonts.ready);
+    const titles = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-card-title]')].map((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        // Boxes on one line share a top to within a few pixels; a new line
+        // starts a full line height lower.
+        const half = parseFloat(getComputedStyle(el).lineHeight) / 2;
+        const tops = [...range.getClientRects()].map((r) => r.top).sort((a, b) => a - b);
+        const lines = tops.filter((top, i) => i === 0 || top - tops[i - 1]! > half).length;
+        return { text: el.textContent, lines };
+      }),
+    );
+    expect(titles).toHaveLength(13);
+    for (const title of titles) expect(title.lines, title.text ?? '').toBe(1);
+  });
+}
 
 test('the /threats glossary prints the same Sentinel text, at the same anchor', async ({
   page,
@@ -240,9 +313,10 @@ test('the /threats glossary prints the same Sentinel text, at the same anchor', 
   await suppressBootSplash(page);
   await page.goto('/about');
   const about = (await page
-    .locator('[data-terminal="sentinel"] [data-terminal-final] p')
-    .nth(1)
+    .locator('[data-terminal-final] [data-line="paragraph"]')
+    .first()
     .textContent())!.trim();
+  expect(about).toBe(SENTINEL);
   await page.goto('/threats#sentinel');
   const glossary = (await page.locator('#sentinel dd').textContent())!.trim();
   expect(glossary).toBe(about);

@@ -1,38 +1,39 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import AboutPage, { metadata } from '@/app/(hud)/about/page';
-import {
-  ABOUT_BIO,
-  ABOUT_LINKEDIN_HREF,
-  ABOUT_PROMPT,
-  ROADMAP_LATER,
-  ROADMAP_NEXT,
-} from '@/lib/about/copy';
+import { ABOUT_BIO, ABOUT_LINKEDIN_HREF, ABOUT_NAME, ROADMAP_NOTE } from '@/lib/about/copy';
+import { ABOUT_SCRIPT } from '@/lib/about/script';
+import { roadmapColumns } from '@/lib/about/roadmap';
 import { SENTINEL_DEFINITION } from '@/lib/replay/roles';
 import { NAV_ITEMS } from '@/components/shell/nav-items';
-import {
-  measuredCopy,
-  compromiseDisplayProvenance,
-  classificationDisplayProvenance,
-} from '@/lib/display/measured';
 import { THREATS } from '@/components/threats/threat-data';
-import {
-  CONNECT_CLIENT_TABS,
-  CORE7_LIST_LABEL,
-  METRIC_HEADING_CLASSIFICATION,
-  METRIC_HEADING_COMPROMISE,
-} from '@/lib/site-copy';
-import { HOW_A_TEST_WORKS } from '@/components/home/HowATestWorks';
-import { OWASP_BADGE_LABEL } from '@/components/hud/OwaspTopTen';
+import { measuredCounts } from '@/lib/display/measured';
 
 /**
- * /about (owner rulings 2026-10-18 and ABOUT REVISION, 2026-10-19). Every word
- * the page shows is real DOM text in the server render; the terminals and the
- * motion only decide how it is drawn.
+ * /about (owner ruling ABOUT FINAL, 2026-10-20). One terminal: `man sentinel`,
+ * a blank line, `whoami`, and a fresh prompt. Every word is real DOM text in
+ * the server render; the playback only decides how it is drawn.
  */
 
 const BIO =
-  "I've been writing code for most of my working life. After a B.S. in Mathematics with computer science coursework, I wrote AutoLISP and VBA tools that automated engineering work on commercial glass and glazing projects. Today I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are vulnerable to tool misuse. Tool use is an attack vector in the agent harness, and it needs careful consideration.";
+  "I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are vulnerable to tool misuse. Tool use is an attack vector in the agent harness, and it needs careful consideration.";
+
+const FINAL_SCREEN = [
+  'visitor@mcproof:~$ man sentinel',
+  'SENTINEL(7) MCProof Manual SENTINEL(7)',
+  '',
+  'NAME',
+  "sentinel - MCProof's proving ground",
+  '',
+  'DESCRIPTION',
+  SENTINEL_DEFINITION,
+  '',
+  'visitor@mcproof:~$ whoami',
+  'Dameion Ayers',
+  BIO,
+  '',
+  'visitor@mcproof:~$',
+];
 
 const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -41,7 +42,7 @@ function renderAbout() {
 }
 
 describe('/about · the page', () => {
-  it('has a title of its own and one level-1 heading, "About", hidden from view', () => {
+  it('has a title of its own and one heading of level 1, "About", hidden from view', () => {
     expect(metadata.title).toBe('About · MCProof');
     expect(String(metadata.description)).not.toMatch(/—/);
     renderAbout();
@@ -51,158 +52,157 @@ describe('/about · the page', () => {
     expect(h1[0]!.className.split(/\s+/)).toContain('sr-only');
   });
 
-  it('prints the bio word for word, under the visitor@mcproof prompt', () => {
+  it('draws no visible "About" label and no "Why Sentinel" heading', () => {
+    const { container } = renderAbout();
+    expect(screen.queryByRole('heading', { name: /sentinel/i })).toBeNull();
+    const visibleAbout = [...container.querySelectorAll('*')].filter(
+      (el) =>
+        el.children.length === 0 &&
+        /^about$/i.test((el.textContent ?? '').trim()) &&
+        !el.closest('.sr-only'),
+    );
+    expect(visibleAbout).toEqual([]);
+  });
+
+  it('prints the final screen exactly, line by line, as DOM text', () => {
+    expect(ABOUT_NAME).toBe('Dameion Ayers');
     expect(ABOUT_BIO).toBe(BIO);
-    expect(ABOUT_PROMPT).toBe('visitor@mcproof:~$');
     const { container } = renderAbout();
-    const terminal = container.querySelector('[data-terminal="whoami"]')!;
-    const final = terminal.querySelector('[data-terminal-final]')!;
-    expect([...final.querySelectorAll('p')].map((el) => norm(el.textContent))).toEqual([
-      'visitor@mcproof:~$ whoami',
-      'dameion-ayers',
-      BIO,
-    ]);
-    expect(terminal.querySelector('[data-terminal-typed]')).toHaveAttribute('aria-hidden', 'true');
+    const terminals = container.querySelectorAll('[data-terminal]');
+    expect(terminals).toHaveLength(1);
+    const final = terminals[0]!.querySelector('[data-terminal-final]')!;
+    expect(final.closest('[aria-hidden="true"]')).toBeNull();
+    expect([...final.querySelectorAll('[data-line]')].map((el) => norm(el.textContent))).toEqual(
+      FINAL_SCREEN,
+    );
+    // The script the playback runs is the same screen.
+    expect(ABOUT_SCRIPT.map((line) => norm(line.text))).toEqual(
+      FINAL_SCREEN.map((line) => line.replace(/^visitor@mcproof:~\$ ?/, '')),
+    );
+    expect(terminals[0]!.querySelector('[data-terminal-typed]')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
   });
 
-  it('wears the replay terminal look: its box, its background, its prompt and caret', () => {
+  it('lays the man page header out as three parts that can close up on a phone', () => {
     const { container } = renderAbout();
-    for (const terminal of container.querySelectorAll<HTMLElement>('[data-terminal]')) {
-      const classes = terminal.className.split(/\s+/);
-      for (const c of ['rounded-lg', 'px-4', 'py-3', 'font-mono', 'text-[15px]', 'leading-[1.6]']) {
-        expect(classes, c).toContain(c);
-      }
-      expect(terminal).toHaveAttribute('data-elev', '2');
-      expect(terminal.style.background).toBe('var(--terminal-bg)');
-      expect(terminal.querySelector('[data-terminal-prompt]')).toHaveStyle({
-        color: 'var(--terminal-prompt)',
-      });
-    }
+    const header = container.querySelector('[data-terminal-final] [data-line="man-header"]')!;
+    expect(
+      [...header.querySelector('[data-line-text]')!.children].map((el) => el.textContent),
+    ).toEqual(['SENTINEL(7)', 'MCProof Manual', 'SENTINEL(7)']);
+    expect(header.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'flex-wrap']));
   });
 
-  it('removes the name heading, the Agentrifi line, the career line and every outbound link', () => {
+  it('has no outbound link, no handle or alias, and no photo', () => {
     const { container } = renderAbout();
-    expect(screen.queryByText(/Built by Dameion Ayers/)).toBeNull();
-    expect(screen.queryByText(/Agentrifi/)).toBeNull();
-    expect(screen.queryByRole('link', { name: /LinkedIn/ })).toBeNull();
-    expect(container.querySelector('[data-career-line], [data-reveal="career"]')).toBeNull();
-    expect(container.querySelector('[data-career-continues]')).toBeNull();
     expect(container.querySelector('a[href^="http"], a[href^="mailto:"]')).toBeNull();
-    // The LinkedIn URL is kept, unused, for later (owner, 19:12).
+    expect(screen.queryByText(/Agentrifi/)).toBeNull();
+    for (const alias of ['DameRA', 'DameionRA', 'thinkTanck', 'thinktanck']) {
+      expect(container.innerHTML.toLowerCase()).not.toContain(alias.toLowerCase());
+    }
+    expect(container.querySelector('img, picture')).toBeNull();
+    // Kept, unused, for later.
     expect(ABOUT_LINKEDIN_HREF).toBe('https://www.linkedin.com/in/dameion-a-662aa880/');
   });
 
-  it('carries no GitHub link, no handle or alias, and no photo', () => {
-    const { container } = renderAbout();
-    expect(container.querySelector('a[href*="github.com"]')).toBeNull();
-    const all = container.innerHTML;
-    for (const alias of ['DameRA', 'DameionRA', 'thinkTanck', 'thinktanck']) {
-      expect(all.toLowerCase()).not.toContain(alias.toLowerCase());
-    }
-    expect(container.querySelector('img, picture')).toBeNull();
-  });
-
-  it('says why "Sentinel", under its own prompt, in the constant the glossary renders', () => {
-    const { container } = renderAbout();
-    expect(screen.getByRole('heading', { level: 2, name: 'Why "Sentinel"' })).toBeInTheDocument();
-    const terminal = container.querySelector('[data-terminal="sentinel"]')!;
-    const final = terminal.querySelector('[data-terminal-final]')!;
-    expect([...final.querySelectorAll('p')].map((el) => norm(el.textContent))).toEqual([
-      'visitor@mcproof:~$ man sentinel',
-      SENTINEL_DEFINITION,
-    ]);
-    const whoami = container.querySelector('[data-terminal="whoami"]')!;
-    expect(
-      whoami.compareDocumentPosition(terminal) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it('lays out the roadmap: heading, note, three pills, every item in the owner’s words', () => {
-    const { container } = renderAbout();
-    expect(screen.getByRole('heading', { level: 2, name: "What's next" })).toBeInTheDocument();
-    expect(screen.getByText('Planned, not promised. No dates.')).toBeInTheDocument();
-    const columns = [...container.querySelectorAll('[data-roadmap-column]')];
-    expect(columns.map((c) => c.getAttribute('data-roadmap-column'))).toEqual([
-      'shipped',
-      'next',
-      'later',
-    ]);
-    expect(columns.map((c) => norm(c.querySelector('[data-pill]')!.textContent))).toEqual([
-      'Shipped (v1)',
-      'Next (v2)',
-      'Later (v3)',
-    ]);
-    const items = (col: Element) =>
-      [...col.querySelectorAll('[data-roadmap-card]')].map((c) => norm(c.textContent));
-    expect(ROADMAP_NEXT).toEqual([
-      'Test weaker and open-source agents with a pluggable runner, and measure GitHub Copilot, Cursor, Codex and Gemini CLI.',
-      'Re-measure ASI02 on the fixed trap.',
-      'A held-out test set kept outside the repo.',
-      'A second detector model to cross-check verdicts.',
-      'More than one test per session.',
-      'Clearer results history.',
-    ]);
-    expect(items(columns[1]!)).toEqual(ROADMAP_NEXT);
-    expect(ROADMAP_LATER).toEqual([
-      'Test any agent from your own CI pipeline.',
-      "The 3 OWASP risks a single run can't test, via multi-run and multi-agent scenarios.",
-      'Agent-to-agent tests.',
-      'Scheduled re-tests that flag when an update makes your agent easier to trick.',
-      'Team accounts.',
-      'New attack scenarios as real agent exploits are published.',
-    ]);
-    expect(items(columns[2]!)).toEqual(ROADMAP_LATER);
-  });
-
-  it('builds Shipped only from wording the site already shows, numbers included', () => {
-    const { container } = renderAbout();
-    const shipped = container.querySelector('[data-roadmap-column="shipped"]')!;
-    const text = norm(shipped.textContent);
-    const copy = measuredCopy();
-    const covered = THREATS.filter((t) => t.state === 'covered').length;
-    for (const expected of [
-      OWASP_BADGE_LABEL,
-      `MCProof tests ${covered} of the ${THREATS.length}.`,
-      METRIC_HEADING_COMPROMISE,
-      copy.precision,
-      copy.recall,
-      compromiseDisplayProvenance(),
-      METRIC_HEADING_CLASSIFICATION,
-      copy.classification,
-      classificationDisplayProvenance(),
-      ...CONNECT_CLIENT_TABS.map((t) => t.label),
-      HOW_A_TEST_WORKS.find((s) => s.id === 'report')!.text,
-      CORE7_LIST_LABEL,
-    ]) {
-      expect(text, expected).toContain(norm(expected));
-    }
-    expect(shipped.querySelectorAll('[data-roadmap-card]')).toHaveLength(6);
-  });
-
-  it('never words a planned item as if it shipped', () => {
-    const { container } = renderAbout();
-    for (const col of ['next', 'later']) {
-      const text = norm(container.querySelector(`[data-roadmap-column="${col}"]`)!.textContent);
-      expect(text).not.toMatch(/\b(shipped|built|launched|live now|now available|released)\b/i);
-    }
+  it('sends the terminal and the roadmap pending from the server, every word in it', () => {
+    const html = renderToString(<AboutPage />);
+    const states = [...html.matchAll(/data-(?:terminal|reveal)="[^"]+"[^>]*?data-state="(\w+)"/g)];
+    expect(states.map((m) => m[1])).toEqual(['pending', 'pending']);
+    expect(html).toContain('careful consideration.');
+    expect(html).toContain('Sentinel is where we prove it.');
   });
 
   it('uses no em dash anywhere', () => {
     const { container } = renderAbout();
     expect(container.textContent).not.toMatch(/—/);
   });
+});
 
-  it('sends every animated part pending from the server, every word already in it', () => {
-    // The SERVER'S markup: every animated part waits in a pending state that
-    // CSS resolves to the final picture under reduced motion or with no
-    // script. (On the client whoami starts at once, by design.)
-    const html = renderToString(<AboutPage />);
-    const states = [...html.matchAll(/data-(?:terminal|reveal)="[^"]+"[^>]*?data-state="(\w+)"/g)];
-    expect(states.map((m) => m[1])).toEqual(['pending', 'pending', 'pending']);
-    expect(html).toContain('needs careful consideration.');
-    expect(html).toContain('Sentinel is where we prove it.');
+describe('/about · the roadmap', () => {
+  const covered = THREATS.filter((t) => t.state === 'covered').length;
+  const c = measuredCounts();
+
+  it('keeps its note and its three pills', () => {
+    expect(ROADMAP_NOTE).toBe('Planned, not promised. No dates.');
     const { container } = renderAbout();
-    expect(within(container).getAllByText(/./).length).toBeGreaterThan(0);
+    expect(screen.getByText(ROADMAP_NOTE)).toBeInTheDocument();
+    const pills = [...container.querySelectorAll('[data-roadmap-column] [data-pill]')].map((p) =>
+      norm(p.textContent),
+    );
+    expect(pills).toEqual(['Shipped (v1)', 'Next (v2)', 'Later (v3)']);
+  });
+
+  it('builds Shipped from the coverage board and the measurement, never typed numbers', () => {
+    // The figures the cards quote, and that they are what the data says today.
+    expect([covered, THREATS.length, c.caught, c.real, c.flagged - c.flaggedReal]).toEqual([
+      7, 10, 22, 22, 1,
+    ]);
+    const [shipped] = roadmapColumns();
+    expect(shipped!.cards.map((card) => [card.title, card.line])).toEqual([
+      [
+        'Seven attack types',
+        'Seven of the ten OWASP agentic risks, tested live in one proving ground.',
+      ],
+      [
+        'Verdicts you can check',
+        'Caught 22 of 22 compromises in our labeled test set, with one false alarm. Every verdict points to the exact step.',
+      ],
+      [
+        'Bring your own agent',
+        'Claude Code, Copilot, Cursor, Codex and Gemini CLI connect in minutes.',
+      ],
+      ['Watch it break', 'Every step replayed, down to the moment the agent turns.'],
+    ]);
+    expect(shipped!.cards.map((card) => card.href)).toEqual([
+      '/threats',
+      undefined,
+      '/connect',
+      '/runs/sample',
+    ]);
+  });
+
+  it('words Next and Later exactly, as plans', () => {
+    const [, next, later] = roadmapColumns();
+    expect(next!.cards.map((card) => [card.title, card.line])).toEqual([
+      [
+        'Any agent, any model',
+        'Open-source and smaller models plug in, with first measured results for Copilot, Cursor, Codex and Gemini CLI.',
+      ],
+      ['Two judges, one verdict', 'A second detector model cross-checks every call.'],
+      ['A private test set', 'A private attack set, kept off the public repo.'],
+      ['Attack chains', 'Several attacks in one session, each building on the last.'],
+    ]);
+    expect(later!.cards.map((card) => [card.title, card.line])).toEqual([
+      ['MCProof in your CI', 'Every agent update tested in CI before it ships.'],
+      ['Agent versus agent', 'When your agent trusts another agent, we test that trust.'],
+      ['The full Top 10', "The three risks one run can't reach, through multi-agent scenarios."],
+      [
+        'Regression alerts',
+        'Scheduled re-tests that catch the update that made your agent easier to trick.',
+      ],
+      ['Live threat feed', 'New scenarios as real agent exploits are published.'],
+    ]);
+    for (const col of [next!, later!]) {
+      for (const card of col.cards) {
+        expect(`${card.title} ${card.line}`).not.toMatch(
+          /\b(shipped|built|launched|live now|now available|released)\b/i,
+        );
+        expect(card.href).toBeUndefined();
+      }
+    }
+  });
+
+  it('draws every card as its title and its one line', () => {
+    const { container } = renderAbout();
+    const cards = [...container.querySelectorAll('[data-roadmap-card]')];
+    expect(cards).toHaveLength(13);
+    const all = roadmapColumns().flatMap((col) => col.cards);
+    cards.forEach((card, i) => {
+      expect(norm(card.querySelector('[data-card-title]')!.textContent)).toBe(all[i]!.title);
+      expect(norm(card.querySelector('[data-card-line]')!.textContent)).toBe(all[i]!.line);
+    });
   });
 });
 

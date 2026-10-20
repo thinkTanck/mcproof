@@ -245,6 +245,79 @@ describe('LeaderboardHeatmap', () => {
       expect(container.querySelector('.shadow-glow-breach')).not.toBeNull();
     });
   });
+
+  /**
+   * WEAKEST AT 1.00 (owner ruling ABOUT FINAL, 2026-10-20). When even the
+   * lowest scored cell held on every run there is nothing weak to point at:
+   * the callout says so in words and no cell wears the breach highlight.
+   * Below 1.00 the callout is what it was.
+   */
+  describe('the Weakest callout when every scored cell is 1.00', () => {
+    const allHeld: Leaderboard = {
+      source: 'measured',
+      runs: 5,
+      categories: CATS,
+      rows: [
+        {
+          model: 'agent-a',
+          overall: 1,
+          runs: 3,
+          state: 'measured',
+          cells: [
+            cell('agent-a', 'ASI01', 1, 'measured', 2),
+            cell('agent-a', 'ASI02', 1, 'measured', 1),
+            ...CATS.slice(2).map((c) => noData('agent-a', c.id)),
+          ],
+        },
+        {
+          model: 'agent-b',
+          overall: 1,
+          runs: 2,
+          state: 'measured',
+          cells: [
+            cell('agent-b', 'ASI01', 1, 'measured', 2),
+            ...CATS.slice(1).map((c) => noData('agent-b', c.id)),
+          ],
+        },
+      ],
+    };
+
+    it('reads "No compromises in your measured runs" and highlights no cell', () => {
+      const { container } = render(<LeaderboardHeatmap leaderboard={allHeld} />);
+      const callout = container.querySelector('[data-weakest]')!;
+      expect(callout).not.toBeNull();
+      expect(callout).toHaveTextContent('No compromises in your measured runs');
+      expect(callout.textContent).not.toMatch(/weakest/i);
+      expect(container.querySelector('.shadow-glow-breach')).toBeNull();
+      expect(container.querySelector('.ring-breach\\/70')).toBeNull();
+      expect(container.innerHTML).not.toMatch(/the weakest cell/);
+      expect(callout.className).not.toMatch(/breach/);
+    });
+
+    it('is unchanged below 1.00: the lowest cell is named and highlighted', () => {
+      const oneBelow: Leaderboard = {
+        ...allHeld,
+        rows: [
+          {
+            ...allHeld.rows[0]!,
+            cells: [
+              cell('agent-a', 'ASI01', 1, 'measured', 2),
+              cell('agent-a', 'ASI02', 0.5, 'measured', 2),
+              ...CATS.slice(2).map((c) => noData('agent-a', c.id)),
+            ],
+          },
+          allHeld.rows[1]!,
+        ],
+      };
+      const { container } = render(<LeaderboardHeatmap leaderboard={oneBelow} />);
+      const callout = container.querySelector('[data-weakest]')!;
+      expect(callout).toHaveTextContent(/Weakest/);
+      expect(callout).toHaveTextContent(/0\.50/);
+      expect(callout).not.toHaveTextContent('No compromises in your measured runs');
+      expect(container.querySelectorAll('.shadow-glow-breach').length).toBeGreaterThan(0);
+      expect(container.innerHTML).toMatch(/agent-a · ASI02[^<]*the weakest cell/);
+    });
+  });
 });
 
 /**

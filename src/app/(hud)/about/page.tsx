@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { SectionLabel } from '@/components/hud';
-import { AboutTerminals } from '@/components/about/AboutTerminals';
+import { ManTerminal } from '@/components/about/ManTerminal';
 import { Roadmap } from '@/components/about/Roadmap';
 import { ROADMAP_NOTE } from '@/lib/about/copy';
 
@@ -10,31 +9,28 @@ export const metadata: Metadata = {
 };
 
 /**
- * ABOUT (route `/about`, register: BRAND; owner rulings 2026-10-18 and ABOUT
- * REVISION, 2026-10-19). In order:
+ * ABOUT (route `/about`, register: BRAND; owner rulings 2026-10-18, ABOUT
+ * REVISION 2026-10-19 and ABOUT FINAL 2026-10-20). In order:
  *
- *  1. a `whoami` terminal that prints the bio, streaming on load;
- *  2. "Why \"Sentinel\"": a `man sentinel` terminal printing the one
- *     definition the /threats glossary prints too, streaming when scrolled to;
- *  3. "What's next": the roadmap board.
+ *  1. one terminal, played on load: `man sentinel` printing the man page whose
+ *     description is the one definition the /threats glossary prints too, then
+ *     `whoami` printing the name and the bio, then a fresh prompt;
+ *  2. "What's next": the roadmap board.
  *
- * The h1 is "About", visually hidden: the visible name heading, the Agentrifi
- * line, the LinkedIn link and the career line were removed (19:09, 19:12), so
- * the page has no outbound link. The visible "About" label is hidden from
- * assistive technology, so the word is not read twice.
+ * The h1 is "About", visually hidden; there is no visible label above the
+ * terminal and no heading over the man page. The page has no outbound link.
  *
- * A Server Component. The motion is two small client islands (the terminals
- * and the roadmap reveal) and CSS; every word is in the server's HTML.
+ * A Server Component. The motion is two small client islands (the terminal and
+ * the roadmap reveal) and CSS; every word is in the server's HTML.
  */
 export default function AboutPage() {
   return (
     <article className="type-flow mx-auto max-w-[1100px] px-6 py-10 sm:py-12">
       <h1 className="sr-only">About</h1>
-      <div aria-hidden="true">
-        <SectionLabel>About</SectionLabel>
-      </div>
 
-      <AboutTerminals />
+      <div className="max-w-[760px]">
+        <ManTerminal />
+      </div>
 
       <section aria-labelledby="whats-next" className="mt-12">
         <h2 id="whats-next" className="reading-h2">

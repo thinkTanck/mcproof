@@ -41,7 +41,7 @@ const WORDS = [
 ];
 
 /** A small count in words ("five"), a larger one in digits. */
-function inWords(n: number): string {
+export function inWords(n: number): string {
   return WORDS[n] ?? String(n);
 }
 

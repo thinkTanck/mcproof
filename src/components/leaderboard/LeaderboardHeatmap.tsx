@@ -94,10 +94,14 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
   // The design names "the worst cell" as this screen's single focal point. Find
   // it among the cells that HAVE data: a blank cell is not a weak one.
   const scored = rows.flatMap((row) => row.cells).filter(isScored);
-  const weakest = scored.reduce<ScoredCell | null>(
+  const lowest = scored.reduce<ScoredCell | null>(
     (min, c) => (min === null || c.robustness < min.robustness ? c : min),
     null,
   );
+  // Every scored cell held on every run (owner ruling 2026-10-20): there is
+  // nothing weak to point at, so the callout says so and no cell is marked.
+  const noneCompromised = lowest !== null && lowest.robustness >= 1;
+  const weakest = noneCompromised ? null : lowest;
   const weakestBand = weakest ? bandFor(weakest.robustness) : null;
   const weakestFull = weakest
     ? (categories.find((cat) => cat.id === weakest.category)?.full ?? weakest.category)
@@ -136,6 +140,14 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
 
   return (
     <figure className="m-0">
+      {noneCompromised ? (
+        <p
+          data-weakest=""
+          className="mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-line bg-solid px-3.5 py-2.5 text-[15px] text-ink"
+        >
+          No compromises in your measured runs
+        </p>
+      ) : null}
       {weakestBody ? (
         <p
           data-weakest=""
