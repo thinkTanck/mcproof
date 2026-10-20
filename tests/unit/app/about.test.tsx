@@ -1,10 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import AboutPage, { metadata } from '@/app/(hud)/about/page';
 import {
-  ABOUT_AGENTRIFI_LINE,
   ABOUT_BIO,
   ABOUT_LINKEDIN_HREF,
-  CAREER_NODES,
+  ABOUT_PROMPT,
   ROADMAP_LATER,
   ROADMAP_NEXT,
 } from '@/lib/about/copy';
@@ -26,14 +26,13 @@ import { HOW_A_TEST_WORKS } from '@/components/home/HowATestWorks';
 import { OWASP_BADGE_LABEL } from '@/components/hud/OwaspTopTen';
 
 /**
- * /about (owner rulings 2026-10-18: the plan in claude/reports/about-plan.md,
- * approved with five answers, and SENTINEL + KEY part A). Every word the page
- * shows is real DOM text in the server render; the terminals and the motion
- * only decide how it is drawn.
+ * /about (owner rulings 2026-10-18 and ABOUT REVISION, 2026-10-19). Every word
+ * the page shows is real DOM text in the server render; the terminals and the
+ * motion only decide how it is drawn.
  */
 
 const BIO =
-  "I've been writing code for most of my working life. After a B.S. in Mathematics with computer science coursework, I wrote AutoLISP and VBA tools that automated engineering work on commercial glass and glazing projects. Today I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are being handed real tools before anyone checks whether they can be tricked into misusing them.";
+  "I've been writing code for most of my working life. After a B.S. in Mathematics with computer science coursework, I wrote AutoLISP and VBA tools that automated engineering work on commercial glass and glazing projects. Today I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are vulnerable to tool misuse. Tool use is an attack vector in the agent harness, and it needs careful consideration.";
 
 const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -42,44 +41,55 @@ function renderAbout() {
 }
 
 describe('/about · the page', () => {
-  it('has a title of its own and one level-1 heading with the name', () => {
+  it('has a title of its own and one level-1 heading, "About", hidden from view', () => {
     expect(metadata.title).toBe('About · MCProof');
     expect(String(metadata.description)).not.toMatch(/—/);
     renderAbout();
     const h1 = screen.getAllByRole('heading', { level: 1 });
     expect(h1).toHaveLength(1);
-    expect(h1[0]).toHaveTextContent('Built by Dameion Ayers');
+    expect(h1[0]).toHaveTextContent(/^About$/);
+    expect(h1[0]!.className.split(/\s+/)).toContain('sr-only');
   });
 
-  it('prints the bio word for word, as DOM text, inside the whoami terminal', () => {
+  it('prints the bio word for word, under the visitor@mcproof prompt', () => {
     expect(ABOUT_BIO).toBe(BIO);
+    expect(ABOUT_PROMPT).toBe('visitor@mcproof:~$');
     const { container } = renderAbout();
     const terminal = container.querySelector('[data-terminal="whoami"]')!;
     const final = terminal.querySelector('[data-terminal-final]')!;
     expect([...final.querySelectorAll('p')].map((el) => norm(el.textContent))).toEqual([
-      '$ whoami',
+      'visitor@mcproof:~$ whoami',
       'dameion-ayers',
       BIO,
     ]);
-    // The animated copy is decoration; the words a reader and a crawler get
-    // are the final layer's.
     expect(terminal.querySelector('[data-terminal-typed]')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('says whose project it is in plain text, and links only to LinkedIn', () => {
+  it('wears the replay terminal look: its box, its background, its prompt and caret', () => {
     const { container } = renderAbout();
-    expect(ABOUT_AGENTRIFI_LINE).toBe('MCProof is a project of Agentrifi, my AI company.');
-    const line = screen.getByText(ABOUT_AGENTRIFI_LINE);
-    expect(line.closest('a')).toBeNull();
-    const linkedin = screen.getByRole('link', { name: /LinkedIn/ });
+    for (const terminal of container.querySelectorAll<HTMLElement>('[data-terminal]')) {
+      const classes = terminal.className.split(/\s+/);
+      for (const c of ['rounded-lg', 'px-4', 'py-3', 'font-mono', 'text-[15px]', 'leading-[1.6]']) {
+        expect(classes, c).toContain(c);
+      }
+      expect(terminal).toHaveAttribute('data-elev', '2');
+      expect(terminal.style.background).toBe('var(--terminal-bg)');
+      expect(terminal.querySelector('[data-terminal-prompt]')).toHaveStyle({
+        color: 'var(--terminal-prompt)',
+      });
+    }
+  });
+
+  it('removes the name heading, the Agentrifi line, the career line and every outbound link', () => {
+    const { container } = renderAbout();
+    expect(screen.queryByText(/Built by Dameion Ayers/)).toBeNull();
+    expect(screen.queryByText(/Agentrifi/)).toBeNull();
+    expect(screen.queryByRole('link', { name: /LinkedIn/ })).toBeNull();
+    expect(container.querySelector('[data-career-line], [data-reveal="career"]')).toBeNull();
+    expect(container.querySelector('[data-career-continues]')).toBeNull();
+    expect(container.querySelector('a[href^="http"], a[href^="mailto:"]')).toBeNull();
+    // The LinkedIn URL is kept, unused, for later (owner, 19:12).
     expect(ABOUT_LINKEDIN_HREF).toBe('https://www.linkedin.com/in/dameion-a-662aa880/');
-    expect(linkedin).toHaveAttribute('href', ABOUT_LINKEDIN_HREF);
-    expect(linkedin).toHaveAttribute('target', '_blank');
-    expect(linkedin).toHaveAttribute('rel', 'noopener noreferrer');
-    // Owner ruling 1: no Contact link until an Agentrifi address exists, and
-    // the security.txt address is never on the page.
-    expect(screen.queryByRole('link', { name: /contact/i })).toBeNull();
-    expect(container.querySelector('a[href^="mailto:"]')).toBeNull();
   });
 
   it('carries no GitHub link, no handle or alias, and no photo', () => {
@@ -92,40 +102,19 @@ describe('/about · the page', () => {
     expect(container.querySelector('img, picture')).toBeNull();
   });
 
-  it('says why "Sentinel", in the same constant the glossary renders', () => {
+  it('says why "Sentinel", under its own prompt, in the constant the glossary renders', () => {
     const { container } = renderAbout();
     expect(screen.getByRole('heading', { level: 2, name: 'Why "Sentinel"' })).toBeInTheDocument();
     const terminal = container.querySelector('[data-terminal="sentinel"]')!;
     const final = terminal.querySelector('[data-terminal-final]')!;
     expect([...final.querySelectorAll('p')].map((el) => norm(el.textContent))).toEqual([
-      '$ man sentinel',
+      'visitor@mcproof:~$ man sentinel',
       SENTINEL_DEFINITION,
     ]);
-    // Between the bio and the career line.
     const whoami = container.querySelector('[data-terminal="whoami"]')!;
-    const career = container.querySelector('[data-career-line]')!;
     expect(
       whoami.compareDocumentPosition(terminal) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(
-      terminal.compareDocumentPosition(career) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it('draws the career line through four labelled nodes, in order, as a real list', () => {
-    expect(CAREER_NODES).toEqual([
-      'B.S. Mathematics',
-      'AutoLISP + VBA engineering tools',
-      'AI systems, M.S. AI at Johns Hopkins',
-      'MCProof',
-    ]);
-    const { container } = renderAbout();
-    const list = container.querySelector('[data-career-line] ol')!;
-    expect([...list.querySelectorAll('li')].map((li) => norm(li.textContent))).toEqual(
-      CAREER_NODES,
-    );
-    // A horizontal and a vertical drawing; CSS shows the one that fits.
-    expect(container.querySelectorAll('[data-career-line] svg[data-orientation]')).toHaveLength(2);
   });
 
   it('lays out the roadmap: heading, note, three pills, every item in the owner’s words', () => {
@@ -203,13 +192,16 @@ describe('/about · the page', () => {
     expect(container.textContent).not.toMatch(/—/);
   });
 
-  it('draws the finished picture in the markup, for a reader with no script', () => {
+  it('sends every animated part pending from the server, every word already in it', () => {
+    // The SERVER'S markup: every animated part waits in a pending state that
+    // CSS resolves to the final picture under reduced motion or with no
+    // script. (On the client whoami starts at once, by design.)
+    const html = renderToString(<AboutPage />);
+    const states = [...html.matchAll(/data-(?:terminal|reveal)="[^"]+"[^>]*?data-state="(\w+)"/g)];
+    expect(states.map((m) => m[1])).toEqual(['pending', 'pending', 'pending']);
+    expect(html).toContain('needs careful consideration.');
+    expect(html).toContain('Sentinel is where we prove it.');
     const { container } = renderAbout();
-    // Every animated part waits in a pending state that CSS resolves to the
-    // final picture under reduced motion or with no script.
-    for (const el of container.querySelectorAll('[data-reveal], [data-terminal]')) {
-      expect(el.getAttribute('data-state'), el.outerHTML.slice(0, 80)).toBe('pending');
-    }
     expect(within(container).getAllByText(/./).length).toBeGreaterThan(0);
   });
 });

@@ -8,26 +8,21 @@
  * nothing else; the security.txt address is never on it (owner ruling 1).
  */
 
-export const ABOUT_HEADING = 'Built by Dameion Ayers';
+/** The prompt both /about terminals type under (ABOUT REVISION, 2026-10-19). */
+export const ABOUT_PROMPT = 'visitor@mcproof:~$';
 
 /** What `whoami` prints first. */
 export const ABOUT_WHOAMI = 'dameion-ayers';
 
 export const ABOUT_BIO =
-  "I've been writing code for most of my working life. After a B.S. in Mathematics with computer science coursework, I wrote AutoLISP and VBA tools that automated engineering work on commercial glass and glazing projects. Today I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are being handed real tools before anyone checks whether they can be tricked into misusing them.";
+  "I've been writing code for most of my working life. After a B.S. in Mathematics with computer science coursework, I wrote AutoLISP and VBA tools that automated engineering work on commercial glass and glazing projects. Today I build AI systems, and I'm pursuing an M.S. in Artificial Intelligence at Johns Hopkins. I built MCProof because AI agents are vulnerable to tool misuse. Tool use is an attack vector in the agent harness, and it needs careful consideration.";
 
-/** Plain text: Agentrifi is not a link. */
-export const ABOUT_AGENTRIFI_LINE = 'MCProof is a project of Agentrifi, my AI company.';
-
-/** The LinkedIn profile (owner, 2026-10-19). Opens in a new tab. */
+/**
+ * The LinkedIn profile (owner, 2026-10-19). NOT ON THE PAGE: the link was
+ * removed for now (ABOUT REVISION, 19:12) and the URL is kept here, unused,
+ * for later.
+ */
 export const ABOUT_LINKEDIN_HREF = 'https://www.linkedin.com/in/dameion-a-662aa880/';
-
-export const CAREER_NODES: readonly string[] = [
-  'B.S. Mathematics',
-  'AutoLISP + VBA engineering tools',
-  'AI systems, M.S. AI at Johns Hopkins',
-  'MCProof',
-];
 
 export const ROADMAP_NOTE = 'Planned, not promised. No dates.';
 

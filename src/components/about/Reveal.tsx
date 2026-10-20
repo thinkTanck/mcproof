@@ -4,8 +4,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useRevealOnView } from './use-reveal';
 
 /**
- * A block that reveals once, when first scrolled into view (the career line
- * drawing, the roadmap cards staggering in). It only sets `data-state`; the
+ * A block that reveals once, when first scrolled into view (the roadmap
+ * cards staggering in). It only sets `data-state`; the
  * motion itself is CSS ("/about motion" in globals.css), which resolves the
  * server's `pending` to the finished picture under reduced motion or with no
  * script, so a static render shows everything.

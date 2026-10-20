@@ -1032,15 +1032,6 @@ body:has([data-verdict-pending]) [data-run-verdict] {
 .terminal-caret {
   animation: cursor-blink 1.05s step-end infinite;
 }
-/* The career line draws from start to end; it is drawn at rest. */
-.career-path {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 1.6s var(--ease-emphasized);
-}
-[data-reveal][data-state='pending'] .career-path {
-  stroke-dashoffset: 1;
-}
 /* Roadmap cards come in one after another; they are in place at rest. */
 .roadmap-card {
   transition:
@@ -1061,9 +1052,6 @@ body:has([data-verdict-pending]) [data-run-verdict] {
   }
   [data-terminal] [data-terminal-final] [data-terminal-caret] {
     visibility: visible !important;
-  }
-  [data-reveal] .career-path {
-    stroke-dashoffset: 0 !important;
   }
   [data-reveal] .roadmap-card {
     opacity: 1 !important;

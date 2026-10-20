@@ -1,24 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRevealOnView } from './use-reveal';
+import { useEffect, useRef, useState } from 'react';
+import {
+  TERMINAL_BG,
+  TERMINAL_CARET_CLASS,
+  TERMINAL_ELEV,
+  TERMINAL_PROMPT_COLOR,
+  TERMINAL_READOUT_COLOR,
+  TERMINAL_TEXT_CLASS,
+} from '@/components/replay/terminal-style';
+import { ABOUT_PROMPT } from '@/lib/about/copy';
+import { usePrefersReducedMotionAfterMount } from './use-reveal';
 
 /**
- * A TERMINAL CARD for /about (owner ruling 2026-10-18; plan decision 3): the
- * Home hero's card frame, with the replay terminal's text, prompt and caret.
+ * A TERMINAL CARD for /about, in the replay terminal's look (owner ruling
+ * ABOUT REVISION, 2026-10-19): the same box, background, amber prompt, cyan
+ * readout and block caret, from `terminal-style.ts`.
  *
  * THE WORDS ARE REAL DOM TEXT FROM THE FIRST BYTE. Two layers share one grid
  * cell: the FINAL layer holds every word and sets the card's height, so the
  * typing can never move the page; the TYPED layer, hidden from assistive
- * technology, draws the command being typed and the output being printed over
- * it. While the card is pending or typing, CSS draws the final layer at
- * opacity 0 (still in the accessibility tree, still indexable); when typing is
- * done, the final layer shows with a blinking caret and the typed layer goes.
+ * technology, is what a reader sees, from the prompt to the last character.
+ * While motion is allowed and script runs, the final layer stays at opacity 0
+ * for good: switched on after typing, it became a late largest paint
+ * (CWV · about, LCP 6.35s). Under reduced motion or with no script, CSS shows
+ * the final layer at once and hides the typed one, before any script runs.
  *
- * NO FLASH: the server sends `pending`, which CSS shows as the prompt and the
- * caret only, and under reduced motion or with no script CSS shows the
- * finished text at once, before any script runs. Plays once, when first
- * scrolled into view.
+ * CONTROLLED: it types only once `start` is true, and calls `onDone` when it
+ * has finished, so the page can run two terminals in turn (`AboutTerminals`).
+ * Typing is time-based: a short tick works out how many characters should be
+ * showing from the time since it began, so a browser that stretches short
+ * timers (WebKit) makes the steps coarser, never the typing later.
  */
 export interface TerminalLine {
   readonly kind: 'out';
@@ -31,8 +43,8 @@ const TICK_MS = 30;
 
 function Prompt() {
   return (
-    <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
-      ${' '}
+    <span aria-hidden="true" data-terminal-prompt="" style={{ color: TERMINAL_PROMPT_COLOR }}>
+      {ABOUT_PROMPT}{' '}
     </span>
   );
 }
@@ -42,8 +54,8 @@ function Caret() {
     <span
       aria-hidden="true"
       data-terminal-caret=""
-      className="terminal-caret ml-px inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em]"
-      style={{ background: 'var(--text-readout)' }}
+      className={`terminal-caret ${TERMINAL_CARET_CLASS}`}
+      style={{ background: TERMINAL_READOUT_COLOR }}
     />
   );
 }
@@ -53,23 +65,26 @@ export function TerminalCard({
   label,
   command,
   lines,
+  start,
+  onDone,
 }: {
   id: string;
   /** The region's accessible name. */
   label: string;
   command: string;
   lines: readonly TerminalLine[];
+  /** Begin typing. Until then the card waits, pending. */
+  start: boolean;
+  /** Called once, when the last character is showing. */
+  onDone?: () => void;
 }) {
-  const { ref, reduced, started } = useRevealOnView<HTMLElement>();
+  const reduced = usePrefersReducedMotionAfterMount();
   const total = command.length + lines.reduce((n, l) => n + l.text.length, 0);
   const [typed, setTyped] = useState(0);
+  const doneCalled = useRef(false);
 
-  // TIME-BASED, not one timer a character: a short tick works out how many
-  // characters should be showing from the time since typing began, so a
-  // browser that stretches short timers (WebKit does) makes the steps coarser,
-  // never the typing later.
   useEffect(() => {
-    if (!started || reduced) return;
+    if (!start || reduced) return;
     const begun = performance.now();
     const commandTime = command.length * COMMAND_MS;
     const tick = setInterval(() => {
@@ -82,31 +97,40 @@ export function TerminalCard({
       if (shown >= total) clearInterval(tick);
     }, TICK_MS);
     return () => clearInterval(tick);
-  }, [started, reduced, total, command.length]);
+  }, [start, reduced, total, command.length]);
 
-  const state = reduced || typed >= total ? 'done' : started ? 'typing' : 'pending';
+  const done = reduced || typed >= total;
+  useEffect(() => {
+    if (done && !doneCalled.current) {
+      doneCalled.current = true;
+      onDone?.();
+    }
+  }, [done, onDone]);
+
+  const state = done ? 'done' : start ? 'typing' : 'pending';
 
   // What the typed layer shows: the command so far, then each line so far.
   const printed = Math.max(0, typed - command.length);
   const starts = lines.map((_, i) =>
     lines.slice(0, i).reduce((n, line) => n + line.text.length, 0),
   );
-  const shownLines = lines.map((line, i) =>
-    line.text.slice(0, Math.max(0, Math.min(line.text.length, printed - starts[i]!))),
-  );
-  const commandShown = command.slice(0, Math.min(typed, command.length));
+  const shownLines = done
+    ? lines.map((line) => line.text)
+    : lines.map((line, i) =>
+        line.text.slice(0, Math.max(0, Math.min(line.text.length, printed - starts[i]!))),
+      );
+  const commandShown = done ? command : command.slice(0, Math.min(typed, command.length));
   const lastShown = shownLines.findLastIndex((text) => text.length > 0);
 
   return (
     <section
-      ref={ref}
       role="region"
       aria-label={label}
       data-terminal={id}
       data-state={state}
-      data-elev="1"
-      className="relative overflow-hidden rounded-xl border border-line px-4 py-3.5 font-mono text-[15px] leading-[1.6]"
-      style={{ color: 'var(--text-readout)', overflowWrap: 'anywhere' }}
+      data-elev={TERMINAL_ELEV}
+      className={`relative ${TERMINAL_TEXT_CLASS}`}
+      style={{ background: TERMINAL_BG, color: TERMINAL_READOUT_COLOR, overflowWrap: 'anywhere' }}
     >
       <div className="grid">
         <div data-terminal-final="" className="[grid-area:1/1]">
@@ -115,7 +139,7 @@ export function TerminalCard({
             {command}
           </p>
           {lines.map((line, i) => (
-            <p key={i} className="mt-1 whitespace-pre-wrap">
+            <p key={i} className="whitespace-pre-wrap">
               {line.text}
               {i === lines.length - 1 ? <Caret /> : null}
             </p>
@@ -129,7 +153,7 @@ export function TerminalCard({
           </p>
           {shownLines.map((text, i) =>
             text.length > 0 ? (
-              <p key={i} className="mt-1 whitespace-pre-wrap">
+              <p key={i} className="whitespace-pre-wrap">
                 {text}
                 {i === lastShown ? <Caret /> : null}
               </p>
