@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import type { Verdict } from '@/contract';
+import type { Category, Verdict } from '@/contract';
 import { AsiLabel, RUN_CATEGORY_NAME_ID } from '@/components/hud';
 import { DETECTOR_HANDLE } from '@/lib/replay/roles';
 import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
@@ -10,8 +10,8 @@ import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 /**
  * The detector verdict, rendered as a second terminal (same rules as the
  * transcript: bare console, one colour, breach-red for the compromise facts). It
- * prints the verdict summary (outcome, category, severity, the step it was
- * compromised at), then an export question with two real buttons under it:
+ * prints the verdict summary (outcome, the class tested, the category detected,
+ * severity, the step it was compromised at), then an export question with two real buttons under it:
  * "Open fix report" opens the report for this run (/findings/[id]); "Not now"
  * closes the question, prints `ok` and opens nothing. There is no rationale
  * prose; the summary is the whole of it.
@@ -60,30 +60,53 @@ const keyCell = (k: string) => (k.length >= KEY_WIDTH ? `${k} ` : k.padEnd(KEY_W
  * The two answers to the export question. Each is a real control with a box of
  * at least `--target-min` each way (`target-min`), drawn as the HUD's filled and
  * outlined buttons. Neither styles its own focus ring: the global
- * `:focus-visible` outline is the one ring.
+ * `:focus-visible` outline is the one ring. Each keeps a scroll margin, so a
+ * rail too short for its rows (the "tested" row, KEY POLISH 2026-10-20, made
+ * it one or two lines longer) scrolls a focused answer far enough in for its
+ * ring to clear the box edge.
  */
 const OPEN_ANSWER =
-  'target-min inline-flex items-center justify-center rounded-md border border-nominal bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:bg-nominal/20';
+  'target-min scroll-my-2 inline-flex items-center justify-center rounded-md border border-nominal bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:bg-nominal/20';
 const NOT_NOW_ANSWER =
-  'target-min inline-flex items-center justify-center rounded-md border border-line-em bg-transparent px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:border-nominal hover:bg-nominal/10';
+  'target-min scroll-my-2 inline-flex items-center justify-center rounded-md border border-line-em bg-transparent px-4 font-mono text-[14px] tracking-[0.06em] text-ink glow-accent transition-colors hover:border-nominal hover:bg-nominal/10';
 
-function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolean }) {
+/**
+ * One key and value. `row` names what the row holds whatever its printed key
+ * says (the category row prints "detected as" on a compromise), so a test can
+ * read the verdict's values the same way before and after a wording change.
+ */
+function Row({
+  k,
+  row = k,
+  children,
+  breachValue,
+}: {
+  k: string;
+  row?: string;
+  children: ReactNode;
+  breachValue?: boolean;
+}) {
   return (
-    <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
+    <div data-verdict-row={row} className="whitespace-pre-wrap" style={{ color: CYAN }}>
       <span style={{ opacity: 0.85 }}>{keyCell(k)}</span>
-      <span style={{ color: breachValue ? BREACH : CYAN }}>{v}</span>
+      <span data-verdict-value="" style={{ color: breachValue ? BREACH : CYAN }}>
+        {children}
+      </span>
     </div>
   );
 }
 
 export function VerdictRail({
   verdict,
+  tested,
   routeId,
   compromiseStepNumber,
   offendingLabel,
   revealed = true,
 }: {
   verdict: Verdict;
+  /** The class the run STAGED (`RunResult.category`), which the judge never sees. */
+  tested: Category;
   /** False while the replay is still playing: the rail waits and shows no verdict. */
   revealed?: boolean;
   /** The id in the `/runs/[id]` URL, which is the id `/findings/[id]` resolves. */
@@ -103,7 +126,8 @@ export function VerdictRail({
       // In the style, not the class list: tests/e2e/replay-wide-unchanged.spec.ts
       // holds this box to main's classes, and this changes nothing when it fits.
       style={{
-        height: 'clamp(280px, 40vh, 460px)',
+        // Less its title bar, so the window is the height this box was.
+        height: 'calc(clamp(280px, 40vh, 460px) - var(--title-bar-h))',
         background: 'var(--terminal-bg)',
         color: CYAN,
         overflowWrap: 'anywhere',
@@ -124,6 +148,7 @@ export function VerdictRail({
       {revealed && (
         <VerdictBody
           verdict={verdict}
+          tested={tested}
           routeId={routeId}
           compromiseStepNumber={compromiseStepNumber}
           offendingLabel={offendingLabel}
@@ -136,11 +161,13 @@ export function VerdictRail({
 /** The verdict itself and the export question: drawn only once it is revealed. */
 function VerdictBody({
   verdict,
+  tested,
   routeId,
   compromiseStepNumber,
   offendingLabel,
 }: {
   verdict: Verdict;
+  tested: Category;
   routeId: string;
   compromiseStepNumber: number | null;
   offendingLabel?: string;
@@ -190,27 +217,30 @@ function VerdictBody({
 
   return (
     <>
-      <Row
-        k="outcome"
-        v={compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
-        breachValue={compromised}
-      />
-      {/* The code the judge returned, with that code's name: the rail wraps,
-          so there is room for both. It is the verdict's category, which for a
-          recorded misfiling is not the class the run staged, and it is never
-          relabelled: it only gets its name, like any other code. The status
-          bar's chip points here for the name it has no room for. */}
-      <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
-        <span style={{ opacity: 0.85 }}>{keyCell('category')}</span>
+      <Row k="outcome" breachValue={compromised}>
+        {compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
+      </Row>
+      {/* WHAT WAS TESTED, THEN WHAT WAS DETECTED (owner ruling KEY POLISH,
+          2026-10-20). "tested" is the class the run staged; the next row is
+          the code the judge returned, with that code's name. For a recorded
+          misfiling the two differ (asi10-goal-drift: tested ASI10, detected
+          as ASI01), and the judge's code is never relabelled: it only gets its
+          name, like any other code. On a compromise its key reads "detected
+          as"; a clean run detected nothing, so there it keeps "category". The
+          status bar's chip points at this row for the name it has no room for. */}
+      <Row k="tested">
+        <AsiLabel code={tested} />
+      </Row>
+      <Row k={compromised ? 'detected as' : 'category'} row="category">
         <AsiLabel code={verdict.category} id={RUN_CATEGORY_NAME_ID} />
-      </div>
-      <Row k="severity" v={verdict.severity.toUpperCase()} breachValue={compromised} />
+      </Row>
+      <Row k="severity" breachValue={compromised}>
+        {verdict.severity.toUpperCase()}
+      </Row>
       {compromised && compromiseStepNumber !== null && (
-        <Row
-          k="compromised at"
-          v={`#${compromiseStepNumber}${offendingLabel ? ` ${offendingLabel}` : ''}`}
-          breachValue
-        />
+        <Row k="compromised at" breachValue>
+          {`#${compromiseStepNumber}${offendingLabel ? ` ${offendingLabel}` : ''}`}
+        </Row>
       )}
 
       {/* The export question, then its two answers as real buttons. The noun

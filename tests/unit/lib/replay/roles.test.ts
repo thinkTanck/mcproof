@@ -39,7 +39,7 @@ describe('the roles lookup: the four roles, word for word', () => {
     [
       'detector',
       'MCProof detector',
-      'Reads the finished run and marks the step where the agent was compromised, if it was.',
+      'Judges the finished run and marks the compromised step, if any.',
     ],
     [
       'tool',

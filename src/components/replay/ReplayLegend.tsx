@@ -57,7 +57,10 @@ function handleFor(role: RoleId, model: string): string | null {
 }
 
 /** A handle, boxed: the chip each entry opens with. It may wrap; a long client name does. */
-const CHIP = 'instrument rounded border border-line px-1.5 py-0.5 [overflow-wrap:anywhere]';
+const CHIP =
+  'instrument justify-self-start rounded border border-line px-1.5 py-0.5 [overflow-wrap:anywhere]';
+/** One row of the Key: a subgrid of its two columns. */
+const ROW = 'col-span-2 grid min-w-0 grid-cols-subgrid items-baseline';
 /** What stands where a handle would, for the role that has none on screen. */
 export const TOOL_TERM = 'served tool';
 
@@ -101,20 +104,21 @@ function LegendBody({ model, keyId }: { model: string; keyId?: string }) {
   );
   return (
     <div className="flex flex-col gap-(--instrument-stack)">
+      {/* ONE TWO-COLUMN GRID (owner ruling KEY POLISH, 2026-10-20): the chip
+          column is as wide as the widest chip (up to 45%, past which a chip
+          wraps inside itself), and every name and definition starts on one
+          left edge and wraps under itself, never under the chip. Each row is a
+          subgrid of it, so a row stays one box. The same at every width. */}
       <dl
         data-whos-who=""
-        className="grid grid-cols-1 gap-x-8 gap-y-(--instrument-stack-rows) 2xl:grid-cols-2"
+        className="grid grid-cols-[fit-content(45%)_minmax(0,1fr)] gap-x-4 gap-y-(--instrument-stack-rows)"
       >
         {LEGEND_ROLE_ORDER.map((id) => {
           const role = ROLES[id];
           const handle = handleFor(id, model);
           const linked = id === firstAtSentinel;
           return (
-            <div
-              key={id}
-              data-role={id}
-              className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1"
-            >
+            <div key={id} data-role={id} className={ROW}>
               {handle !== null ? (
                 <dt
                   data-legend-handle={handle}
@@ -137,7 +141,7 @@ function LegendBody({ model, keyId }: { model: string; keyId?: string }) {
         {/* Sentinel itself, last: where every test runs, and a link to what
             it is. Its chip is not a prompt anyone types under, so it is not
             in the prompt colour. */}
-        <div data-role="sentinel" className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div data-role="sentinel" className={ROW}>
           <dt className={CHIP}>
             <span data-sentinel-mark="" className={cn('whitespace-nowrap', SENTINEL_MARK)}>
               {SENTINEL_KEY_ROW.chip}
@@ -201,7 +205,13 @@ export function ReplayLegend({
       {/* Not drawn at all while closed (display: none, beyond what the browser
             does for a closed disclosure), so nothing in it is measured as if it
             were on screen. It stays in the document, so the id still resolves. */}
-      <div className="pb-2 pt-1 [details:not([open])>&]:hidden">
+      {/* OPEN, ITS OWN PANEL (owner ruling KEY POLISH, 2026-10-20): the panel
+            surface and line tokens, no new colour, and room under it before
+            the terminal. */}
+      <div
+        data-key-panel=""
+        className="mb-2 mt-1 rounded-lg border border-line bg-panel px-4 py-3 [details:not([open])>&]:hidden"
+      >
         <LegendBody model={model} keyId={keyId} />
       </div>
     </details>

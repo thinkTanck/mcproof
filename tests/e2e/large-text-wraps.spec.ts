@@ -357,7 +357,11 @@ function scrollerReport(locator: Locator, tolerance: number): Promise<string[]> 
       }
       const reachable =
         (el as HTMLElement).tabIndex >= 0 ||
-        el.querySelector('a[href], button, [tabindex]:not([tabindex="-1"])') !== null;
+        // A disclosure's <summary> is keyboard focusable by itself (the
+        // detector's prompt on the verdict rail, before the verdict is shown).
+        el.querySelector(
+          'a[href], button, summary:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
+        ) !== null;
       if (!reachable) problems.push('scrolls, but nothing in it takes keyboard focus');
     }
     if (el.scrollWidth > el.clientWidth + tol) {
