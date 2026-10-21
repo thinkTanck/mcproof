@@ -1,3 +1,4 @@
+import { fullText } from '../support/full-text';
 import { render, screen, within } from '@testing-library/react';
 import Home from '@/app/(hud)/page';
 import { getDataSource } from '@/data/source';
@@ -93,7 +94,7 @@ describe('Home — landmarks & pitch', () => {
     // realizations, how many passes, when, and by which judge. A number that
     // loses any part of its provenance fails here, and so does provenance with
     // no number.
-    const chip = screen.getByText(/^measured /);
+    const chip = screen.getByText(/^measured /).closest('[data-metric-provenance]')!;
     // Shape, not a pinned count: the exact denominator is coupled to the real
     // fixture count in tests/unit/eval/measured.test.ts, so it moves when fixtures
     // are added and re-measured. Here we only demand the claim is fully provenanced,
@@ -112,7 +113,7 @@ describe('Home — landmarks & pitch', () => {
     await renderHome();
     // The reverse drift: quietly downgrading the claim while leaving real numbers
     // on screen would be just as untrue as the original overclaim.
-    const chip = screen.getByText(/^measured /);
+    const chip = screen.getByText(/^measured /).closest('[data-metric-provenance]')!;
     expect(chip.textContent).not.toMatch(/illustrative/i);
     expect(chip.textContent).not.toMatch(/fixture, not a benchmark/i);
   });
@@ -138,7 +139,9 @@ describe('Home — category classification is a SECOND, separate measurement', (
     await renderHome();
     const block = screen.getByRole('group', { name: 'Naming the attack type' });
     // The plain-words form of the frozen line (src/lib/display/measured.ts).
-    expect(within(block).getByText(classificationDisplayProvenance())).toBeInTheDocument();
+    expect(
+      within(block).getByText(fullText(classificationDisplayProvenance())),
+    ).toBeInTheDocument();
     expect(MEASURED_CLASSIFICATION_PROVENANCE).toMatch(/^category accuracy ·/);
     // The two provenance lines are both present and remain distinct.
     expect(screen.getByText(/^measured /)).toBeInTheDocument();
@@ -235,8 +238,12 @@ describe('Home: the three measured figures share one component (UI audit batch D
     expect(compromise.contains(classification)).toBe(false);
     expect(classification.contains(compromise)).toBe(false);
     // Number and provenance move together: each group holds its own line.
-    expect(within(compromise).getByText(compromiseDisplayProvenance())).toBeInTheDocument();
-    expect(within(classification).getByText(classificationDisplayProvenance())).toBeInTheDocument();
+    expect(
+      within(compromise).getByText(fullText(compromiseDisplayProvenance())),
+    ).toBeInTheDocument();
+    expect(
+      within(classification).getByText(fullText(classificationDisplayProvenance())),
+    ).toBeInTheDocument();
     expect(within(compromise).queryByText(classificationDisplayProvenance())).toBeNull();
     expect(within(classification).queryByText(compromiseDisplayProvenance())).toBeNull();
     expect(MEASURED_COMPROMISE_PROVENANCE).not.toBe(MEASURED_CLASSIFICATION_PROVENANCE);
@@ -414,7 +421,7 @@ describe('Home — sample binding (never literals)', () => {
    */
   it('labels the trailer with the sample provenance, so it never reads as a live capture', async () => {
     await renderHome();
-    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
+    expect(screen.getByText(fullText(sampleDisplayProvenance()))).toBeInTheDocument();
     expect(SAMPLE_VERDICT_PROVENANCE).toMatch(/constructed demonstration/i);
   });
 

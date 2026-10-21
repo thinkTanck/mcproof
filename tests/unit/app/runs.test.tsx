@@ -1,3 +1,4 @@
+import { fullText } from '../support/full-text';
 import { render, screen, within } from '@testing-library/react';
 import RunReplayPage from '@/app/(hud)/runs/[id]/page';
 import { RunResultSchema, type RunResult } from '@/contract';
@@ -104,7 +105,7 @@ describe('Replay — the sample run', () => {
   it('plays the sample with no sign-in, under its exact recorded provenance label', async () => {
     await renderPage('sample');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ASI02');
-    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
+    expect(screen.getByText(fullText(sampleDisplayProvenance()))).toBeInTheDocument();
     expect(getUser).not.toHaveBeenCalled();
   });
 

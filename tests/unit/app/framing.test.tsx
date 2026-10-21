@@ -1,3 +1,4 @@
+import { fullText } from '../support/full-text';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
@@ -297,8 +298,8 @@ describe('the two measured figures never merge into one', () => {
     render(await Home());
     // Two provenance lines, each present exactly once, in the plain-words form
     // of the frozen lines (src/lib/display/measured.ts derives them).
-    expect(screen.getByText(compromiseDisplayProvenance())).toBeInTheDocument();
-    expect(screen.getByText(classificationDisplayProvenance())).toBeInTheDocument();
+    expect(screen.getByText(fullText(compromiseDisplayProvenance()))).toBeInTheDocument();
+    expect(screen.getByText(fullText(classificationDisplayProvenance()))).toBeInTheDocument();
     expect(MEASURED_COMPROMISE_PROVENANCE).not.toBe(MEASURED_CLASSIFICATION_PROVENANCE);
     // Each figure sits inside a group named for the question it answers, and
     // neither group is named for the other's.

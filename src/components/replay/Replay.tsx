@@ -15,6 +15,7 @@ import { SpeakerDefinitions } from './SpeakerHandle';
 import { TerminalWindow, TitleBar } from './TitleBar';
 import { useReplayLayout } from './phone-layout';
 import { SCORING_EXCLUSION_LABEL, type ScoringExclusion } from '@/leaderboard/scoring-rules';
+import { ModelId } from '@/components/hud/ModelId';
 
 /**
  * Replay (the hero) — two terminals over a full-width transport. The
@@ -285,7 +286,8 @@ function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: Repl
           className="instrument mt-(--instrument-stack) text-ink-muted [overflow-wrap:anywhere]"
         >
           RUN <span className="text-readout">{routeId}</span>
-          <span aria-hidden="true"> · </span>AGENT <span className="text-readout">{run.model}</span>
+          <span aria-hidden="true"> · </span>AGENT{' '}
+          <ModelId id={run.model} className="text-readout" />
           <span aria-hidden="true"> · </span>DETECTOR{' '}
           <span className="text-nominal">BLIND TO THE ATTACK</span>
         </p>

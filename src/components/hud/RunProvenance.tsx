@@ -1,5 +1,8 @@
 import { humanDate, LIVE_GRADED_BY } from '@/lib/display/dates';
 import { LocalDate } from './LocalDate';
+import { ModelId } from './ModelId';
+
+const DETECTOR = ' · detector ';
 
 /**
  * A run's provenance line as a person reads it.
@@ -13,7 +16,18 @@ import { LocalDate } from './LocalDate';
  * falls back to the text, which has already dropped it.
  */
 export function RunProvenance({ text, runAt }: { text: string; runAt?: string | null }) {
-  if (!runAt || humanDate(runAt) === null) return <>{text}</>;
+  if (!runAt || humanDate(runAt) === null) {
+    // The detector's model never breaks (PROVENANCE WRAP, 2026-10-21); the
+    // rest of a sample's line wraps as it always has.
+    const at = text.lastIndexOf(DETECTOR);
+    if (at < 0) return <>{text}</>;
+    return (
+      <>
+        {text.slice(0, at + DETECTOR.length)}
+        <ModelId id={text.slice(at + DETECTOR.length)} />
+      </>
+    );
+  }
   return (
     <>
       {'live run · '}
