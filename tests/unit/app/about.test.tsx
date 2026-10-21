@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import AboutPage, { metadata } from '@/app/(hud)/about/page';
-import { ABOUT_BIO, ABOUT_LINKEDIN_HREF, ABOUT_NAME, ROADMAP_NOTE } from '@/lib/about/copy';
+import * as copy from '@/lib/about/copy';
+import { ABOUT_BIO, ABOUT_LINKEDIN_HREF, ABOUT_NAME } from '@/lib/about/copy';
 import { ABOUT_SCRIPT } from '@/lib/about/script';
 import { roadmapColumns } from '@/lib/about/roadmap';
 import { SENTINEL_DEFINITION } from '@/lib/replay/roles';
@@ -124,10 +125,17 @@ describe('/about · the roadmap', () => {
   const covered = THREATS.filter((t) => t.state === 'covered').length;
   const c = measuredCounts();
 
-  it('keeps its note and its three pills', () => {
-    expect(ROADMAP_NOTE).toBe('Planned, not promised. No dates.');
+  it(`is headed "What's next..." and has no note under the heading (ROADMAP NOTE, 2026-10-20)`, () => {
     const { container } = renderAbout();
-    expect(screen.getByText(ROADMAP_NOTE)).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading.textContent).toBe("What's next...");
+    expect(container.textContent).not.toContain('Planned, not promised');
+    expect(container.textContent).not.toContain('No dates.');
+    expect('ROADMAP_NOTE' in copy).toBe(false);
+  });
+
+  it('keeps its three pills', () => {
+    const { container } = renderAbout();
     const pills = [...container.querySelectorAll('[data-roadmap-column] [data-pill]')].map((p) =>
       norm(p.textContent),
     );

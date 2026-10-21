@@ -1,4 +1,9 @@
-import { followStepInside, nextScrollTop } from '@/components/replay/follow-step';
+import {
+  atLiveEdge,
+  followStepInside,
+  nextFollowing,
+  nextScrollTop,
+} from '@/components/replay/follow-step';
 
 /**
  * FOLLOW THE CURRENT STEP INSIDE THE TERMINAL (Part D, the phone replay).
@@ -84,5 +89,49 @@ describe('followStepInside', () => {
     const { box, line, scrollTo } = setup(140);
     followStepInside(box, line, true);
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * FOLLOW ONLY FROM THE LIVE EDGE (owner ruling REPLAY SCROLL, 2026-10-20). The
+ * terminal follows the playhead while the viewer is at its bottom. A viewer
+ * who scrolls up inside it is reading back, and is left there until they
+ * scroll down to the bottom again. The bottom is where the current line is in
+ * view, or the box's own end.
+ */
+describe('atLiveEdge', () => {
+  const view = (scrollTop: number) => ({ scrollTop, clientHeight: 200, scrollHeight: 800 });
+
+  it('is at the edge when the current line ends inside the view', () => {
+    expect(atLiveEdge(view(300), { top: 440, bottom: 480 })).toBe(true);
+  });
+
+  it('is at the edge at the box end, whatever the line', () => {
+    expect(atLiveEdge(view(600), { top: 10, bottom: 50 })).toBe(true);
+  });
+
+  it('is not at the edge when the current line is below the view', () => {
+    expect(atLiveEdge(view(100), { top: 440, bottom: 480 })).toBe(false);
+  });
+
+  it('allows a pixel or two of rounding', () => {
+    expect(atLiveEdge(view(279), { top: 440, bottom: 480 })).toBe(true);
+  });
+});
+
+describe('nextFollowing', () => {
+  it('stops following when the viewer scrolls up', () => {
+    expect(nextFollowing(true, { from: 300, to: 200, atEdge: false })).toBe(false);
+    expect(nextFollowing(true, { from: 300, to: 290, atEdge: true })).toBe(false);
+  });
+
+  it('resumes when the viewer scrolls down to the edge, and not before', () => {
+    expect(nextFollowing(false, { from: 100, to: 200, atEdge: false })).toBe(false);
+    expect(nextFollowing(false, { from: 200, to: 300, atEdge: true })).toBe(true);
+  });
+
+  it('ignores a scroll of a pixel either way', () => {
+    expect(nextFollowing(true, { from: 300, to: 299, atEdge: false })).toBe(true);
+    expect(nextFollowing(false, { from: 300, to: 301, atEdge: true })).toBe(false);
   });
 });

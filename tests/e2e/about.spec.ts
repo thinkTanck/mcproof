@@ -341,3 +341,11 @@ test('a replay’s "@sentinel" link still lands on the glossary entry', async ({
   await page.goto(href!);
   await expect(page.locator('#sentinel dd')).toBeVisible();
 });
+
+test('the roadmap is headed "What\'s next..." with no note under it', async ({ page }) => {
+  await suppressBootSplash(page);
+  await page.goto('/about');
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText("What's next...");
+  await expect(page.getByText('Planned, not promised')).toHaveCount(0);
+  await expect(page.getByText('No dates.')).toHaveCount(0);
+});

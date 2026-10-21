@@ -27,5 +27,3 @@ export const MAN_NAME_LINE = "sentinel - MCProof's proving ground";
  * for later.
  */
 export const ABOUT_LINKEDIN_HREF = 'https://www.linkedin.com/in/dameion-a-662aa880/';
-
-export const ROADMAP_NOTE = 'Planned, not promised. No dates.';

@@ -63,3 +63,40 @@ export function followStepInside(box: HTMLElement, line: Element, smooth: boolea
   requested.set(box, { top: next, at: now });
   box.scrollTo({ top: next, behavior: smooth ? 'smooth' : 'auto' });
 }
+
+/**
+ * FOLLOW ONLY FROM THE LIVE EDGE (owner ruling REPLAY SCROLL, 2026-10-20). The
+ * terminal follows the playhead while the viewer is at its bottom, which is
+ * where the current line is in view, or the box's own end. A pixel or two is
+ * rounding.
+ */
+export function atLiveEdge(
+  view: { scrollTop: number; clientHeight: number; scrollHeight: number },
+  line: LineSpan,
+): boolean {
+  const bottom = view.scrollTop + view.clientHeight;
+  return line.bottom <= bottom + 2 || bottom >= view.scrollHeight - 2;
+}
+
+/**
+ * Whether to keep following after the viewer scrolled the box from `from` to
+ * `to`: a scroll up stops it (they are reading back), a scroll down that ends
+ * at the live edge starts it again, anything else leaves it as it was.
+ */
+export function nextFollowing(
+  following: boolean,
+  move: { from: number; to: number; atEdge: boolean },
+): boolean {
+  if (move.to < move.from - 1) return false;
+  if (move.to > move.from + 1 && move.atEdge) return true;
+  return following;
+}
+
+/** The nearest ancestor of `el` that scrolls vertically, or null when none does. */
+export function scrollingBox(el: Element): HTMLElement | null {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    if (node === document.body || node === document.documentElement) return null;
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
+}

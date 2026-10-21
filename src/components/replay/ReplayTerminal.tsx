@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { BandShape } from '@/components/leaderboard/BandShape';
 import { stepMeta } from './step-meta';
 import { REPLAY_KEY_ID } from './ReplayKey';
-import { followStepInside } from './follow-step';
+import { atLiveEdge, followStepInside, nextFollowing } from './follow-step';
 import { useReplayLayout } from './phone-layout';
 import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 import { OPERATOR_HANDLE, agentHandle, handleForStep } from '@/lib/replay/roles';
@@ -160,7 +160,7 @@ export function ReplayTerminal({
           : null;
     if (!to) return;
     event.preventDefault();
-    to.focus();
+    to.focus({ preventScroll: true });
   };
 
   // Typewriter for the active line. setState runs only inside rAF callbacks, so
@@ -183,25 +183,78 @@ export function ReplayTerminal({
     return () => cancelAnimationFrame(raf);
   }, [current, reduced, lines]);
 
-  // Hold the active line around the vertical middle (block:'center'): early lines
-  // sit near the top because there is nothing to scroll above them, and once the
-  // stream passes the midline the newest line pins to centre. Guarded because
-  // jsdom (unit tests) does not implement scrollIntoView.
-  // On a phone, follow the step inside the terminal instead, measured on the
-  // reserve copy of its line, which has its full height before it is typed.
-  // Nothing runs until the browser has said which layout it is.
+  // FOLLOW THE STEP INSIDE THE TERMINAL, NEVER THE PAGE, AT EVERY WIDTH
+  // (owner ruling REPLAY SCROLL, 2026-10-20). The desktop branch used to call
+  // scrollIntoView({ block: 'center' }), which scrolls the page as well, so a
+  // viewer who had scrolled down to the step card and the controls was pulled
+  // back up on every step. The line is measured on a phone on the reserve copy
+  // of its line, which has its full height before it is typed, and elsewhere
+  // on the row itself, followed again each time it grows.
+  //
+  // ONLY FROM THE LIVE EDGE. A viewer who scrolls up inside the terminal is
+  // reading back, and it stays where they left it until they scroll down to
+  // the bottom again. Only a scroll the viewer made counts: one that follows a
+  // wheel, a touch, a press or a key on the box. RESET follows again.
+  const following = useRef(true);
+  const currentRef = useRef(current);
+  useEffect(() => {
+    currentRef.current = current;
+  }, [current]);
+  const currentLine = (): Element | null =>
+    boxRef.current?.querySelectorAll('[data-reserve-line]')[currentRef.current] ??
+    activeRef.current;
+
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    let intentAt = -Infinity;
+    let last = box.scrollTop;
+    const intent = () => {
+      intentAt = performance.now();
+    };
+    const onScroll = () => {
+      const to = box.scrollTop;
+      if (performance.now() - intentAt < 1000) {
+        const line = currentLine();
+        const b = box.getBoundingClientRect();
+        const l = line?.getBoundingClientRect();
+        const bottom = l ? l.bottom - b.top - box.clientTop + to : 0;
+        following.current = nextFollowing(following.current, {
+          from: last,
+          to,
+          atEdge: atLiveEdge(
+            { scrollTop: to, clientHeight: box.clientHeight, scrollHeight: box.scrollHeight },
+            { top: bottom, bottom },
+          ),
+        });
+      }
+      last = to;
+    };
+    const events = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'] as const;
+    for (const name of events) box.addEventListener(name, intent, { passive: true });
+    box.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      for (const name of events) box.removeEventListener(name, intent);
+      box.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
   useEffect(() => {
     if (layout === 'unknown') return;
-    if (layout === 'phone') {
-      const box = boxRef.current;
-      const line = box?.querySelectorAll('[data-reserve-line]')[current] ?? activeRef.current;
-      if (box && line) followStepInside(box, line, !reduced);
-      return;
-    }
-    const el = activeRef.current;
-    if (el && typeof el.scrollIntoView === 'function') {
-      el.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
-    }
+    if (current === 0) following.current = true;
+    const box = boxRef.current;
+    const line = currentLine();
+    if (!box || !line) return;
+    const follow = () => {
+      if (following.current) followStepInside(box, line, !reduced);
+    };
+    follow();
+    // A row grows as it is typed and wraps (the phone measures a reserve copy
+    // that is already full height, so this changes nothing there).
+    if (typeof ResizeObserver === 'undefined') return;
+    const grows = new ResizeObserver(follow);
+    grows.observe(line);
+    return () => grows.disconnect();
   }, [current, reduced, layout]);
 
   const visibleText = (i: number): string => {

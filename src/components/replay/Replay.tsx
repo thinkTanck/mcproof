@@ -217,6 +217,9 @@ function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: Repl
   return (
     <div
       data-verdict-pending={revealed ? undefined : ''}
+      // Read by a speaker definition: while the replay plays, opening one
+      // never moves the page (owner ruling REPLAY SCROLL, 2026-10-20).
+      data-replay-playing={playing && !atEnd ? '' : undefined}
       className="flex min-h-[calc(100dvh-var(--header-h))] flex-col"
     >
       {/* Header — kicker + title + the run's outcome and provenance.
