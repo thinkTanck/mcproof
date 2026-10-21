@@ -79,17 +79,59 @@ export function atLiveEdge(
 }
 
 /**
- * Whether to keep following after the viewer scrolled the box from `from` to
- * `to`: a scroll up stops it (they are reading back), a scroll down that ends
- * at the live edge starts it again, anything else leaves it as it was.
+ * WHEN TO FOLLOW (owner ruling FLAKE FIX FIRST, 2026-10-21, fixing #250).
+ *
+ *  - The viewer's own input on the terminal (a wheel, a touch, a press on its
+ *    scrollbar, a scroll key) stops the follow at once, even while a smooth
+ *    follow is on its way, except a downward one when they are already at the
+ *    bottom.
+ *  - Any scroll the follow did not make that moves away from the bottom stops
+ *    it too.
+ *  - It resumes only when the viewer is back at the bottom: a scroll down that
+ *    ends there, or letting go of a touch, press or key without having moved
+ *    away from it.
+ *
+ * A pixel either way is rounding. `movedUp` remembers, for the letting go,
+ * whether the viewer moved away since their input began.
  */
-export function nextFollowing(
-  following: boolean,
-  move: { from: number; to: number; atEdge: boolean },
-): boolean {
-  if (move.to < move.from - 1) return false;
-  if (move.to > move.from + 1 && move.atEdge) return true;
-  return following;
+export type FollowState = { following: boolean; movedUp: boolean };
+export type FollowEvent =
+  | { kind: 'input'; toward: 'up' | 'down' | 'none'; atEdge: boolean }
+  | { kind: 'scroll'; from: number; to: number; atEdge: boolean; ours: boolean }
+  | { kind: 'release'; atEdge: boolean };
+
+export function nextFollow(state: FollowState, event: FollowEvent): FollowState {
+  switch (event.kind) {
+    case 'input':
+      return { following: event.toward === 'down' && event.atEdge, movedUp: false };
+    case 'scroll':
+      if (!event.ours && event.to < event.from - 1) return { following: false, movedUp: true };
+      if (event.to > event.from + 1 && event.atEdge) return { following: true, movedUp: false };
+      return state;
+    case 'release':
+      return {
+        following: state.following || (!state.movedUp && event.atEdge),
+        movedUp: false,
+      };
+  }
+}
+
+/**
+ * Is a smooth follow this module asked for still on its way to `to`'s side?
+ * A scroll it made moves toward its target; anything else is the viewer's.
+ */
+export function isOurScroll(box: HTMLElement, from: number, to: number): boolean {
+  const last = requested.get(box);
+  if (!last || performance.now() - last.at >= IN_FLIGHT_MS) return false;
+  if (to === last.top) return true;
+  return Math.sign(to - from) === Math.sign(last.top - from);
+}
+
+/** Stop a smooth follow where it is: the viewer has taken the terminal. */
+export function cancelFollow(box: HTMLElement): void {
+  if (!requested.has(box)) return;
+  requested.delete(box);
+  if (typeof box.scrollTo === 'function') box.scrollTo({ top: box.scrollTop, behavior: 'instant' });
 }
 
 /** The nearest ancestor of `el` that scrolls vertically, or null when none does. */

@@ -28,11 +28,13 @@ import { usePrefersReducedMotionAfterMount } from './use-reveal';
  * 6.35s; the NAME line printed whole gave 4.65s). Under reduced motion or with
  * no script, CSS hides the typed layer before any script runs.
  *
- * Playback is time-based: a short tick works out what should be showing from
- * the time since it began, so a browser that stretches short timers (WebKit)
- * makes the steps coarser, never the playback later.
+ * Playback is time-based and read from ONE clock: each frame works out what
+ * should be showing from the time since it began, one timer marks the end,
+ * and a return to the page reads the clock again, so a browser that delivers
+ * frames late makes the steps coarser, never the playback later.
  */
-const TICK_MS = 30;
+/** How often the interval asks for a redraw; the clock decides what it shows. */
+const REDRAW_MS = 30;
 
 const noSubscription = () => () => {};
 /** False in the server render, true once mounted: playback starts on the client, never in the HTML. */
@@ -118,15 +120,46 @@ export function ManTerminal() {
   const timeline = useMemo(() => scriptTimeline(), []);
   const [elapsed, setElapsed] = useState(-1);
 
+  // ONE CLOCK (owner ruling FLAKE FIX FIRST, 2026-10-21). Every reading is
+  // the time since `begun`, so a late redraw shows what the clock says and
+  // lag catches up instead of stretching. Two things only ask for a redraw, a
+  // frame and a 30 ms interval, because each can starve where the other does
+  // not (headless WebKit gave about 2 frames a second and 25 interval ticks);
+  // the finish waits on neither: one timer is set for the end, and a return
+  // to the page reads the clock at once. (The interval alone drove it before,
+  // and WebKit on a loaded CI runner left /about typing at 25 s on a 14.3 s
+  // script.)
   useEffect(() => {
     if (!mounted || reduced) return;
     const begun = performance.now();
-    const tick = setInterval(() => {
+    let frame = 0;
+    let finished = false;
+    const read = () => {
+      if (finished) return;
       const t = performance.now() - begun;
       setElapsed(t);
-      if (t >= timeline.total) clearInterval(tick);
-    }, TICK_MS);
-    return () => clearInterval(tick);
+      if (t >= timeline.total) {
+        finished = true;
+        cancelAnimationFrame(frame);
+        clearTimeout(end);
+        clearInterval(redraw);
+        document.removeEventListener('visibilitychange', read);
+        return;
+      }
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(read);
+    };
+    const end = setTimeout(read, timeline.total);
+    const redraw = setInterval(read, REDRAW_MS);
+    document.addEventListener('visibilitychange', read);
+    frame = requestAnimationFrame(read);
+    return () => {
+      finished = true;
+      cancelAnimationFrame(frame);
+      clearTimeout(end);
+      clearInterval(redraw);
+      document.removeEventListener('visibilitychange', read);
+    };
   }, [mounted, reduced, timeline.total]);
 
   const done = reduced || elapsed >= timeline.total;

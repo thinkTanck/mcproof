@@ -1,7 +1,7 @@
 import {
   atLiveEdge,
   followStepInside,
-  nextFollowing,
+  nextFollow,
   nextScrollTop,
 } from '@/components/replay/follow-step';
 
@@ -119,19 +119,69 @@ describe('atLiveEdge', () => {
   });
 });
 
-describe('nextFollowing', () => {
-  it('stops following when the viewer scrolls up', () => {
-    expect(nextFollowing(true, { from: 300, to: 200, atEdge: false })).toBe(false);
-    expect(nextFollowing(true, { from: 300, to: 290, atEdge: true })).toBe(false);
+/**
+ * WHEN TO FOLLOW (owner ruling FLAKE FIX FIRST, 2026-10-21, fixing #250). The
+ * viewer's own input on the terminal stops the follow at once, even while a
+ * smooth follow is on its way: a wheel, a touch, a press on the scrollbar, a
+ * scroll key. So does any scroll the follow did not make that moves away from
+ * the bottom. It resumes only when the viewer is back at the bottom: a scroll
+ * down that ends there, a downward input already there, or letting go of a
+ * touch, press or key that never moved them away.
+ */
+describe('nextFollow', () => {
+  const on = { following: true, movedUp: false };
+  const off = { following: false, movedUp: false };
+
+  it('stops on the viewer’s input, at once, whatever a follow is doing', () => {
+    expect(nextFollow(on, { kind: 'input', toward: 'up', atEdge: true }).following).toBe(false);
+    expect(nextFollow(on, { kind: 'input', toward: 'none', atEdge: true }).following).toBe(false);
+    expect(nextFollow(on, { kind: 'input', toward: 'down', atEdge: false }).following).toBe(false);
   });
 
-  it('resumes when the viewer scrolls down to the edge, and not before', () => {
-    expect(nextFollowing(false, { from: 100, to: 200, atEdge: false })).toBe(false);
-    expect(nextFollowing(false, { from: 200, to: 300, atEdge: true })).toBe(true);
+  it('does not stop for a downward input that is already at the bottom', () => {
+    expect(nextFollow(off, { kind: 'input', toward: 'down', atEdge: true }).following).toBe(true);
   });
 
-  it('ignores a scroll of a pixel either way', () => {
-    expect(nextFollowing(true, { from: 300, to: 299, atEdge: false })).toBe(true);
-    expect(nextFollowing(false, { from: 300, to: 301, atEdge: true })).toBe(false);
+  it('stops on any scroll it did not make that moves away from the bottom', () => {
+    expect(
+      nextFollow(on, { kind: 'scroll', from: 300, to: 280, atEdge: true, ours: false }).following,
+    ).toBe(false);
+    // Its own smooth follow moving down never stops it.
+    expect(
+      nextFollow(on, { kind: 'scroll', from: 280, to: 300, atEdge: false, ours: true }).following,
+    ).toBe(true);
+  });
+
+  it('resumes when the viewer scrolls back down to the bottom, and not before', () => {
+    const away = nextFollow(on, { kind: 'scroll', from: 300, to: 100, atEdge: false, ours: false });
+    expect(
+      nextFollow(away, { kind: 'scroll', from: 100, to: 200, atEdge: false, ours: false })
+        .following,
+    ).toBe(false);
+    expect(
+      nextFollow(away, { kind: 'scroll', from: 200, to: 400, atEdge: true, ours: false }).following,
+    ).toBe(true);
+  });
+
+  it('resumes on letting go only if the viewer never left the bottom', () => {
+    const touched = nextFollow(on, { kind: 'input', toward: 'none', atEdge: true });
+    expect(nextFollow(touched, { kind: 'release', atEdge: true }).following).toBe(true);
+    const swipedUp = nextFollow(touched, {
+      kind: 'scroll',
+      from: 300,
+      to: 250,
+      atEdge: true,
+      ours: false,
+    });
+    expect(nextFollow(swipedUp, { kind: 'release', atEdge: true }).following).toBe(false);
+  });
+
+  it('ignores a pixel of rounding either way', () => {
+    expect(
+      nextFollow(on, { kind: 'scroll', from: 300, to: 299, atEdge: false, ours: false }).following,
+    ).toBe(true);
+    expect(
+      nextFollow(off, { kind: 'scroll', from: 300, to: 301, atEdge: true, ours: false }).following,
+    ).toBe(false);
   });
 });

@@ -6,7 +6,15 @@ import { cn } from '@/lib/utils';
 import { BandShape } from '@/components/leaderboard/BandShape';
 import { stepMeta } from './step-meta';
 import { REPLAY_KEY_ID } from './ReplayKey';
-import { atLiveEdge, followStepInside, nextFollowing } from './follow-step';
+import {
+  atLiveEdge,
+  cancelFollow,
+  followStepInside,
+  isOurScroll,
+  nextFollow,
+  type FollowEvent,
+  type FollowState,
+} from './follow-step';
 import { useReplayLayout } from './phone-layout';
 import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 import { OPERATOR_HANDLE, agentHandle, handleForStep } from '@/lib/replay/roles';
@@ -191,11 +199,15 @@ export function ReplayTerminal({
   // of its line, which has its full height before it is typed, and elsewhere
   // on the row itself, followed again each time it grows.
   //
-  // ONLY FROM THE LIVE EDGE. A viewer who scrolls up inside the terminal is
-  // reading back, and it stays where they left it until they scroll down to
-  // the bottom again. Only a scroll the viewer made counts: one that follows a
-  // wheel, a touch, a press or a key on the box. RESET follows again.
-  const following = useRef(true);
+  // ONLY FROM THE LIVE EDGE (owner ruling FLAKE FIX FIRST, 2026-10-21, fixing
+  // #250). The viewer's own input on the terminal stops the follow at once,
+  // even mid-way through a smooth follow, which is cancelled where it is: a
+  // wheel, a touch, a press on the scrollbar, a scroll key. So does any scroll
+  // the follow did not make that moves away from the bottom. It resumes only
+  // when the viewer is back at the bottom (`nextFollow`). RESET follows again.
+  // #250 counted only scrolls, and a wheel that landed during a smooth follow
+  // never showed an upward step, so the follow carried the box back down.
+  const follow = useRef<FollowState>({ following: true, movedUp: false });
   const currentRef = useRef(current);
   useEffect(() => {
     currentRef.current = current;
@@ -207,52 +219,83 @@ export function ReplayTerminal({
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
-    let intentAt = -Infinity;
     let last = box.scrollTop;
-    const intent = () => {
-      intentAt = performance.now();
+    const atEdge = () => {
+      const to = box.scrollTop;
+      const line = currentLine();
+      const b = box.getBoundingClientRect();
+      const l = line?.getBoundingClientRect();
+      const bottom = l ? l.bottom - b.top - box.clientTop + to : 0;
+      return atLiveEdge(
+        { scrollTop: to, clientHeight: box.clientHeight, scrollHeight: box.scrollHeight },
+        { top: bottom, bottom },
+      );
+    };
+    const apply = (event: FollowEvent) => {
+      follow.current = nextFollow(follow.current, event);
+      if (!follow.current.following) cancelFollow(box);
+    };
+    const input = (toward: 'up' | 'down' | 'none') =>
+      apply({ kind: 'input', toward, atEdge: atEdge() });
+    const release = () => apply({ kind: 'release', atEdge: atEdge() });
+    const onWheel = (event: WheelEvent) =>
+      input(event.deltaY < 0 ? 'up' : event.deltaY > 0 ? 'down' : 'none');
+    const onTouch = () => input('none');
+    // A press on the box's own scrollbar, not on a row inside it.
+    const onPointerDown = (event: PointerEvent) => {
+      const r = box.getBoundingClientRect();
+      const onBar =
+        event.clientX >= r.left + box.clientLeft + box.clientWidth ||
+        event.clientY >= r.top + box.clientTop + box.clientHeight;
+      if (onBar) input('none');
+    };
+    const UP = new Set(['ArrowUp', 'PageUp', 'Home']);
+    const DOWN = new Set(['ArrowDown', 'PageDown', 'End', ' ']);
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (UP.has(event.key)) input('up');
+      else if (DOWN.has(event.key)) input('down');
     };
     const onScroll = () => {
       const to = box.scrollTop;
-      if (performance.now() - intentAt < 1000) {
-        const line = currentLine();
-        const b = box.getBoundingClientRect();
-        const l = line?.getBoundingClientRect();
-        const bottom = l ? l.bottom - b.top - box.clientTop + to : 0;
-        following.current = nextFollowing(following.current, {
-          from: last,
-          to,
-          atEdge: atLiveEdge(
-            { scrollTop: to, clientHeight: box.clientHeight, scrollHeight: box.scrollHeight },
-            { top: bottom, bottom },
-          ),
-        });
-      }
+      apply({ kind: 'scroll', from: last, to, atEdge: atEdge(), ours: isOurScroll(box, last, to) });
       last = to;
     };
-    const events = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'] as const;
-    for (const name of events) box.addEventListener(name, intent, { passive: true });
+    box.addEventListener('wheel', onWheel, { passive: true });
+    box.addEventListener('touchstart', onTouch, { passive: true });
+    box.addEventListener('touchend', release, { passive: true });
+    box.addEventListener('touchcancel', release, { passive: true });
+    box.addEventListener('pointerdown', onPointerDown, { passive: true });
+    box.addEventListener('pointerup', release, { passive: true });
+    box.addEventListener('keydown', onKeyDown);
+    box.addEventListener('keyup', release);
     box.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      for (const name of events) box.removeEventListener(name, intent);
+      box.removeEventListener('wheel', onWheel);
+      box.removeEventListener('touchstart', onTouch);
+      box.removeEventListener('touchend', release);
+      box.removeEventListener('touchcancel', release);
+      box.removeEventListener('pointerdown', onPointerDown);
+      box.removeEventListener('pointerup', release);
+      box.removeEventListener('keydown', onKeyDown);
+      box.removeEventListener('keyup', release);
       box.removeEventListener('scroll', onScroll);
     };
   }, []);
 
   useEffect(() => {
     if (layout === 'unknown') return;
-    if (current === 0) following.current = true;
+    if (current === 0) follow.current = { following: true, movedUp: false };
     const box = boxRef.current;
     const line = currentLine();
     if (!box || !line) return;
-    const follow = () => {
-      if (following.current) followStepInside(box, line, !reduced);
+    const keepUp = () => {
+      if (follow.current.following) followStepInside(box, line, !reduced);
     };
-    follow();
+    keepUp();
     // A row grows as it is typed and wraps (the phone measures a reserve copy
     // that is already full height, so this changes nothing there).
     if (typeof ResizeObserver === 'undefined') return;
-    const grows = new ResizeObserver(follow);
+    const grows = new ResizeObserver(keepUp);
     grows.observe(line);
     return () => grows.disconnect();
   }, [current, reduced, layout]);

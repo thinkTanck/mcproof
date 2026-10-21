@@ -59,17 +59,22 @@ async function scrollToControls(page: Page) {
   return y;
 }
 
-/** Note the page's and the terminal's scroll on every frame from now on. */
+/**
+ * Note the page's and the terminal's scroll from now on: on every scroll of
+ * either, and on a short interval besides. Not per frame: headless WebKit
+ * delivers only a few frames a second, which would leave gaps a move could
+ * hide in.
+ */
 async function record(page: Page) {
   await page.evaluate((selector) => {
     const w = window as unknown as { __rec: { y: number; box: number }[] };
     const box = document.querySelector(selector)!;
     w.__rec = [];
-    const tick = () => {
-      w.__rec.push({ y: window.scrollY, box: box.scrollTop });
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+    const note = () => w.__rec.push({ y: window.scrollY, box: box.scrollTop });
+    window.addEventListener('scroll', note, { passive: true });
+    box.addEventListener('scroll', note, { passive: true });
+    setInterval(note, 16);
+    note();
   }, BOX);
 }
 
@@ -101,7 +106,21 @@ for (const viewport of DESKTOP) {
         expect(rec.length).toBeGreaterThan(10);
         const drift = Math.max(...rec.map((r) => Math.abs(r.y - y0)));
         expect(drift, 'the page never moved').toBeLessThanOrEqual(1);
-        expect(rec.at(-1)!.box, 'the terminal scrolled itself').toBeGreaterThan(rec[0]!.box);
+        // Where the transcript's rows are taller than its box, the box scrolled
+        // itself to follow them by more than a few pixels. Measured on the step
+        // list, not the box: the box keeps room under the last line, so its own
+        // scroll height says nothing, and in some engines' fonts a short run's
+        // rows fit (desktop WebKit, asi05 at 1440).
+        const overflows = await page.locator(BOX).evaluate((el) => {
+          const list = el.querySelector('ol')!.getBoundingClientRect().height;
+          const pad =
+            parseFloat(getComputedStyle(el).paddingTop) +
+            parseFloat(getComputedStyle(el).paddingBottom);
+          return list + pad > el.clientHeight + 24;
+        });
+        if (overflows) {
+          expect(rec.at(-1)!.box, 'the terminal scrolled itself').toBeGreaterThan(rec[0]!.box);
+        }
       });
     }
 
@@ -124,16 +143,19 @@ for (const viewport of DESKTOP) {
       const settled = () =>
         box.evaluate(
           (el) =>
+            // Still for 300 ms, read on an interval (not per frame, which
+            // headless WebKit delivers only a few of a second).
             new Promise<number>((resolve) => {
               let last = el.scrollTop;
               let still = 0;
-              const tick = () => {
+              const timer = setInterval(() => {
                 still = el.scrollTop === last ? still + 1 : 0;
                 last = el.scrollTop;
-                if (still >= 10) resolve(last);
-                else requestAnimationFrame(tick);
-              };
-              requestAnimationFrame(tick);
+                if (still >= 10) {
+                  clearInterval(timer);
+                  resolve(last);
+                }
+              }, 30);
             }),
         );
       const held = await settled();
@@ -165,6 +187,74 @@ for (const viewport of DESKTOP) {
       expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
     });
 
+    test('a wheel up in the middle of a smooth follow stops it there, and the page never moves', async ({
+      page,
+    }) => {
+      // The #250 failure: a wheel that lands while the follow is still on its
+      // way down was not seen, and the follow carried the box back down. The
+      // steps are taken here with the keyboard on Next, with the pointer
+      // resting on the terminal, so the wheel lands in a follow every time and
+      // steps are left to play after it.
+      await open(page, 'asi06-run', viewport);
+      const y0 = await scrollToControls(page);
+      const box = page.locator(BOX);
+      const next = page.getByRole('button', { name: 'Next step' }).filter({ visible: true });
+      await box.hover();
+      await next.focus();
+      const step = () => page.keyboard.press('Enter');
+      // Where the box comes to rest, read over several still frames.
+      const settled = () =>
+        box.evaluate(
+          (el) =>
+            // Still for 300 ms, read on an interval (not per frame, which
+            // headless WebKit delivers only a few of a second).
+            new Promise<number>((resolve) => {
+              let last = el.scrollTop;
+              let still = 0;
+              const timer = setInterval(() => {
+                still = el.scrollTop === last ? still + 1 : 0;
+                last = el.scrollTop;
+                if (still >= 10) {
+                  clearInterval(timer);
+                  resolve(last);
+                }
+              }, 30);
+            }),
+        );
+
+      // Step until the box has followed well down it, so a wheel up cannot
+      // reach past its top and chain to the page (the viewer's own scroll).
+      for (let i = 0; i < 20 && (await box.evaluate((el) => el.scrollTop)) < 150; i += 1) {
+        await step();
+        await settled();
+      }
+      expect(await box.evaluate((el) => el.scrollTop)).toBeGreaterThanOrEqual(150);
+      // One more step starts a smooth follow; wheel up the moment it moves.
+      const moving = box.evaluate(
+        (el) =>
+          new Promise<void>((resolve) => {
+            const from = el.scrollTop;
+            const timer = setInterval(() => {
+              if (el.scrollTop !== from) {
+                clearInterval(timer);
+                resolve();
+              }
+            }, 5);
+          }),
+      );
+      await step();
+      await moving;
+      await page.mouse.wheel(0, -120);
+      const rest = await settled();
+      // Two more steps, and the box stays where the wheel left it.
+      await step();
+      await step();
+      expect(Math.abs((await settled()) - rest), 'the follow stayed stopped').toBeLessThanOrEqual(
+        1,
+      );
+      expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
+    });
+
     test('opening a speaker definition during playback leaves the page where it is', async ({
       page,
     }) => {
@@ -179,11 +269,17 @@ for (const viewport of DESKTOP) {
       await expect(handle.locator('[data-speaker-panel]')).toBeVisible();
       const y = await page.evaluate(
         () =>
+          // The largest the page moved over the next 300 ms, read on an interval.
           new Promise<number>((resolve) => {
-            let frames = 0;
-            const tick = () =>
-              ++frames >= 10 ? resolve(window.scrollY) : requestAnimationFrame(tick);
-            requestAnimationFrame(tick);
+            let far = window.scrollY;
+            let reads = 0;
+            const timer = setInterval(() => {
+              if (Math.abs(window.scrollY - far) > 0) far = window.scrollY;
+              if (++reads >= 10) {
+                clearInterval(timer);
+                resolve(far);
+              }
+            }, 30);
           }),
       );
       expect(Math.abs(y - y0), 'the page did not move').toBeLessThanOrEqual(1);
