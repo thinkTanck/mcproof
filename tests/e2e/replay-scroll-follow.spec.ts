@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
 
 /**
@@ -88,6 +88,57 @@ const readout = (page: Page) => page.getByText(/^STEP \d\d/).filter({ visible: t
 const stepNow = async (page: Page) =>
   Number(/STEP (\d+)/.exec((await readout(page).first().textContent()) ?? '')![1]);
 
+/**
+ * Where the box comes to rest: its scrollTop once it has not moved for 800 ms,
+ * read on an interval (not per frame, which headless WebKit delivers only a
+ * few of a second). Long enough for desktop WebKit, which applies a scroll up
+ * to about 400 ms late and sometimes in parts (DESKTOP WEBKIT diagnostic,
+ * 2026-10-21).
+ */
+const settledTop = (box: Locator) =>
+  box.evaluate(
+    (el) =>
+      new Promise<number>((resolve) => {
+        let last = el.scrollTop;
+        let still = 0;
+        const timer = setInterval(() => {
+          still = el.scrollTop === last ? still + 1 : 0;
+          last = el.scrollTop;
+          if (still >= 20) {
+            clearInterval(timer);
+            resolve(last);
+          }
+        }, 40);
+      }),
+  );
+
+/**
+ * Does this project scroll the terminal with keys rather than a wheel? Desktop
+ * WebKit does: there Playwright's synthetic wheel reaches the page about 400 ms
+ * late and its scroll lands in parts up to 400 ms after that, so a wheel
+ * cannot land inside a follow on cue. PageUp and End in the focused terminal
+ * reach it within about 10 ms. The wheel stays where it is dispatched at once
+ * (Chromium).
+ */
+const usesKeys = () => test.info().project.name === 'webkit-desktop';
+
+/** Scroll up inside the terminal, the way the viewer would. */
+async function scrollUpInside(page: Page, box: Locator) {
+  if (usesKeys()) {
+    await box.locator('button[aria-current="step"]').focus();
+    await page.keyboard.press('PageUp');
+  } else {
+    await box.hover();
+    await page.mouse.wheel(0, -120);
+  }
+}
+
+/** Scroll back down to the bottom of the terminal, the way the viewer would (the focus is still in it). */
+async function scrollToBottomInside(page: Page) {
+  if (usesKeys()) await page.keyboard.press('End');
+  else await page.mouse.wheel(0, 5000);
+}
+
 for (const viewport of DESKTOP) {
   test.describe(`replay scroll at ${viewport.width}x${viewport.height}`, () => {
     for (const run of SAMPLE_RUNS) {
@@ -119,7 +170,12 @@ for (const viewport of DESKTOP) {
           return list + pad > el.clientHeight + 24;
         });
         if (overflows) {
-          expect(rec.at(-1)!.box, 'the terminal scrolled itself').toBeGreaterThan(rec[0]!.box);
+          // Read once it has come to rest: desktop WebKit applies the last
+          // follow late, after the verdict is already revealed.
+          expect(
+            await settledTop(page.locator(BOX)),
+            'the terminal scrolled itself',
+          ).toBeGreaterThan(rec[0]!.box);
         }
       });
     }
@@ -128,47 +184,39 @@ for (const viewport of DESKTOP) {
       page,
     }) => {
       await open(page, 'asi06-run', viewport);
+      // The slowest speed, so steps are left to play after the scroll up and
+      // after the return to the bottom.
+      await page.getByRole('group', { name: 'Playback speed' }).getByRole('button').first().click();
       const y0 = await scrollToControls(page);
       await page.getByRole('button', { name: 'Play', exact: true }).click();
       const box = page.locator(BOX);
-      // Wait for the follow to have scrolled the terminal at least once.
+      // Wait for the follow to have scrolled the terminal at least once, and
+      // for that follow to have come to rest.
       await expect
         .poll(() => box.evaluate((el) => el.scrollTop), { timeout: 30_000 })
         .toBeGreaterThan(0);
+      const followedTo = await settledTop(box);
 
-      await box.hover();
-      const followedTo = await box.evaluate((el) => el.scrollTop);
-      await page.mouse.wheel(0, -120);
-      // A wheel scroll is animated: read where it came to rest, over a few frames.
-      const settled = () =>
-        box.evaluate(
-          (el) =>
-            // Still for 300 ms, read on an interval (not per frame, which
-            // headless WebKit delivers only a few of a second).
-            new Promise<number>((resolve) => {
-              let last = el.scrollTop;
-              let still = 0;
-              const timer = setInterval(() => {
-                still = el.scrollTop === last ? still + 1 : 0;
-                last = el.scrollTop;
-                if (still >= 10) {
-                  clearInterval(timer);
-                  resolve(last);
-                }
-              }, 30);
-            }),
-        );
-      const held = await settled();
-      expect(held, 'the viewer scrolled up inside the terminal').toBeLessThan(followedTo);
+      await scrollUpInside(page, box);
+      // The engine may apply the scroll late (desktop WebKit, about 400 ms):
+      // wait for it to have moved up, then for it to come to rest.
+      await expect
+        .poll(() => box.evaluate((el) => el.scrollTop), { timeout: 10_000 })
+        .toBeLessThan(followedTo);
+      const held = await settledTop(box);
       const before = await stepNow(page);
       // Another step plays while the viewer reads back.
       await expect
         .poll(() => stepNow(page), { timeout: 30_000 })
         .toBeGreaterThanOrEqual(before + 1);
-      expect(Math.abs((await box.evaluate((el) => el.scrollTop)) - held)).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs((await settledTop(box)) - held),
+        'the follow stayed stopped',
+      ).toBeLessThanOrEqual(1);
 
       // Back down to the bottom: the next step is followed again.
-      await page.mouse.wheel(0, 5000);
+      await scrollToBottomInside(page);
+      await settledTop(box);
       const resumedAt = await stepNow(page);
       const total = await page.locator('ol[aria-label="Attack replay step timeline"] > li').count();
       if (resumedAt < total) {
@@ -182,54 +230,49 @@ for (const viewport of DESKTOP) {
             const r = current.getBoundingClientRect();
             return r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
           });
-        await expect.poll(inView, { message: 'the current step is in view again' }).toBe(true);
+        await expect
+          .poll(inView, { message: 'the current step is in view again', timeout: 10_000 })
+          .toBe(true);
       }
       expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
     });
 
-    test('a wheel up in the middle of a smooth follow stops it there, and the page never moves', async ({
+    test('scrolling up in the middle of a smooth follow stops it there, and the page never moves', async ({
       page,
     }) => {
-      // The #250 failure: a wheel that lands while the follow is still on its
-      // way down was not seen, and the follow carried the box back down. The
-      // steps are taken here with the keyboard on Next, with the pointer
-      // resting on the terminal, so the wheel lands in a follow every time and
-      // steps are left to play after it.
+      // The #250 failure: a scroll up that lands while the follow is still on
+      // its way down was not seen, and the follow carried the box back down.
+      // The steps are taken here one at a time, so the scroll up lands in a
+      // follow every time and steps are left to play after it. In Chromium
+      // the scroll up is a real wheel, with Next pressed by the keyboard and
+      // the pointer resting on the terminal; in desktop WebKit, where
+      // Playwright's synthetic wheel reaches the page about 400 ms late (after
+      // the follow it was meant to interrupt has ended), it is PageUp in the
+      // focused terminal, with Next pressed by a click event that leaves the
+      // focus where it is.
       await open(page, 'asi06-run', viewport);
       const y0 = await scrollToControls(page);
       const box = page.locator(BOX);
       const next = page.getByRole('button', { name: 'Next step' }).filter({ visible: true });
-      await box.hover();
-      await next.focus();
-      const step = () => page.keyboard.press('Enter');
-      // Where the box comes to rest, read over several still frames.
-      const settled = () =>
-        box.evaluate(
-          (el) =>
-            // Still for 300 ms, read on an interval (not per frame, which
-            // headless WebKit delivers only a few of a second).
-            new Promise<number>((resolve) => {
-              let last = el.scrollTop;
-              let still = 0;
-              const timer = setInterval(() => {
-                still = el.scrollTop === last ? still + 1 : 0;
-                last = el.scrollTop;
-                if (still >= 10) {
-                  clearInterval(timer);
-                  resolve(last);
-                }
-              }, 30);
-            }),
-        );
+      const keys = usesKeys();
+      if (keys) {
+        await next.dispatchEvent('click');
+        await settledTop(box);
+        await box.locator('button[aria-current="step"]').focus();
+      } else {
+        await box.hover();
+        await next.focus();
+      }
+      const step = () => (keys ? next.dispatchEvent('click') : page.keyboard.press('Enter'));
 
-      // Step until the box has followed well down it, so a wheel up cannot
+      // Step until the box has followed well down it, so a scroll up cannot
       // reach past its top and chain to the page (the viewer's own scroll).
       for (let i = 0; i < 20 && (await box.evaluate((el) => el.scrollTop)) < 150; i += 1) {
         await step();
-        await settled();
+        await settledTop(box);
       }
       expect(await box.evaluate((el) => el.scrollTop)).toBeGreaterThanOrEqual(150);
-      // One more step starts a smooth follow; wheel up the moment it moves.
+      // One more step starts a smooth follow; scroll up the moment it moves.
       const moving = box.evaluate(
         (el) =>
           new Promise<void>((resolve) => {
@@ -244,14 +287,16 @@ for (const viewport of DESKTOP) {
       );
       await step();
       await moving;
-      await page.mouse.wheel(0, -120);
-      const rest = await settled();
-      // Two more steps, and the box stays where the wheel left it.
+      if (keys) await page.keyboard.press('PageUp');
+      else await page.mouse.wheel(0, -120);
+      const rest = await settledTop(box);
+      // Two more steps, and the box stays where the scroll up left it.
       await step();
       await step();
-      expect(Math.abs((await settled()) - rest), 'the follow stayed stopped').toBeLessThanOrEqual(
-        1,
-      );
+      expect(
+        Math.abs((await settledTop(box)) - rest),
+        'the follow stayed stopped',
+      ).toBeLessThanOrEqual(1);
       expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
     });
 
@@ -295,7 +340,7 @@ for (const viewport of DESKTOP) {
       await expect(page.locator('[data-verdict-pending]')).toHaveCount(0, { timeout: 60_000 });
       const rec = await recorded(page);
       expect(Math.max(...rec.map((r) => Math.abs(r.y - y0)))).toBeLessThanOrEqual(1);
-      expect(rec.at(-1)!.box).toBeGreaterThan(rec[0]!.box);
+      expect(await settledTop(page.locator(BOX))).toBeGreaterThan(rec[0]!.box);
     });
 
     test('has no WCAG violation after playing to the end', async ({ page }) => {
