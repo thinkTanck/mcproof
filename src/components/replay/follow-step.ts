@@ -40,9 +40,13 @@ export function nextScrollTop(view: ScrollView, line: LineSpan): number | null {
 const IN_FLIGHT_MS = 1000;
 const requested = new WeakMap<HTMLElement, { top: number; at: number }>();
 
-/** Scroll `box` (and only `box`) so `line` is in view. Smooth unless motion is reduced. */
-export function followStepInside(box: HTMLElement, line: Element, smooth: boolean): void {
-  if (typeof box.scrollTo !== 'function') return;
+/**
+ * Scroll `box` (and only `box`) so `line` is in view. Smooth unless motion is
+ * reduced. Returns where it leaves the box: the scrollTop it asked for, or the
+ * one it was already going to when the line was already in view.
+ */
+export function followStepInside(box: HTMLElement, line: Element, smooth: boolean): number {
+  if (typeof box.scrollTo !== 'function') return box.scrollTop;
   const now = performance.now();
   const last = requested.get(box);
   const from = last && now - last.at < IN_FLIGHT_MS ? last.top : box.scrollTop;
@@ -59,9 +63,10 @@ export function followStepInside(box: HTMLElement, line: Element, smooth: boolea
     },
     { top, bottom: top + l.height },
   );
-  if (next === null) return;
+  if (next === null) return from;
   requested.set(box, { top: next, at: now });
   box.scrollTo({ top: next, behavior: smooth ? 'smooth' : 'auto' });
+  return next;
 }
 
 /**
@@ -79,41 +84,68 @@ export function atLiveEdge(
 }
 
 /**
- * WHEN TO FOLLOW (owner ruling FLAKE FIX FIRST, 2026-10-21, fixing #250).
+ * WHEN TO FOLLOW (owner rulings FLAKE FIX FIRST and FLAKE FIX 2, 2026-10-21,
+ * fixing #250).
  *
- *  - The viewer's own input on the terminal (a wheel, a touch, a press on its
+ *  - Any viewer input on the terminal (a wheel, a touch, a press on its
  *    scrollbar, a scroll key) stops the follow at once, even while a smooth
- *    follow is on its way, except a downward one when they are already at the
- *    bottom.
- *  - Any scroll the follow did not make that moves away from the bottom stops
- *    it too.
- *  - It resumes only when the viewer is back at the bottom: a scroll down that
- *    ends there, or letting go of a touch, press or key without having moved
- *    away from it.
+ *    follow is on its way.
+ *  - An UPWARD key or wheel marks the viewer as moved away at once, before any
+ *    scroll lands: an engine may apply it late (desktop WebKit, about 400 ms),
+ *    and letting go of the key must not read as never having left. Any scroll
+ *    the follow did not make that moves away from the bottom marks it too.
+ *    Only a downward input, or a scroll down that reaches the bottom, clears it.
+ *  - The follow resumes only when the viewer has not moved away and the box
+ *    has been still at the bottom for `RESUME_AFTER_MS` after their last input
+ *    (`mayResume`).
  *
- * A pixel either way is rounding. `movedUp` remembers, for the letting go,
- * whether the viewer moved away since their input began.
+ * A pixel either way is rounding.
  */
-export type FollowState = { following: boolean; movedUp: boolean };
+export type FollowState = { following: boolean; movedAway: boolean };
 export type FollowEvent =
-  | { kind: 'input'; toward: 'up' | 'down' | 'none'; atEdge: boolean }
-  | { kind: 'scroll'; from: number; to: number; atEdge: boolean; ours: boolean }
-  | { kind: 'release'; atEdge: boolean };
+  | { kind: 'input'; toward: 'up' | 'down' | 'none' }
+  | { kind: 'scroll'; from: number; to: number; atBottom: boolean; ours: boolean };
+
+/** How long the box must be still at the bottom, after the last input, before the follow resumes. */
+export const RESUME_AFTER_MS = 800;
 
 export function nextFollow(state: FollowState, event: FollowEvent): FollowState {
-  switch (event.kind) {
-    case 'input':
-      return { following: event.toward === 'down' && event.atEdge, movedUp: false };
-    case 'scroll':
-      if (!event.ours && event.to < event.from - 1) return { following: false, movedUp: true };
-      if (event.to > event.from + 1 && event.atEdge) return { following: true, movedUp: false };
-      return state;
-    case 'release':
-      return {
-        following: state.following || (!state.movedUp && event.atEdge),
-        movedUp: false,
-      };
+  if (event.kind === 'input') {
+    const movedAway =
+      event.toward === 'up' ? true : event.toward === 'down' ? false : state.movedAway;
+    return { following: false, movedAway };
   }
+  if (!event.ours && event.to < event.from - 1) return { following: false, movedAway: true };
+  if (event.to > event.from + 1 && event.atBottom) return { ...state, movedAway: false };
+  return state;
+}
+
+/** May the follow resume now? Only still at the bottom, long enough after the last input and scroll. */
+export function mayResume(
+  state: FollowState,
+  now: { atBottom: boolean; sinceInput: number; sinceScroll: number },
+): boolean {
+  return (
+    !state.following &&
+    !state.movedAway &&
+    now.atBottom &&
+    now.sinceInput >= RESUME_AFTER_MS &&
+    now.sinceScroll >= RESUME_AFTER_MS
+  );
+}
+
+/**
+ * Is the box at the bottom? Where the follow last held it (`followAt`), or
+ * lower, or at the box's own end. Not "the current line is in view": a
+ * viewer who scrolled up a little can still see it, and has still left.
+ */
+export function atFollowBottom(
+  view: { scrollTop: number; clientHeight: number; scrollHeight: number },
+  followAt: number,
+): boolean {
+  return (
+    view.scrollTop >= followAt - 2 || view.scrollTop + view.clientHeight >= view.scrollHeight - 2
+  );
 }
 
 /**

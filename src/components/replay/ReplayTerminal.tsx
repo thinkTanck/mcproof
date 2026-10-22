@@ -7,10 +7,12 @@ import { BandShape } from '@/components/leaderboard/BandShape';
 import { stepMeta } from './step-meta';
 import { REPLAY_KEY_ID } from './ReplayKey';
 import {
-  atLiveEdge,
+  RESUME_AFTER_MS,
+  atFollowBottom,
   cancelFollow,
   followStepInside,
   isOurScroll,
+  mayResume,
   nextFollow,
   type FollowEvent,
   type FollowState,
@@ -199,15 +201,21 @@ export function ReplayTerminal({
   // of its line, which has its full height before it is typed, and elsewhere
   // on the row itself, followed again each time it grows.
   //
-  // ONLY FROM THE LIVE EDGE (owner ruling FLAKE FIX FIRST, 2026-10-21, fixing
-  // #250). The viewer's own input on the terminal stops the follow at once,
-  // even mid-way through a smooth follow, which is cancelled where it is: a
-  // wheel, a touch, a press on the scrollbar, a scroll key. So does any scroll
-  // the follow did not make that moves away from the bottom. It resumes only
-  // when the viewer is back at the bottom (`nextFollow`). RESET follows again.
-  // #250 counted only scrolls, and a wheel that landed during a smooth follow
-  // never showed an upward step, so the follow carried the box back down.
-  const follow = useRef<FollowState>({ following: true, movedUp: false });
+  // ONLY FROM THE BOTTOM (owner rulings FLAKE FIX FIRST and FLAKE FIX 2,
+  // 2026-10-21, fixing #250). The viewer's own input on the terminal stops the
+  // follow at once, even mid-way through a smooth follow, which is cancelled
+  // where it is: a wheel, a touch, a press on the scrollbar, a scroll key. An
+  // upward key or wheel marks them as moved away at once, before its scroll
+  // lands, and so does any scroll the follow did not make that moves away from
+  // the bottom (`nextFollow`). It resumes only once the box has been still at
+  // the bottom for 800 ms after their last input (`mayResume`), the bottom
+  // being where the follow last held it (`followAt`) or the box's own end.
+  // RESET follows again. #250 counted only scrolls, so a wheel that landed
+  // during a smooth follow was not seen; and letting go of PageUp before
+  // WebKit applied its scroll read as never having left, until 2026-10-21.
+  const follow = useRef<FollowState>({ following: true, movedAway: false });
+  const followAt = useRef(0);
+  const followNow = useRef<() => void>(() => {});
   const currentRef = useRef(current);
   useEffect(() => {
     currentRef.current = current;
@@ -220,24 +228,45 @@ export function ReplayTerminal({
     const box = boxRef.current;
     if (!box) return;
     let last = box.scrollTop;
-    const atEdge = () => {
-      const to = box.scrollTop;
-      const line = currentLine();
-      const b = box.getBoundingClientRect();
-      const l = line?.getBoundingClientRect();
-      const bottom = l ? l.bottom - b.top - box.clientTop + to : 0;
-      return atLiveEdge(
-        { scrollTop: to, clientHeight: box.clientHeight, scrollHeight: box.scrollHeight },
-        { top: bottom, bottom },
+    let inputAt = -Infinity;
+    let scrollAt = -Infinity;
+    let resumeCheck = 0;
+    const atBottom = () =>
+      atFollowBottom(
+        {
+          scrollTop: box.scrollTop,
+          clientHeight: box.clientHeight,
+          scrollHeight: box.scrollHeight,
+        },
+        followAt.current,
       );
+    // While stopped, look again once the box could have been still long enough.
+    const scheduleResume = () => {
+      clearTimeout(resumeCheck);
+      if (follow.current.following) return;
+      resumeCheck = window.setTimeout(() => {
+        const now = performance.now();
+        if (
+          mayResume(follow.current, {
+            atBottom: atBottom(),
+            sinceInput: now - inputAt,
+            sinceScroll: now - scrollAt,
+          })
+        ) {
+          follow.current = { following: true, movedAway: false };
+          followNow.current();
+        }
+      }, RESUME_AFTER_MS);
     };
     const apply = (event: FollowEvent) => {
       follow.current = nextFollow(follow.current, event);
       if (!follow.current.following) cancelFollow(box);
+      scheduleResume();
     };
-    const input = (toward: 'up' | 'down' | 'none') =>
-      apply({ kind: 'input', toward, atEdge: atEdge() });
-    const release = () => apply({ kind: 'release', atEdge: atEdge() });
+    const input = (toward: 'up' | 'down' | 'none') => {
+      inputAt = performance.now();
+      apply({ kind: 'input', toward });
+    };
     const onWheel = (event: WheelEvent) =>
       input(event.deltaY < 0 ? 'up' : event.deltaY > 0 ? 'down' : 'none');
     const onTouch = () => input('none');
@@ -257,40 +286,36 @@ export function ReplayTerminal({
     };
     const onScroll = () => {
       const to = box.scrollTop;
-      apply({ kind: 'scroll', from: last, to, atEdge: atEdge(), ours: isOurScroll(box, last, to) });
+      const ours = isOurScroll(box, last, to);
+      if (!ours) scrollAt = performance.now();
+      apply({ kind: 'scroll', from: last, to, atBottom: atBottom(), ours });
       last = to;
     };
     box.addEventListener('wheel', onWheel, { passive: true });
     box.addEventListener('touchstart', onTouch, { passive: true });
-    box.addEventListener('touchend', release, { passive: true });
-    box.addEventListener('touchcancel', release, { passive: true });
     box.addEventListener('pointerdown', onPointerDown, { passive: true });
-    box.addEventListener('pointerup', release, { passive: true });
     box.addEventListener('keydown', onKeyDown);
-    box.addEventListener('keyup', release);
     box.addEventListener('scroll', onScroll, { passive: true });
     return () => {
+      clearTimeout(resumeCheck);
       box.removeEventListener('wheel', onWheel);
       box.removeEventListener('touchstart', onTouch);
-      box.removeEventListener('touchend', release);
-      box.removeEventListener('touchcancel', release);
       box.removeEventListener('pointerdown', onPointerDown);
-      box.removeEventListener('pointerup', release);
       box.removeEventListener('keydown', onKeyDown);
-      box.removeEventListener('keyup', release);
       box.removeEventListener('scroll', onScroll);
     };
   }, []);
 
   useEffect(() => {
     if (layout === 'unknown') return;
-    if (current === 0) follow.current = { following: true, movedUp: false };
+    if (current === 0) follow.current = { following: true, movedAway: false };
     const box = boxRef.current;
     const line = currentLine();
     if (!box || !line) return;
     const keepUp = () => {
-      if (follow.current.following) followStepInside(box, line, !reduced);
+      if (follow.current.following) followAt.current = followStepInside(box, line, !reduced);
     };
+    followNow.current = keepUp;
     keepUp();
     // A row grows as it is typed and wraps (the phone measures a reserve copy
     // that is already full height, so this changes nothing there).

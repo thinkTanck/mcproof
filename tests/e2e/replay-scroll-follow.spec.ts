@@ -184,9 +184,6 @@ for (const viewport of DESKTOP) {
       page,
     }) => {
       await open(page, 'asi06-run', viewport);
-      // The slowest speed, so steps are left to play after the scroll up and
-      // after the return to the bottom.
-      await page.getByRole('group', { name: 'Playback speed' }).getByRole('button').first().click();
       const y0 = await scrollToControls(page);
       await page.getByRole('button', { name: 'Play', exact: true }).click();
       const box = page.locator(BOX);
@@ -296,6 +293,52 @@ for (const viewport of DESKTOP) {
       expect(
         Math.abs((await settledTop(box)) - rest),
         'the follow stayed stopped',
+      ).toBeLessThanOrEqual(1);
+      expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
+    });
+
+    test('key up before the late scroll: the follow stays paused', async ({ page }) => {
+      // The DESKTOP WEBKIT proof failure (FLAKE FIX 2, 2026-10-21): PageUp
+      // let go while the box was still at the bottom, its scroll landing about
+      // 400 ms later, and the follow resumed in between. Reproduced the same
+      // way in every engine, with a whole step played in the gap so a resumed
+      // follow would show: the key's down and up reach the terminal while the
+      // box has not moved, a step plays, and only then does the scroll land.
+      await open(page, 'asi06-run', viewport);
+      const y0 = await scrollToControls(page);
+      await page.getByRole('button', { name: 'Play', exact: true }).click();
+      const box = page.locator(BOX);
+      await expect
+        .poll(() => box.evaluate((el) => el.scrollTop), { timeout: 30_000 })
+        .toBeGreaterThan(40);
+      await settledTop(box);
+      await box.evaluate((el) => {
+        const key = (type: string) =>
+          el.dispatchEvent(new KeyboardEvent(type, { key: 'PageUp', bubbles: true }));
+        key('keydown');
+        key('keyup');
+      });
+      const atKey = await box.evaluate((el) => el.scrollTop);
+      // A whole step plays before the scroll lands: the follow must not take it.
+      const before = await stepNow(page);
+      await expect
+        .poll(() => stepNow(page), { timeout: 30_000 })
+        .toBeGreaterThanOrEqual(before + 1);
+      expect(
+        Math.abs((await settledTop(box)) - atKey),
+        'paused before the scroll lands',
+      ).toBeLessThanOrEqual(1);
+      // Then the late scroll lands, and the next step does not move the box either.
+      await box.evaluate((el) => {
+        el.scrollTop = el.scrollTop - 100;
+      });
+      const rest = await settledTop(box);
+      expect(rest).toBeLessThan(atKey);
+      const after = await stepNow(page);
+      await expect.poll(() => stepNow(page), { timeout: 30_000 }).toBeGreaterThanOrEqual(after + 1);
+      expect(
+        Math.abs((await settledTop(box)) - rest),
+        'the follow stayed paused',
       ).toBeLessThanOrEqual(1);
       expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
     });

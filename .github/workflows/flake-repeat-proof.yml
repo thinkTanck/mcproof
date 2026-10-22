@@ -1,6 +1,6 @@
-# TEMPORARY (owner rulings FLAKE FIX FIRST, 2026-10-21). Proves the /about and replay-follow motion
-# specs in CI's Linux browsers: about.spec.ts and replay-scroll-follow.spec.ts, 20 repeats, no retries, Chromium
-# and WebKit, must be 100%. Runs only on pushes to fix/flake-fix-first, and is
+# TEMPORARY (owner rulings FLAKE FIX FIRST and FLAKE FIX 2, 2026-10-21). Proves the /about and replay-follow motion
+# specs in CI's Linux browsers: about.spec.ts, replay-scroll-follow.spec.ts and replay-legend-roles.spec.ts, 20 repeats, no retries, Chromium,
+# phone WebKit and desktop WebKit, must be 100%. Runs only on pushes to fix/flake-fix-first, and is
 # deleted in the next commit, before this PR merges.
 name: Flake repeat proof
 
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   repeat:
-    name: about and replay-scroll-follow x20 (Chromium + WebKit)
+    name: about, replay-scroll-follow and replay-legend-roles x20 (Chromium, phone WebKit, desktop WebKit)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,7 +36,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 
-      - name: about.spec.ts and replay-scroll-follow.spec.ts, 20 repeats, no retries
-        run: npx playwright test tests/e2e/about.spec.ts tests/e2e/replay-scroll-follow.spec.ts --project=chromium --project=webkit --project=webkit-desktop --repeat-each=20 --retries=0 --reporter=list
+      - name: about, replay-scroll-follow and replay-legend-roles, 20 repeats, no retries
+        run: npx playwright test tests/e2e/about.spec.ts tests/e2e/replay-scroll-follow.spec.ts tests/e2e/replay-legend-roles.spec.ts --project=chromium --project=webkit --project=webkit-desktop --repeat-each=20 --retries=0 --reporter=list
         env:
           E2E_FIXTURES: '1'
