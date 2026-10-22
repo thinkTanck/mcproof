@@ -630,9 +630,18 @@ for (const viewport of PHONES) {
         expect(box.overscroll).toBe('auto');
         expect(box.overflowY).toBe('auto');
 
-        // Put the terminal mid-screen and at the end of its own scroll. The
-        // replay follows its first step into view as it opens, so the end is
-        // asked for until it holds.
+        // Put the terminal mid-screen and at the end of its own scroll, with
+        // the replay at its LAST step first (PHONE HANDOFF, 2026-10-22). At
+        // step 1 the follow holds the first line in view, and in headless
+        // WebKit that line types for seconds (few animation frames), so as it
+        // grew the follow took the box back from the end the test had set,
+        // 497 to 0 in one scroll, before the late synthetic wheel landed: 1 in
+        // 20 on main and on #252 alike. At the last step the place the follow
+        // holds is the box's end, so the two agree. The end is still asked
+        // for until it holds.
+        await page.getByRole('slider', { name: 'Scrub to step' }).focus();
+        await page.keyboard.press('End');
+        await expect(page.locator('button[aria-current="step"]')).toContainText('exit 0');
         const room = await terminal.evaluate((el) => el.scrollHeight - el.clientHeight);
         expect(room, 'the terminal has a scroll of its own to be at the end of').toBeGreaterThan(0);
         await terminal.evaluate((el) => el.scrollIntoView({ block: 'center' }));

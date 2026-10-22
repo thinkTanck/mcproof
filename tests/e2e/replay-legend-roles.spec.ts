@@ -96,6 +96,25 @@ async function openReplay(page: Page, run: string = 'sample') {
   await settle(page);
 }
 
+/**
+ * Open the sample replay at its final step, for tests about the speaker
+ * handles (FLAKE FIX 2, 2026-10-21). The replay is never played: the slider
+ * jumps to the end. It does not wait for the network to go quiet or for
+ * animation frames, which headless phone WebKit delivers at about 2 a second
+ * and which held a loaded CI runner past the 30 s test timeout once. Full
+ * playback to the verdict is covered by replay-scroll-follow.spec.ts (Play,
+ * then the verdict revealed, on all seven samples at 1280 and 1440).
+ */
+async function openAtEnd(page: Page) {
+  await suppressBootSplash(page);
+  await page.goto('/runs/sample');
+  await expect(page.locator('[data-replay-legend]')).toHaveCount(1);
+  await page.getByRole('slider', { name: 'Scrub to step' }).focus();
+  await page.keyboard.press('End');
+  await expect(page.locator('button[aria-current="step"]')).toContainText('exit 0');
+  await page.evaluate(() => document.fonts.ready);
+}
+
 async function toEnd(page: Page) {
   await page.getByRole('slider', { name: 'Scrub to step' }).focus();
   await page.keyboard.press('End');
@@ -395,8 +414,7 @@ for (const viewport of [
 
     test.beforeEach(async ({ page, browserName }) => {
       test.skip(browserName === 'webkit' && viewport.width >= 768, WEBKIT_IS_A_PHONE);
-      await openReplay(page);
-      await toEnd(page);
+      await openAtEnd(page);
     });
 
     test('every handle drawn has an entry in the roles lookup, and is named for it', async ({

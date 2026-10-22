@@ -1,7 +1,7 @@
 import { act, render } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { ManTerminal } from '@/components/about/ManTerminal';
-import { ABOUT_SCRIPT, scriptTimeline } from '@/lib/about/script';
+import { ABOUT_SCRIPT, scriptTimeline, shownAt } from '@/lib/about/script';
 
 /**
  * THE /about TERMINAL PLAYS LIKE A REAL SHELL, EXCEPT PARAGRAPHS (owner ruling
@@ -98,7 +98,17 @@ describe('ManTerminal', () => {
 
   it('plays on load: short lines whole, commands and paragraphs built up, the final text always there', () => {
     motion(false);
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'performance'] });
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'performance',
+      ],
+    });
     const { container } = render(<ManTerminal />);
     const terminal = container.querySelector('[data-terminal]')!;
     const full = new Map(ABOUT_SCRIPT.map((line, i) => [String(i), line]));
@@ -140,6 +150,82 @@ describe('ManTerminal', () => {
     const last = typed[typed.length - 1]!;
     expect(norm(last.textContent)).toBe('visitor@mcproof:~$');
     expect(last.querySelector('[data-terminal-caret]')).not.toBeNull();
-  }, // under 2 s alone, more on a loaded machine, so it gets room of its own. // It renders the whole 14 s playback, about 480 ticks, on a faked clock:
-  15_000);
+  }, 15_000); // under 2 s alone, more on a loaded machine, so it gets room of its own. // It renders the whole 14 s playback, about 480 ticks, on a faked clock:
+});
+
+/**
+ * ONE CLOCK (owner ruling FLAKE FIX FIRST, 2026-10-21). The screen is worked
+ * out from the time since playback began, read from one start, so a browser
+ * that delivers frames late (WebKit on a loaded CI runner left /about typing
+ * at 25 s on a 14.3 s script) catches up instead of stretching, and the
+ * finished state does not wait on frames at all.
+ */
+describe('ManTerminal, driven by one clock', () => {
+  let frames: FrameRequestCallback[] = [];
+  let now = 0;
+
+  beforeEach(() => {
+    motion(false);
+    frames = [];
+    now = 0;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** Deliver the one frame waiting, as a browser would after a stall. */
+  const oneFrame = () =>
+    act(() => {
+      const waiting = frames;
+      frames = [];
+      for (const cb of waiting) cb(now);
+    });
+
+  it('catches up in one late frame: what shows is what the clock says, not what the frames counted', () => {
+    const { container } = render(<ManTerminal />);
+    const terminal = container.querySelector('[data-terminal]')!;
+    const { steps } = scriptTimeline();
+    // The bio paragraph's start, plus half a second: some of it, never all.
+    const bio = ABOUT_SCRIPT.length - 3;
+    now = steps[bio]!.start + 500;
+    oneFrame();
+    expect(terminal).toHaveAttribute('data-state', 'typing');
+    const lines = [
+      ...terminal.querySelectorAll<HTMLElement>('[data-terminal-typed] [data-line-index]'),
+    ];
+    // Every earlier line is already whole, in one frame.
+    expect(lines.length).toBe(bio + 1);
+    const shown = lines.at(-1)!.querySelector('[data-line-text]')!.textContent!;
+    expect(shown.length).toBe(shownAt(steps[bio]!, ABOUT_SCRIPT[bio]!.text.length, now - 0));
+  });
+
+  it('finishes on time with no frame at all', () => {
+    const { container } = render(<ManTerminal />);
+    const terminal = container.querySelector('[data-terminal]')!;
+    const { total } = scriptTimeline();
+    now = total + 1;
+    act(() => {
+      vi.advanceTimersByTime(total + 1);
+    });
+    expect(terminal).toHaveAttribute('data-state', 'done');
+  });
+
+  it('catches up at once when the page is shown again', () => {
+    const { container } = render(<ManTerminal />);
+    const terminal = container.querySelector('[data-terminal]')!;
+    now = scriptTimeline().total + 5000;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(terminal).toHaveAttribute('data-state', 'done');
+  });
 });

@@ -17,6 +17,9 @@ const BASE_URL = `http://localhost:${PORT}`;
 const WEBKIT_SPECS =
   /(small-text-line-spacing|phone-replay-layout|run-bar-short-screens|copy-failed-show-config|rail-visible-labels|drawer-closes-on-navigate|large-text-wraps|run-bar-clears-header|phone-run-bar|contrast-text-floor-focus|buttons-targets-nav-skip|words-and-meaning|readability-hierarchy|no-sideways-scroll|replay-rows-no-transition|security-headers|depth-and-glow|replay-legend-roles|about)\.spec\.ts$/;
 
+/** Specs that also run in desktop WebKit (`webkit-desktop`). */
+const WEBKIT_DESKTOP_SPECS = /replay-scroll-follow\.spec\.ts$/;
+
 /**
  * The WebKit specs that put a style tag of their own into the page with
  * `page.addStyleTag` (a 12px root size, the WCAG 1.4.12 spacing override).
@@ -40,6 +43,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // A test that fails and then passes on a retry fails the job in CI (owner
+  // ruling FLAKE FIX FIRST, 2026-10-21): a flaky motion test is a stop, and a
+  // retry that passes must not hide one. The retries still run, so the report
+  // shows whether it was flaky or broken.
+  failOnFlakyTests: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
@@ -63,6 +71,14 @@ export default defineConfig({
       testMatch: WEBKIT_SPECS,
       testIgnore: WEBKIT_SPECS_WITH_TEST_STYLES,
       use: { ...devices['iPhone 13'], permissions: [] },
+    },
+    // Desktop WebKit (Safari on a Mac), for the replay's scroll-follow spec, which
+    // is a desktop test at 1280 and 1440 that drives a real wheel: Playwright
+    // has no wheel on a phone (owner ruling FLAKE FIX FIRST, 2026-10-21).
+    {
+      name: 'webkit-desktop',
+      testMatch: WEBKIT_DESKTOP_SPECS,
+      use: { ...devices['Desktop Safari'], permissions: [] },
     },
     // The same phone, for the specs that inject a style tag. See the list above.
     {
