@@ -122,6 +122,47 @@ const settledTop = (box: Locator) =>
  */
 const usesKeys = () => test.info().project.name === 'webkit-desktop';
 
+/** The step readout as numbers: "STEP 07 / 13" is { now: 7, total: 13 }. */
+async function stepPosition(page: Page) {
+  const text = (await readout(page).first().textContent()) ?? '';
+  const m = /STEP (\d+)\s*\/\s*(\d+)/.exec(text);
+  if (!m) throw new Error(`no step readout in "${text}"`);
+  return { now: Number(m[1]), total: Number(m[2]) };
+}
+
+/**
+ * Take one step forward by hand, with the Next control, the replay paused
+ * (FLAKE FIX 3, 2026-10-22). A click event, so the pointer and the focus stay
+ * where they are. Waits for the readout to move on.
+ */
+async function stepByHand(page: Page) {
+  const before = (await stepPosition(page)).now;
+  await page
+    .getByRole('button', { name: 'Next step' })
+    .filter({ visible: true })
+    .dispatchEvent('click');
+  await expect.poll(async () => (await stepPosition(page)).now).toBe(before + 1);
+}
+
+/** Step by hand until the follow has scrolled the box past `past` px. */
+async function stepUntilFollowed(page: Page, box: Locator, past: number) {
+  await expect(
+    page.getByRole('button', { name: 'Play', exact: true }),
+    'the replay is paused',
+  ).toBeVisible();
+  for (let i = 0; i < 20 && (await settledTop(box)) <= past; i += 1) await stepByHand(page);
+  expect(await settledTop(box), 'the follow has scrolled the box').toBeGreaterThan(past);
+}
+
+/** Fail loudly, up front, if the replay has fewer than `n` steps left to take. */
+async function expectStepsLeft(page: Page, n: number) {
+  const { now, total } = await stepPosition(page);
+  expect(
+    total - now,
+    `at least ${n} steps left after step ${now} of ${total}`,
+  ).toBeGreaterThanOrEqual(n);
+}
+
 /** Scroll up inside the terminal, the way the viewer would. */
 async function scrollUpInside(page: Page, box: Locator) {
   if (usesKeys()) {
@@ -183,15 +224,13 @@ for (const viewport of DESKTOP) {
     test('scrolling up inside the terminal stops the follow; back at the bottom it resumes', async ({
       page,
     }) => {
+      // Stepped by hand with Next, never played (FLAKE FIX 3, 2026-10-22): a
+      // played replay could run out of steps before the last check.
       await open(page, 'asi06-run', viewport);
       const y0 = await scrollToControls(page);
-      await page.getByRole('button', { name: 'Play', exact: true }).click();
       const box = page.locator(BOX);
-      // Wait for the follow to have scrolled the terminal at least once, and
-      // for that follow to have come to rest.
-      await expect
-        .poll(() => box.evaluate((el) => el.scrollTop), { timeout: 30_000 })
-        .toBeGreaterThan(0);
+      await stepUntilFollowed(page, box, 0);
+      await expectStepsLeft(page, 3);
       const followedTo = await settledTop(box);
 
       await scrollUpInside(page, box);
@@ -201,36 +240,33 @@ for (const viewport of DESKTOP) {
         .poll(() => box.evaluate((el) => el.scrollTop), { timeout: 10_000 })
         .toBeLessThan(followedTo);
       const held = await settledTop(box);
-      const before = await stepNow(page);
-      // Another step plays while the viewer reads back.
-      await expect
-        .poll(() => stepNow(page), { timeout: 30_000 })
-        .toBeGreaterThanOrEqual(before + 1);
-      expect(
-        Math.abs((await settledTop(box)) - held),
-        'the follow stayed stopped',
-      ).toBeLessThanOrEqual(1);
-
-      // Back down to the bottom: the next step is followed again.
-      await scrollToBottomInside(page);
-      await settledTop(box);
-      const resumedAt = await stepNow(page);
-      const total = await page.locator('ol[aria-label="Attack replay step timeline"] > li').count();
-      if (resumedAt < total) {
-        await expect.poll(() => stepNow(page), { timeout: 30_000 }).toBeGreaterThan(resumedAt);
-        // The follow scrolls smoothly, so it is read once it has arrived.
-        const inView = () =>
-          box.evaluate((el) => {
-            const current = el.querySelector('button[aria-current="step"]');
-            if (!current) return false;
-            const b = el.getBoundingClientRect();
-            const r = current.getBoundingClientRect();
-            return r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
-          });
-        await expect
-          .poll(inView, { message: 'the current step is in view again', timeout: 10_000 })
-          .toBe(true);
+      // Two steps while the viewer reads back: neither is followed.
+      for (let i = 0; i < 2; i += 1) {
+        await stepByHand(page);
+        expect(
+          Math.abs((await settledTop(box)) - held),
+          `the follow stayed stopped on manual step ${i + 1}`,
+        ).toBeLessThanOrEqual(1);
       }
+
+      // Back down to the bottom: after 800 ms still there, the next step is followed.
+      await scrollToBottomInside(page);
+      // Still for 800 ms twice over, so the resume (800 ms after the last
+      // input or scroll) has certainly been decided before the next step.
+      await settledTop(box);
+      await settledTop(box);
+      await stepByHand(page);
+      const inView = () =>
+        box.evaluate((el) => {
+          const current = el.querySelector('button[aria-current="step"]');
+          if (!current) return false;
+          const b = el.getBoundingClientRect();
+          const r = current.getBoundingClientRect();
+          return r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
+        });
+      await expect
+        .poll(inView, { message: 'the current step is in view again', timeout: 10_000 })
+        .toBe(true);
       expect(Math.abs((await page.evaluate(() => window.scrollY)) - y0)).toBeLessThanOrEqual(1);
     });
 
@@ -301,16 +337,14 @@ for (const viewport of DESKTOP) {
       // The DESKTOP WEBKIT proof failure (FLAKE FIX 2, 2026-10-21): PageUp
       // let go while the box was still at the bottom, its scroll landing about
       // 400 ms later, and the follow resumed in between. Reproduced the same
-      // way in every engine, with a whole step played in the gap so a resumed
-      // follow would show: the key's down and up reach the terminal while the
-      // box has not moved, a step plays, and only then does the scroll land.
+      // way in every engine, stepped by hand with Next (FLAKE FIX 3): the key's
+      // down and up reach the terminal while the box has not moved, a manual
+      // step comes before the scroll lands, then the scroll, then another step.
       await open(page, 'asi06-run', viewport);
       const y0 = await scrollToControls(page);
-      await page.getByRole('button', { name: 'Play', exact: true }).click();
       const box = page.locator(BOX);
-      await expect
-        .poll(() => box.evaluate((el) => el.scrollTop), { timeout: 30_000 })
-        .toBeGreaterThan(40);
+      await stepUntilFollowed(page, box, 40);
+      await expectStepsLeft(page, 2);
       await settledTop(box);
       await box.evaluate((el) => {
         const key = (type: string) =>
@@ -319,11 +353,8 @@ for (const viewport of DESKTOP) {
         key('keyup');
       });
       const atKey = await box.evaluate((el) => el.scrollTop);
-      // A whole step plays before the scroll lands: the follow must not take it.
-      const before = await stepNow(page);
-      await expect
-        .poll(() => stepNow(page), { timeout: 30_000 })
-        .toBeGreaterThanOrEqual(before + 1);
+      // A step before the scroll lands: the follow must not take it.
+      await stepByHand(page);
       expect(
         Math.abs((await settledTop(box)) - atKey),
         'paused before the scroll lands',
@@ -334,8 +365,7 @@ for (const viewport of DESKTOP) {
       });
       const rest = await settledTop(box);
       expect(rest).toBeLessThan(atKey);
-      const after = await stepNow(page);
-      await expect.poll(() => stepNow(page), { timeout: 30_000 }).toBeGreaterThanOrEqual(after + 1);
+      await stepByHand(page);
       expect(
         Math.abs((await settledTop(box)) - rest),
         'the follow stayed paused',
