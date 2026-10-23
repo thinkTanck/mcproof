@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import type { RunResult } from '@/contract';
+import type { RunResult, VariantKind } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
 import { getUser } from '@/lib/auth/user';
 import { liveDisplayProvenance, sampleDisplayProvenance } from '@/lib/display/dates';
@@ -69,6 +69,12 @@ export interface RunView {
    * as it was; its owner is told on its page. Always null for a sample.
    */
   readonly scoringExclusion: ScoringExclusion | null;
+  /**
+   * Which framing a live run served, or null when it was not recorded (a run
+   * saved before LAUNCH POLISH) and for a sample. The replay labels a benign
+   * control as one.
+   */
+  readonly kind: VariantKind | null;
 }
 
 /** A fix report, with the same label. */
@@ -115,6 +121,7 @@ async function sampleView(id: string): Promise<RunView | null> {
     displayProvenance: sampleDisplayProvenance(),
     runAt: null,
     scoringExclusion: null,
+    kind: null,
   };
 }
 
@@ -142,6 +149,7 @@ async function liveView(id: string): Promise<RunView | null> {
     displayProvenance: liveDisplayProvenance(stored.createdAt),
     runAt: stored.createdAt,
     scoringExclusion: scoringExclusion(stored),
+    kind: stored.kind,
   };
 }
 

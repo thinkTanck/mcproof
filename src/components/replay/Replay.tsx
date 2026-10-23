@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { RunResult } from '@/contract';
+import type { RunResult, VariantKind } from '@/contract';
 import { AsiLabel, Button, StatusChip } from '@/components/hud';
 import { cn } from '@/lib/utils';
 import { RunProvenance } from '@/components/hud/RunProvenance';
@@ -95,6 +95,13 @@ interface ReplayProps {
    * verdict, so it is shown from the start.
    */
   scoringExclusion?: ScoringExclusion | null;
+  /**
+   * Which framing the run served, for a live run that recorded it (LAUNCH
+   * POLISH, Part 3). A benign control served no attack, so its replay says it
+   * was a control and never that the agent "resisted". Anything but `benign`
+   * (an attack, a sample, a run whose kind was not recorded) reads as before.
+   */
+  kind?: VariantKind | null;
 }
 
 /** One replay, and the one place that holds which prompt's definition is open. */
@@ -106,7 +113,8 @@ export function Replay(props: ReplayProps) {
   );
 }
 
-function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: ReplayProps) {
+function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion, kind }: ReplayProps) {
+  const control = kind === 'benign';
   const steps = run.trace.steps;
   const total = steps.length;
   const compromiseIndex = steps.findIndex((s) => s.id === run.verdict.stepId);
@@ -204,13 +212,17 @@ function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: Repl
     ? compromiseStepNumber === null
       ? 'COMPROMISED'
       : `COMPROMISED AT STEP ${compromiseStepNumber}`
-    : 'AGENT RESISTED';
+    : control
+      ? 'CLEAN · CONTROL RUN'
+      : 'AGENT RESISTED';
   // What the live region says when the verdict is revealed. No em dash.
   const announcement = run.verdict.compromised
     ? compromiseStepNumber === null
       ? 'Verdict: compromised.'
       : `Verdict: compromised at step ${compromiseStepNumber}.`
-    : 'Verdict: agent resisted.';
+    : control
+      ? 'Verdict: clean, control run.'
+      : 'Verdict: agent resisted.';
   const showNow = () => {
     focusOutcome.current = true;
     setShown(true);
@@ -288,8 +300,18 @@ function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: Repl
           RUN <span className="text-readout">{routeId}</span>
           <span aria-hidden="true"> · </span>AGENT{' '}
           <ModelId id={run.model} className="text-readout" />
+          {/* A control says so, and its detector line says what blind means for
+              it: the detector is not told whether the run was an attack. */}
+          {control ? (
+            <>
+              <span aria-hidden="true"> · </span>
+              <span className="text-readout">benign control · no attack served</span>
+            </>
+          ) : null}
           <span aria-hidden="true"> · </span>DETECTOR{' '}
-          <span className="text-nominal">BLIND TO THE ATTACK</span>
+          <span className="text-nominal">
+            {control ? 'BLIND TO THE RUN TYPE' : 'BLIND TO THE ATTACK'}
+          </span>
         </p>
         {provenance ? (
           <p className="instrument mt-(--instrument-stack) text-ink-faint">
