@@ -1,4 +1,5 @@
 import type { Step } from '@/contract';
+import { SESSION_ENDED, SESSION_ENDED_NOTE, isInferredSessionEnd } from '@/lib/replay/session-end';
 
 /**
  * Presentation metadata for the seven observable step types. Every node carries
@@ -86,6 +87,8 @@ export function stepSummary(step: Step): string {
     case 'memory_write':
       return `writes memory · ${step.key}`;
     case 'task_complete':
+      // The recorder's inferred end marker reads as the owner's sentence.
+      if (isInferredSessionEnd(step.summary)) return SESSION_ENDED;
       return step.summary ? step.summary : 'the run ends';
   }
 }
@@ -131,6 +134,14 @@ export function stepPayload(step: Step): { k: string; v: string }[] {
         { k: 'value', v: formatPayload(step.value) },
       ];
     case 'task_complete':
+      // The inferred end marker: the sentence, and a note saying why it is
+      // inferred, in place of the recorder's own words (LAUNCH POLISH, 5a).
+      if (isInferredSessionEnd(step.summary)) {
+        return [
+          { k: 'summary', v: SESSION_ENDED },
+          { k: 'note', v: SESSION_ENDED_NOTE },
+        ];
+      }
       return [{ k: 'summary', v: step.summary ?? 'run complete' }];
   }
 }
