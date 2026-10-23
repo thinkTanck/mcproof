@@ -66,6 +66,9 @@ describe('route classes', () => {
     ['/icon.svg', 'public-file'],
     ['/robots.txt', 'public-file'],
     ['/.well-known/security.txt', 'public-file'],
+    ['/email/mcproof-logo.png', 'public-file'],
+    ['/email/mcproof-logo.pngx', 'default'],
+    ['/email/other.png', 'default'],
   ] as const)('%s is %s', (pathname, expected) => {
     expect(routeClassOf(pathname)).toBe(expected);
   });
@@ -140,6 +143,9 @@ describe('the rules next.config.ts hands to Next', () => {
     '/icon.svg',
     '/robots.txt',
     '/.well-known/security.txt',
+    '/email/mcproof-logo.png',
+    '/email/mcproof-logo.pngx',
+    '/email/other.png',
   ];
 
   it.each(PATHS)('%s resolves to exactly its route class header set', (pathname) => {

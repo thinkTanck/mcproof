@@ -247,8 +247,11 @@ secure_password_change = false
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires (defaults to 1 hour). 15
+# minutes, because the sign-in email says "This code expires in 15 minutes."
+# (LAUNCH POLISH, Part 7). The hosted project's Email OTP Expiration must be the
+# same 900 seconds for that sentence to be true there.
+otp_expiry = 900
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
