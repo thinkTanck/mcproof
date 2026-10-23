@@ -72,7 +72,9 @@ describe('the inferred last step of a live run', () => {
       addEventListener: () => {},
       removeEventListener: () => {},
     }));
-    onTestFinished(() => vi.unstubAllGlobals());
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
     const { container } = renderRevealed(
       <Replay run={liveRun()} routeId="row-1" kind="malicious" />,
     );

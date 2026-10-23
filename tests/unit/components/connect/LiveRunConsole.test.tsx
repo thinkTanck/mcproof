@@ -344,9 +344,11 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     // The trace count is present but never passes itself off as activity: it
     // counts the principal instruction the recorder seeds first and the
     // task_complete step it appends on every build (src/harness/server/recorder.ts).
-    expect(screen.getByText(/the run has 2 steps in total/i)).toBeInTheDocument();
+    // With no tool call it says just that (LAUNCH POLISH, Part 5b).
     expect(
-      screen.getByText(/two of them are ours: the task we sent, and a last step we add/i),
+      screen.getByText(
+        'The run has 2 steps: the task we sent and the end marker we add. Your agent made no tool calls.',
+      ),
     ).toBeVisible();
   });
 
