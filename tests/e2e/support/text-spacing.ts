@@ -234,7 +234,7 @@ export function probeSpacingDefects(page: Page, tolerance = 3): Promise<SpacingD
     const reachable = (el: Element) =>
       (el as HTMLElement).tabIndex >= 0 ||
       el.querySelector(
-        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        'a[href], button, input, select, textarea, summary:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
       ) !== null;
     const inline = (el: Element) => {
       const display = styleOf(el).display;

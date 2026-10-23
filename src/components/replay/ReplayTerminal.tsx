@@ -352,7 +352,8 @@ export function ReplayTerminal({
       data-elev="2"
       className={`overflow-y-auto ${TERMINAL_TEXT_CLASS} phone:grid phone:h-auto! phone:min-h-0 phone:grid-cols-[minmax(0,1fr)] phone:[container-type:normal]! phone:[@media(min-height:500px)]:scroll-cap`}
       style={{
-        height: 'clamp(280px, 40vh, 460px)',
+        // Less its title bar, so the window is the height this box was.
+        height: 'calc(clamp(280px, 40vh, 460px) - var(--title-bar-h))',
         background: TERMINAL_BG,
         containerType: 'size',
       }}

@@ -9,6 +9,8 @@ import { classificationDisplayProvenance } from '@/lib/display/measured';
 import { RunProvenance } from '@/components/hud/RunProvenance';
 import type { FixReport } from '@/fix-report';
 import { CopyReportButton } from './CopyReportButton';
+import { ModelId } from '@/components/hud/ModelId';
+import { ProvenanceLine } from '@/components/hud/ProvenanceLine';
 
 /**
  * Section heading — an INSTRUMENT micro-label that is ALSO a real <h2>, so the
@@ -151,7 +153,7 @@ export function FindingsReport({
           <p className="instrument mt-(--instrument-stack) text-ink-faint">
             server <span className="text-readout">{report.target}</span>
             <span aria-hidden="true"> · </span>
-            agent model <span className="text-readout">{report.model}</span>
+            agent model <ModelId id={report.model} className="text-readout" />
           </p>
           {shownProvenance ? (
             <p className="instrument mt-(--instrument-stack) text-ink-faint">
@@ -243,7 +245,7 @@ export function FindingsReport({
                   {classification.caveat}
                 </p>
                 <p className="instrument mt-(--instrument-stack) text-ink-faint">
-                  {classificationDisplayProvenance()}
+                  <ProvenanceLine text={classificationDisplayProvenance()} />
                 </p>
               </div>
 
@@ -289,7 +291,7 @@ export function FindingsReport({
                   </span>
                 </p>
                 <p className="instrument mt-(--instrument-stack) text-ink-faint">
-                  {classificationDisplayProvenance()}
+                  <ProvenanceLine text={classificationDisplayProvenance()} />
                 </p>
               </div>
             </section>

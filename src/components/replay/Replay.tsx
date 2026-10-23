@@ -12,8 +12,10 @@ import { VerdictRail } from './VerdictRail';
 import { REPLAY_KEY_ID } from './ReplayKey';
 import { ReplayLegend } from './ReplayLegend';
 import { SpeakerDefinitions } from './SpeakerHandle';
+import { TerminalWindow, TitleBar } from './TitleBar';
 import { useReplayLayout } from './phone-layout';
 import { SCORING_EXCLUSION_LABEL, type ScoringExclusion } from '@/leaderboard/scoring-rules';
+import { ModelId } from '@/components/hud/ModelId';
 
 /**
  * Replay (the hero) — two terminals over a full-width transport. The
@@ -284,7 +286,8 @@ function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: Repl
           className="instrument mt-(--instrument-stack) text-ink-muted [overflow-wrap:anywhere]"
         >
           RUN <span className="text-readout">{routeId}</span>
-          <span aria-hidden="true"> · </span>AGENT <span className="text-readout">{run.model}</span>
+          <span aria-hidden="true"> · </span>AGENT{' '}
+          <ModelId id={run.model} className="text-readout" />
           <span aria-hidden="true"> · </span>DETECTOR{' '}
           <span className="text-nominal">BLIND TO THE ATTACK</span>
         </p>
@@ -331,25 +334,34 @@ function ReplayStage({ run, routeId, provenance, runAt, scoringExclusion }: Repl
               viewport under the header. From 768px up this box is not drawn
               (display: contents) and the terminal is the grid cell it was. */}
           {/* `--scroll-cap-less` is inherited by the terminal: its 45% cap gives
-              back what the closed "Key" above adds, so Play does not move. */}
-          <div className="contents phone:flex phone:max-h-[calc(100dvh-var(--header-h)-1rem)] phone:min-h-0 phone:flex-col phone:gap-4 phone:[--scroll-cap-less:var(--replay-key-closed)]">
-            <ReplayTerminal
-              steps={steps}
-              current={current}
-              compromiseIndex={revealed ? compromiseIndex : -1}
-              model={run.model}
-              onSelect={scrubTo}
-            />
+              back what the closed "Key" above adds, and on a phone at least
+              600px tall what its own title bar adds too, so Play does not move.
+              On a shorter one (320 by 568) a step's lines need more room than
+              that would leave, so there the box keeps its height and the
+              window is the bar taller; Play is still on the first screen. */}
+          <div className="contents phone:flex phone:max-h-[calc(100dvh-var(--header-h)-1rem)] phone:min-h-0 phone:flex-col phone:gap-4 phone:[--scroll-cap-less:var(--replay-key-closed)] phone:[@media(min-height:600px)]:[--scroll-cap-less:calc(var(--replay-key-closed)+var(--title-bar-h))]">
+            <TerminalWindow bar={<TitleBar id="session" name="AGENT SESSION" run={routeId} />}>
+              <ReplayTerminal
+                steps={steps}
+                current={current}
+                compromiseIndex={revealed ? compromiseIndex : -1}
+                model={run.model}
+                onSelect={scrubTo}
+              />
+            </TerminalWindow>
             {layout !== 'wide' && transport('phone', 'hidden phone:flex phone:shrink-0')}
           </div>
-          <VerdictRail
-            key={resetKey}
-            verdict={run.verdict}
-            revealed={revealed}
-            routeId={routeId}
-            compromiseStepNumber={compromiseStepNumber}
-            offendingLabel={offendingLabel}
-          />
+          <TerminalWindow bar={<TitleBar id="detector" name="DETECTOR" />}>
+            <VerdictRail
+              key={resetKey}
+              verdict={run.verdict}
+              tested={run.category}
+              revealed={revealed}
+              routeId={routeId}
+              compromiseStepNumber={compromiseStepNumber}
+              offendingLabel={offendingLabel}
+            />
+          </TerminalWindow>
         </div>
 
         {layout !== 'phone' && transport('wide', 'phone:hidden')}

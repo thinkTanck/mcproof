@@ -44,8 +44,9 @@ export const ROLES: Readonly<Record<RoleId, SpeakerRole>> = {
   detector: {
     id: 'detector',
     name: 'MCProof detector',
-    definition:
-      'Reads the finished run and marks the step where the agent was compromised, if it was.',
+    // KEY POLISH (owner ruling 2026-10-20): one sentence, the one the legend
+    // and every speaker definition print.
+    definition: 'Judges the finished run and marks the compromised step, if any.',
   },
   tool: {
     id: 'tool',

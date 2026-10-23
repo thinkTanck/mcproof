@@ -154,6 +154,8 @@ function layout(page: Page) {
       legendOpen: legend instanceof HTMLDetailsElement ? legend.open : null,
       legend: rect(legend),
       terminal: rect(terminal)!,
+      // The terminal's window: its title bar and the box (KEY POLISH, 2026-10-20).
+      window: rect(terminal.closest('[data-terminal-window]') ?? terminal)!,
       play: rect(play),
       transport: rect(transport),
       stage: rect(stage)!,
@@ -190,10 +192,10 @@ for (const viewport of [...WIDE, ...PHONES]) {
         const m = await layout(page);
         expect(m.legends, 'one legend is drawn').toBe(1);
         expect(m.legend!.bottom, 'legend bottom <= terminal top').toBeLessThanOrEqual(
-          m.terminal.top + EDGE,
+          m.window.top + EDGE,
         );
-        // Directly above: nothing but a gap between the two.
-        expect(m.terminal.top - m.legend!.bottom).toBeLessThanOrEqual(m.stageGap * 2 + EDGE);
+        // Directly above the terminal's window: nothing but a gap between the two.
+        expect(m.window.top - m.legend!.bottom).toBeLessThanOrEqual(m.stageGap * 2 + EDGE);
         expect(m.keys, 'one colour key in the document').toBe(1);
         expect(m.keyAfterDetail, 'no key after the step detail').toBe(false);
         // The transcript still points at the key, the key is in the legend,
@@ -574,7 +576,7 @@ for (const viewport of [
       const panel = handle.locator('[data-speaker-panel]');
       await expect(panel).toBeVisible();
       await expect(panel).toContainText(
-        'MCProof detector. Reads the finished run and marks the step where the agent was compromised, if it was.',
+        'MCProof detector. Judges the finished run and marks the compromised step, if any.',
       );
       const inside = await panel.evaluate((el) => {
         const r = el.getBoundingClientRect();
@@ -826,7 +828,9 @@ for (const width of [1024, 1280, 1440] as const) {
           expect(m.cut, 'text that is cut off or runs past its panel').toEqual([]);
           // The whole of each line is there, not a shortened one.
           expect(m.rail).toMatch(/export (fix report|run result)\?/);
-          expect(m.rail).toMatch(/category\s+ASI\d\d \S+/);
+          // "detected as" on a compromise, after "tested" (KEY POLISH, 2026-10-20).
+          expect(m.rail).toMatch(/tested\s+ASI\d\d \S+/);
+          expect(m.rail).toMatch(/detected as\s+ASI\d\d \S+/);
         });
       }
     });

@@ -106,7 +106,7 @@ describe('the legend: one strip, directly above the terminal', () => {
       'target-agent@sentinel Agent under test. The AI agent being tested.',
     );
     expect(text('detector')).toBe(
-      'detector@sentinel MCProof detector. Reads the finished run and marks the step where the agent was compromised, if it was.',
+      'detector@sentinel MCProof detector. Judges the finished run and marks the compromised step, if any.',
     );
     // No tool handle is drawn anywhere in a replay, so this entry has no
     // handle of its own to show: its chip says which kind it is, in words.
@@ -388,5 +388,57 @@ describe('every handle a replay draws has an entry in the roles lookup', () => {
     ].map((el) => el.textContent ?? '');
     expect(printed.length).toBeGreaterThan(drawn.length);
     for (const handle of printed) expect(drawn, handle).toContain(handle);
+  });
+});
+
+/**
+ * KEY POLISH (owner ruling 2026-10-20). The Key is one two-column grid: the
+ * chip column sized to the widest chip, and every role's name and definition
+ * starting on one left edge, wrapping under the definition and never under
+ * the chip. Each row is a subgrid of it, so a row stays one box. Open, the
+ * Key is its own bordered panel on the existing surface and line tokens.
+ * Edges are measured in tests/e2e/replay-legend-roles.spec.ts.
+ */
+describe('the Key layout', () => {
+  it('is one two-column grid whose rows share its columns', () => {
+    render(<Replay run={sampleRun('ASI01')} routeId="sample" />);
+    const dl = document.querySelector('[data-replay-legend="wide"] [data-whos-who]')!;
+    const classes = dl.className.split(/\s+/);
+    expect(classes).toContain('grid');
+    expect(classes).toContain('grid-cols-[fit-content(45%)_minmax(0,1fr)]');
+    const rows = [...dl.querySelectorAll(':scope > [data-role]')];
+    expect(rows.length).toBe(5);
+    for (const row of rows) {
+      expect(row.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(['col-span-2', 'grid', 'grid-cols-subgrid']),
+      );
+      expect(row.querySelector(':scope > dt')).not.toBeNull();
+      expect(row.querySelector(':scope > dd')).not.toBeNull();
+    }
+  });
+
+  it('opens as its own bordered panel on the existing tokens', () => {
+    render(<Replay run={sampleRun('ASI01')} routeId="sample" />);
+    const panel = document.querySelector('[data-replay-legend="wide"] [data-key-panel]')!;
+    expect(panel).not.toBeNull();
+    expect(panel.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['rounded-lg', 'border', 'border-line', 'bg-panel']),
+    );
+  });
+});
+
+describe('the title bars', () => {
+  it('heads the transcript AGENT SESSION with the run id, and the verdict DETECTOR', () => {
+    render(<Replay run={sampleRun('ASI01')} routeId="route-row-4242" />);
+    const session = document.querySelector('[data-title-bar="session"]')!;
+    expect(session.querySelector('[data-title-bar-name]')!.textContent).toBe('AGENT SESSION');
+    expect(session.querySelector('[data-title-bar-run]')!.textContent).toBe('route-row-4242');
+    // Directly above the transcript, in one window with it.
+    expect(
+      session.nextElementSibling?.querySelector('ol[aria-label="Attack replay step timeline"]'),
+    ).not.toBeNull();
+    const detector = document.querySelector('[data-title-bar="detector"]')!;
+    expect(detector.querySelector('[data-title-bar-name]')!.textContent).toBe('DETECTOR');
+    expect(detector.nextElementSibling?.getAttribute('aria-label')).toBe('Detector verdict');
   });
 });

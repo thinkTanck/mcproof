@@ -6,6 +6,7 @@ import { BandShape } from './BandShape';
 import { CountUp } from './CountUp';
 import { InertMark } from './InertMark';
 import { SwipeCue } from './SwipeCue';
+import { ModelId } from '@/components/hud/ModelId';
 
 /**
  * ROBUSTNESS LEADERBOARD heatmap (register: PRODUCT). A model × category matrix
@@ -118,7 +119,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
           {fmt(weakest.robustness)}
         </span>
         <BandShape band={weakestBand} className={TONE[weakestBand].value} />
-        <span className="font-mono text-[14px] text-ink-hi">{weakest.model}</span>
+        <ModelId id={weakest.model} className="font-mono text-[14px] text-ink-hi" />
         <span className="font-mono text-[13px] text-ink-muted">
           {weakest.category} · {weakestFull}
         </span>
@@ -313,7 +314,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
                             'bg-[color:var(--status-inert)]': overallBand === null,
                           })}
                         />
-                        <span className="font-mono text-[14px] text-ink-hi">{row.model}</span>
+                        <ModelId id={row.model} className="font-mono text-[14px] text-ink-hi" />
                       </span>
                     </th>
                     {row.cells.map((c) => {

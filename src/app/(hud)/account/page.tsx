@@ -9,6 +9,7 @@ import { ConnectCta, SectionLabel } from '@/components/hud';
 import { InertMark } from '@/components/leaderboard';
 import { asiLabel } from '@/lib/owasp/asi';
 import { SCORING_EXCLUSION_LABEL, scoringExclusion } from '@/leaderboard/scoring-rules';
+import { ModelId } from '@/components/hud/ModelId';
 
 export const metadata: Metadata = {
   title: 'Your account · MCProof',
@@ -111,7 +112,7 @@ export default async function AccountPage() {
                       <InertMark />
                       <span>DISCARDED</span>
                     </span>
-                    <span className="text-ink-muted">{run.model}</span>
+                    <ModelId id={run.model} className="text-ink-muted" />
                   </span>
                   {/* The row keeps the height a linked row has, so the list
                       does not jump between the two kinds. */}
@@ -143,7 +144,7 @@ export default async function AccountPage() {
                   <span className={run.verdict.compromised ? 'text-breach-text' : 'text-nominal'}>
                     {run.verdict.compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
                   </span>
-                  <span className="text-ink-muted">{run.model}</span>
+                  <ModelId id={run.model} className="text-ink-muted" />
                 </span>
                 <span className="flex items-center gap-4">
                   {day}

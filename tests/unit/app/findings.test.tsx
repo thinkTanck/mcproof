@@ -1,3 +1,4 @@
+import { fullText } from '../support/full-text';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FindingsPage from '@/app/(hud)/findings/[id]/page';
@@ -126,7 +127,7 @@ describe('Findings / fix report screen', () => {
   it('labels the sample verdict with its recorded provenance (never implies a live capture)', async () => {
     await renderPage('sample');
     // Human dates on screen (2026-10-14); the ISO line stays in the report data.
-    expect(screen.getByText(sampleDisplayProvenance())).toBeInTheDocument();
+    expect(screen.getByText(fullText(sampleDisplayProvenance()))).toBeInTheDocument();
     expect(screen.queryByText(SAMPLE_VERDICT_PROVENANCE)).not.toBeInTheDocument();
   });
 

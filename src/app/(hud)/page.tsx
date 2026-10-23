@@ -18,6 +18,7 @@ import { offendingStepLabel } from '@/lib/hud/trace-view';
 import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 import type { RunResult, Step } from '@/contract';
 import { METRIC_HEADING_CLASSIFICATION, METRIC_HEADING_COMPROMISE } from '@/lib/site-copy';
+import { ProvenanceLine } from '@/components/hud/ProvenanceLine';
 
 /**
  * Home — the BRAND-register front door. The pitch + the measured-detector claim
@@ -220,7 +221,7 @@ export default async function Home() {
                     {METRIC_HEADING_COMPROMISE}
                   </span>
                   <span data-metric-provenance="" className="instrument-faint">
-                    {compromiseDisplayProvenance()}
+                    <ProvenanceLine text={compromiseDisplayProvenance()} detectorOnOwnLine />
                   </span>
                 </div>
                 {/* HOW THE FIGURES WERE MADE, and how five grades per run became
@@ -260,7 +261,7 @@ export default async function Home() {
                     {METRIC_HEADING_CLASSIFICATION}
                   </span>
                   <span data-metric-provenance="" className="instrument-faint">
-                    {classificationDisplayProvenance()}
+                    <ProvenanceLine text={classificationDisplayProvenance()} detectorOnOwnLine />
                   </span>
                 </div>
                 <dl className="flex flex-col gap-3">

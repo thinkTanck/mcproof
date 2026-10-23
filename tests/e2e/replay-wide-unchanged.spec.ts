@@ -42,7 +42,10 @@ function snapshot(page: Page) {
     const restarts = [...document.querySelectorAll('button[aria-label="Restart"]')];
     const transport = restarts[0]!.parentElement as HTMLElement;
     const detail = document.querySelector('section[aria-label="Step detail"]') as HTMLElement;
-    const grid = verdict.parentElement as HTMLElement;
+    // Each terminal sits in a window with its title bar (KEY POLISH,
+    // 2026-10-20), so the grid is the window's parent. The boxes themselves
+    // are held to main's classes as before.
+    const grid = verdict.closest('[data-terminal-window]')!.parentElement as HTMLElement;
     const stage = detail.parentElement as HTMLElement;
     const wide = (el: Element) =>
       [...el.classList].filter((c) => !c.startsWith('phone:')).join(' ');
@@ -83,7 +86,8 @@ for (const vp of [
       await open(page);
       const s = await snapshot(page);
       expect(s.classes).toEqual(MAIN);
-      expect(s.terminalHeightStyle).toBe('clamp(280px, 40vh, 460px)');
+      // Less its title bar (KEY POLISH, 2026-10-20), so the window is main's height.
+      expect(s.terminalHeightStyle).toBe('calc(clamp(280px, 40vh, 460px) - var(--title-bar-h))');
       expect(s.terminalContainer).toBe('size');
       // The step list and the bottom room that lets the newest line sit mid-box.
       expect(s.terminalChildren).toBe(2);
