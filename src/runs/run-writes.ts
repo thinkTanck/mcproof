@@ -35,6 +35,11 @@
  *      a run that was claimed through the registry's one grant. A row for a run
  *      still open is a row nobody earned.
  *
+ * THE RUN'S KIND IS THE RECORD'S, TOO (LAUNCH POLISH, 2026-10-23). Whether the
+ * run was an attack or its benign control is written onto the row from the same
+ * record, never from the caller, because the leaderboard scores attacks only and
+ * the record itself is swept once the run is over.
+ *
  * THE ID A CALLER PASSES IS A CLAIM, NEVER A VALUE. `saveRun(userId, run)`
  * keeps the port's shape so the pipeline did not change, but `userId` is only
  * compared. What is written is the owner on the run record.
@@ -75,7 +80,7 @@ import {
 import { SupabaseRunRepository } from '@/data/run-repository.supabase';
 import { getUser } from '@/lib/auth/user';
 import { createAdminSupabase } from '@/lib/supabase/server';
-import type { LiveRunSessionStore } from '@/runs/live-run-store';
+import type { LiveRunSessionRecord, LiveRunSessionStore } from '@/runs/live-run-store';
 import { getLiveRunSessionStore } from '@/runs/live-run-stores.factory';
 
 /**
@@ -148,7 +153,7 @@ export function createRunWriter(deps: RunWriterDeps): RunWriter {
    * The session is asked FIRST, before anything about the run is read, so a
    * caller who is not signed in learns nothing from how long the answer took.
    */
-  async function ownerOf(runId: string, claimedUserId: string): Promise<string> {
+  async function ownerOf(runId: string, claimedUserId: string): Promise<LiveRunSessionRecord> {
     let sessionUserId: string | null = null;
     if (deps.identity.from === 'session') {
       sessionUserId = await deps.identity.userId();
@@ -163,18 +168,19 @@ export function createRunWriter(deps: RunWriterDeps): RunWriter {
     if (claimedUserId !== owner) throw new RunWriteError('RUN_NOT_FOUND');
 
     if (record.finishedAt === null) throw new RunWriteError('RUN_NOT_ENDED');
-    return owner;
+    return record;
   }
 
+  // The kind a caller passes is ignored, like the id: the record's is written.
   return {
     async saveRun(userId: string, run: RunResult): Promise<StoredRun> {
-      const owner = await ownerOf(run.runId, userId);
-      return deps.store.saveRun(owner, run);
+      const record = await ownerOf(run.runId, userId);
+      return deps.store.saveRun(record.userId, run, record.kind);
     },
 
     async saveDiscardedRun(userId: string, discarded: DiscardedRun): Promise<StoredDiscardedRun> {
-      const owner = await ownerOf(discarded.runId, userId);
-      return deps.store.saveDiscardedRun(owner, discarded);
+      const record = await ownerOf(discarded.runId, userId);
+      return deps.store.saveDiscardedRun(record.userId, discarded, record.kind);
     },
   };
 }
@@ -226,8 +232,9 @@ export function getSessionRunWriter(): RunWriter {
   const store = lazyServiceRunStore();
   return createRunWriter({
     store: {
-      saveRun: (owner, run) => store().saveRun(owner, run),
-      saveDiscardedRun: (owner, discarded) => store().saveDiscardedRun(owner, discarded),
+      saveRun: (owner, run, kind) => store().saveRun(owner, run, kind),
+      saveDiscardedRun: (owner, discarded, kind) =>
+        store().saveDiscardedRun(owner, discarded, kind),
     },
     records,
     identity: { from: 'session', userId: async () => (await getUser())?.id ?? null },
@@ -254,8 +261,9 @@ export function getRunRecordStore(): RunRecordStore {
   const store = lazyServiceRunStore();
   const writer = createRunWriter({
     store: {
-      saveRun: (owner, run) => store().saveRun(owner, run),
-      saveDiscardedRun: (owner, discarded) => store().saveDiscardedRun(owner, discarded),
+      saveRun: (owner, run, kind) => store().saveRun(owner, run, kind),
+      saveDiscardedRun: (owner, discarded, kind) =>
+        store().saveDiscardedRun(owner, discarded, kind),
     },
     records,
     identity: { from: 'run-record' },

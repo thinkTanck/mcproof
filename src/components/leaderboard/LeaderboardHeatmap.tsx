@@ -271,7 +271,7 @@ export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }
                   data-sticky="model"
                   className="sticky left-0 z-20 min-w-[132px] border-b border-line bg-solid px-3.5 py-2.5 font-mono text-[13px] font-medium uppercase tracking-[0.12em] text-ink-faint"
                 >
-                  Model
+                  Agent
                 </th>
                 {categories.map((c) => (
                   <th

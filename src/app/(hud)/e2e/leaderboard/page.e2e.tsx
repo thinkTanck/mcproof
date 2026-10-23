@@ -29,6 +29,7 @@ export default async function LeaderboardFixturePage() {
   const samples = await getDataSource().listRuns();
   const stored = samples.map((run) => ({
     createdAt: '2026-10-16T12:00:00.000Z',
+    kind: 'malicious' as const,
     run: { ...run, model: 'fixture-agent' },
   }));
   const board = measuredLeaderboardFromStored(stored);

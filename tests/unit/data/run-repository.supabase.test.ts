@@ -66,15 +66,49 @@ function fake(result: Result) {
 }
 
 describe('SupabaseRunRepository (query building + mapping)', () => {
-  it('saveRun inserts { user_id, run } into runs and maps the returned row', async () => {
+  it('saveRun inserts { user_id, kind, run } into runs and maps the returned row', async () => {
     const run = await sampleRun();
-    const row = { id: 'row-1', user_id: 'u', created_at: '2026-01-01T00:00:00Z', run };
+    const row = {
+      id: 'row-1',
+      user_id: 'u',
+      created_at: '2026-01-01T00:00:00Z',
+      kind: 'benign',
+      run,
+    };
     const { client, calls } = fake({ single: row });
-    const stored = await new SupabaseRunRepository(client).saveRun('u', run);
+    const stored = await new SupabaseRunRepository(client).saveRun('u', run, 'benign');
 
     expect(calls.table).toBe('runs');
-    expect(calls.insert).toEqual({ user_id: 'u', run });
-    expect(stored).toEqual({ id: 'row-1', userId: 'u', createdAt: '2026-01-01T00:00:00Z', run });
+    expect(calls.insert).toEqual({ user_id: 'u', kind: 'benign', run });
+    expect(stored).toEqual({
+      id: 'row-1',
+      userId: 'u',
+      createdAt: '2026-01-01T00:00:00Z',
+      kind: 'benign',
+      run,
+    });
+  });
+
+  /**
+   * LAUNCH POLISH, Part 1 (owner ruling 2026-10-23). Every row saved before
+   * 0005 has no kind, and is read as "not recorded", never guessed.
+   */
+  it('reads a row saved before the kind was recorded as kind null, and keeps it', async () => {
+    const run = await sampleRun();
+    const old = {
+      id: 'row-old',
+      user_id: 'u',
+      created_at: '2026-01-01T00:00:00Z',
+      kind: null,
+      run,
+    };
+    const odd = { ...old, id: 'row-odd', kind: 'something-else' };
+    const { client } = fake({ list: [old, odd] });
+    const list = await new SupabaseRunRepository(client).listRuns('u');
+    expect(list.map((r) => [r.id, r.kind])).toEqual([
+      ['row-old', null],
+      ['row-odd', null],
+    ]);
   });
 
   it('getRun narrows by id AND user_id (ownership) and returns null when absent', async () => {
@@ -148,7 +182,13 @@ describe('SupabaseRunRepository: finding a saved run by the run id it was hosted
         ['run->>runId', run.runId],
       ]),
     );
-    expect(stored).toEqual({ id: 'row-1', userId: 'u', createdAt: '2026-01-01T00:00:00Z', run });
+    expect(stored).toEqual({
+      id: 'row-1',
+      userId: 'u',
+      createdAt: '2026-01-01T00:00:00Z',
+      kind: null,
+      run,
+    });
   });
 
   it('returns null when nothing was saved under that run id', async () => {

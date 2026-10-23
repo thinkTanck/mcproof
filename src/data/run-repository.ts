@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CategorySchema, type RunResult } from '@/contract';
+import { CategorySchema, type RunResult, type VariantKind } from '@/contract';
 
 /**
  * A persisted run: a live `RunResult` plus its ownership + timestamp. The row
@@ -15,6 +15,15 @@ export interface StoredRun {
   readonly userId: string;
   /** ISO-8601 creation timestamp. */
   readonly createdAt: string;
+  /**
+   * Which framing we served: the attack (`malicious`) or its benign control.
+   * Written from the run's own server-side record when the row is inserted,
+   * because that record (`live_runs`) is swept once the run is over and this
+   * row is kept for good. `null` for a run saved before the kind was recorded
+   * (LAUNCH POLISH, owner ruling 2026-10-23): such a run cannot be shown to be
+   * an attack, so it is scored nowhere, and its row says "kind not recorded".
+   */
+  readonly kind: VariantKind | null;
   readonly run: RunResult;
 }
 
@@ -66,6 +75,8 @@ export interface StoredDiscardedRun {
   readonly id: string;
   readonly userId: string;
   readonly createdAt: string;
+  /** As on {@link StoredRun}: the framing we served, or null if not recorded. */
+  readonly kind: VariantKind | null;
   readonly discarded: DiscardedRun;
 }
 
@@ -100,8 +111,8 @@ export function isDiscardedPayload(payload: unknown): boolean {
  * discard does not hand it back.
  */
 export interface RunRepository {
-  /** Persist a run for a user; returns the stored row (with its new id). */
-  saveRun(userId: string, run: RunResult): Promise<StoredRun>;
+  /** Persist a run for a user, with the kind we served; returns the stored row. */
+  saveRun(userId: string, run: RunResult, kind?: VariantKind | null): Promise<StoredRun>;
   /** Fetch one of the user's runs by row id, or null (also null if owned by another user). */
   getRun(userId: string, id: string): Promise<StoredRun | null>;
   /**
@@ -130,7 +141,11 @@ export interface RunRepository {
  */
 export interface DiscardedRunStore {
   /** Persist the marker for a run its owner discarded. No verdict is involved. */
-  saveDiscardedRun(userId: string, discarded: DiscardedRun): Promise<StoredDiscardedRun>;
+  saveDiscardedRun(
+    userId: string,
+    discarded: DiscardedRun,
+    kind?: VariantKind | null,
+  ): Promise<StoredDiscardedRun>;
   /** One of the user's discarded runs by row id, or null (also null for another user). */
   getDiscardedRun(userId: string, id: string): Promise<StoredDiscardedRun | null>;
   /** The user's discarded run with this hosted run id, or null. */
@@ -163,11 +178,12 @@ export class InMemoryRunRepository implements RunRepository, DiscardedRunStore {
   private rows: StoredRun[] = [];
   private gone: StoredDiscardedRun[] = [];
 
-  async saveRun(userId: string, run: RunResult): Promise<StoredRun> {
+  async saveRun(userId: string, run: RunResult, kind?: VariantKind | null): Promise<StoredRun> {
     const stored: StoredRun = {
       id: crypto.randomUUID(),
       userId,
       createdAt: new Date().toISOString(),
+      kind: kind ?? null,
       run,
     };
     this.rows.push(stored);
@@ -197,11 +213,16 @@ export class InMemoryRunRepository implements RunRepository, DiscardedRunStore {
       .length;
   }
 
-  async saveDiscardedRun(userId: string, discarded: DiscardedRun): Promise<StoredDiscardedRun> {
+  async saveDiscardedRun(
+    userId: string,
+    discarded: DiscardedRun,
+    kind?: VariantKind | null,
+  ): Promise<StoredDiscardedRun> {
     const stored: StoredDiscardedRun = {
       id: crypto.randomUUID(),
       userId,
       createdAt: new Date().toISOString(),
+      kind: kind ?? null,
       discarded: DiscardedRunSchema.parse(discarded),
     };
     this.gone.push(stored);

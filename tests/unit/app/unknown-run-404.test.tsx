@@ -65,6 +65,7 @@ const ROW: StoredRun = {
   id: LIVE_ROW_ID,
   userId: OWNER,
   createdAt: '2026-09-30T12:00:00.000Z',
+  kind: 'malicious',
   run: liveRun(),
 };
 

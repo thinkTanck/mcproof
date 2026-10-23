@@ -88,11 +88,15 @@ function bench(
   return { host, sessions, tokens, repository, judged: () => counter.calls, lines };
 }
 
-async function startRun(host: LiveRunHost, category = 'ASI01'): Promise<LiveRunTicket> {
+async function startRun(
+  host: LiveRunHost,
+  category = 'ASI01',
+  kind: 'malicious' | 'benign' = 'malicious',
+): Promise<LiveRunTicket> {
   const decision = await host.start({
     userId: USER,
     category: category as 'ASI01',
-    kind: 'malicious',
+    kind,
   });
   if (!decision.ok) throw new Error(`start refused: ${decision.error.code}`);
   return decision.value;
@@ -408,4 +412,36 @@ describe('reapAbandonedRuns — a run nobody closed still reaches a verdict', ()
 
     expect(seen).toEqual([DEFAULT_REAP_LIMIT, 7]);
   });
+});
+
+/**
+ * LAUNCH POLISH, Part 1 (owner ruling 2026-10-23): a run's kind is saved on the
+ * durable run row, not only in the open-run registry. The registry row is the
+ * one the sweep deletes, so a kind kept only there would be gone the moment a
+ * run was reaped, and the leaderboard could no longer tell an attack from its
+ * control.
+ */
+describe('reaping a run keeps its kind', () => {
+  for (const kind of ['malicious', 'benign'] as const) {
+    it(`a reaped ${kind} run is stored with its kind, after its registry row is swept`, async () => {
+      const b = bench();
+      const ticket = await startRun(b.host, 'ASI01', kind);
+      await agentWorks(b.host, ticket);
+
+      const report = await reapAbandonedRuns({
+        sessions: b.sessions,
+        host: b.host,
+        now: () => AFTER,
+      });
+
+      expect(report.judged).toBe(1);
+      expect(report.swept).toBe(1);
+      // The registry row is gone: the sweep deleted it.
+      expect(await b.sessions.find(ticket.runId)).toBeNull();
+      // The run row is not, and it still says which kind of run it was.
+      const runs = await b.repository.listRuns(USER);
+      expect(runs).toHaveLength(1);
+      expect(runs[0]!.kind).toBe(kind);
+    });
+  }
 });

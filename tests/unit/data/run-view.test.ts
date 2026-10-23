@@ -58,6 +58,7 @@ function storedRow(run: RunResult, over: Partial<StoredRun> = {}): StoredRun {
     id: '11111111-1111-4111-8111-111111111234',
     userId: 'user-1',
     createdAt: '2026-08-05T09:41:07.123456+00:00',
+    kind: 'malicious',
     run,
     ...over,
   };
