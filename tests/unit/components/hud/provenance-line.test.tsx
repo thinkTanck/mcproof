@@ -16,11 +16,17 @@ import {
  */
 describe('ProvenanceLine', () => {
   for (const line of [compromiseDisplayProvenance(), classificationDisplayProvenance()]) {
-    it(`keeps each segment of "${line.slice(0, 30)}..." on one line, and the text as it was`, () => {
+    it(`keeps each segment of "${line.slice(0, 30)}..." a whole unit, and the text as it was`, () => {
       const { container } = render(<ProvenanceLine text={line} />);
       const segments = [...container.querySelectorAll<HTMLElement>('[data-provenance-segment]')];
       expect(segments.map((s) => s.textContent)).toEqual(line.split(' · '));
-      for (const s of segments) expect(s.className.split(/\s+/)).toContain('whitespace-nowrap');
+      // A whole unit on a line, breaking inside only when wider than the line
+      // (PROVENANCE WRAP 2, 2026-10-22).
+      for (const s of segments) {
+        expect(s.className.split(/\s+/)).toEqual(
+          expect.arrayContaining(['inline-block', 'max-w-full']),
+        );
+      }
       expect(container.textContent).toBe(line);
     });
   }
