@@ -4,7 +4,7 @@ import AccountPage from '@/app/(hud)/account/page';
 import { requireUser } from '@/lib/auth/user';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { getDataSource } from '@/data/source';
-import { localDate } from '@/lib/display/dates';
+import { localDateTime } from '@/lib/display/dates';
 
 vi.mock('@/lib/auth/user', () => ({ requireUser: vi.fn() }));
 vi.mock('@/data/run-repository.factory', () => ({ getRunRepository: vi.fn() }));
@@ -44,10 +44,11 @@ describe('Account page (gated · your runs)', () => {
     expect(screen.getByText(asiLabel(run.category))).toBeInTheDocument();
     expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.queryByText(/no runs yet/i)).not.toBeInTheDocument();
-    // The day it ran, as a person reads it, labelled (2026-10-14), in the
-    // VIEWER'S time zone (owner ruling 2026-10-15): midnight UTC on Jan 1 is
-    // still Dec 31 west of Greenwich. The <time> keeps the stored ISO value.
-    const day = screen.getByText(`run ${localDate('2026-01-01T00:00:00Z')}`);
+    // When it ran, as a person reads it, labelled (2026-10-14), in the
+    // VIEWER'S time zone (owner ruling 2026-10-15) with the time and its zone
+    // (LAUNCH POLISH, Part 4): midnight UTC on Jan 1 is still Dec 31 west of
+    // Greenwich. The <time> keeps the stored ISO value.
+    const day = screen.getByText(`run ${localDateTime('2026-01-01T00:00:00Z')}`);
     expect(day.tagName).toBe('TIME');
     expect(day).toHaveAttribute('dateTime', '2026-01-01T00:00:00Z');
     expect(screen.queryByText('2026-01-01')).not.toBeInTheDocument();
