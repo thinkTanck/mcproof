@@ -1,7 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { humanDate, localDate } from '@/lib/display/dates';
+import { humanDate, localDate, localDateTime } from '@/lib/display/dates';
 
 /**
  * A LIVE RUN'S DATE, IN THE VIEWER'S OWN TIME ZONE (owner ruling 2026-10-15).
@@ -15,6 +15,10 @@ import { humanDate, localDate } from '@/lib/display/dates';
  * only by a hair. The `<time>` element always carries the ISO value, and the
  * data, the exports and the copied ticket keep ISO.
  *
+ * With `withTime` it prints the moment and its zone, "Oct 21, 2026, 7:09 PM
+ * CDT" (Your runs, LAUNCH POLISH Part 4): the server sends the moment in UTC
+ * and the browser draws the reader's own time over it, the same way.
+ *
  * Only for a live run's own date. A recorded date (the day the samples were
  * constructed and judged, the day the detector was measured) is the same for
  * every reader and is printed with `humanDate`.
@@ -24,18 +28,21 @@ const subscribe = () => () => {};
 export function LocalDate({
   iso,
   prefix = '',
+  withTime = false,
   className,
 }: {
   /** The ISO timestamp, as stored. */
   iso: string;
   /** Words before the date, inside the same `<time>`, e.g. "run ". */
   prefix?: string;
+  /** Print the time of day and its zone as well as the day. */
+  withTime?: boolean;
   className?: string;
 }) {
   const day = useSyncExternalStore(
     subscribe,
-    () => localDate(iso),
-    () => humanDate(iso),
+    () => (withTime ? localDateTime(iso) : localDate(iso)),
+    () => (withTime ? localDateTime(iso, 'UTC') : humanDate(iso)),
   );
   if (day === null) return null;
   return (

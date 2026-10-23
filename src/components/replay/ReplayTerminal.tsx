@@ -22,6 +22,7 @@ import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 import { OPERATOR_HANDLE, agentHandle, handleForStep } from '@/lib/replay/roles';
 import type { Step } from '@/contract';
 import { TERMINAL_BG, TERMINAL_CARET_CLASS, TERMINAL_TEXT_CLASS } from './terminal-style';
+import { SESSION_ENDED, isInferredSessionEnd } from '@/lib/replay/session-end';
 
 /**
  * The live agent-transcript terminal — the replay hero. It reads like a real
@@ -127,7 +128,12 @@ function lineFor(step: Step): { kind: 'input' | 'cmd' | 'out'; marker?: string; 
         text: `mem-write ${step.key}=${typeof step.value === 'string' ? `"${step.value}"` : compact(step.value)}`,
       };
     case 'task_complete':
-      return { kind: 'cmd', text: `exit 0  # ${step.summary ?? 'run complete'}` };
+      // The recorder's inferred end marker prints the owner's sentence; the
+      // step card carries the note (LAUNCH POLISH, 5a).
+      return {
+        kind: 'cmd',
+        text: `exit 0  # ${isInferredSessionEnd(step.summary) ? SESSION_ENDED : (step.summary ?? 'run complete')}`,
+      };
   }
 }
 

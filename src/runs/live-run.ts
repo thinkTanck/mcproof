@@ -976,15 +976,19 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       let storedRunId: string | null = null;
       if (deps.repository.saveDiscardedRun !== undefined) {
         try {
-          const stored = await deps.repository.saveDiscardedRun(userId, {
-            discarded: true,
-            runId,
-            category: session.category,
-            model: trace.model,
-            steps,
-            toolCalls,
-            discardedAt: at.toISOString(),
-          });
+          const stored = await deps.repository.saveDiscardedRun(
+            userId,
+            {
+              discarded: true,
+              runId,
+              category: session.category,
+              model: trace.model,
+              steps,
+              toolCalls,
+              discardedAt: at.toISOString(),
+            },
+            session.kind,
+          );
           storedRunId = stored.id;
         } catch {
           logger?.error('live run discard marker could not be saved', { runId });
@@ -1087,7 +1091,8 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       }
 
       // No branch on `verdict.compromised`: a clean run persists and reports too.
-      const stored = await deps.repository.saveRun(userId, run);
+      // With the kind we served, so the leaderboard can score attacks only.
+      const stored = await deps.repository.saveRun(userId, run, session.kind);
       // Explicit null: nothing reads this report. The action, the reaper and the
       // spike runner take `stored`, `verdict` and `trace`; a screen or an export
       // builds its own through `resolveFixReport`, which labels it.

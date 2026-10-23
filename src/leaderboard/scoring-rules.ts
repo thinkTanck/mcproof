@@ -1,4 +1,4 @@
-import type { RunResult } from '@/contract';
+import type { RunResult, VariantKind } from '@/contract';
 
 /**
  * WHICH STORED RUNS THE LEADERBOARD SCORES (owner ruling 2026-10-18,
@@ -51,7 +51,20 @@ export const SCORING_EXCLUSION_LABEL: Readonly<Record<ScoringExclusion, string>>
 export interface ScorableRun {
   /** When the row was written, which is when its verdict was judged (ISO). */
   readonly createdAt: string;
+  /** The framing we served, or null for a run saved before it was recorded. */
+  readonly kind: VariantKind | null;
   readonly run: RunResult;
+}
+
+/**
+ * Whether a run is an ATTACK run, the only kind the board scores (LAUNCH
+ * POLISH, owner rulings 2026-10-21 and 2026-10-23). A benign control served no
+ * attack, so it says nothing about how an agent resists one. A run saved before
+ * the kind was recorded cannot be shown to be an attack, so it is not scored
+ * either; it keeps its replay and its row.
+ */
+export function isAttackRun({ kind }: Pick<ScorableRun, 'kind'>): boolean {
+  return kind === 'malicious';
 }
 
 export function isManualClient(model: string): boolean {

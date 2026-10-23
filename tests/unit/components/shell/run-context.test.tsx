@@ -53,6 +53,7 @@ const row: StoredRun = {
   id: '33333333-3333-4333-8333-333333335555',
   userId: 'user-1',
   createdAt: '2026-08-05T09:41:07.123456+00:00',
+  kind: 'malicious',
   run: liveRun(),
 };
 

@@ -10,6 +10,29 @@ import { InertMark } from '@/components/leaderboard';
 import { asiLabel } from '@/lib/owasp/asi';
 import { SCORING_EXCLUSION_LABEL, scoringExclusion } from '@/leaderboard/scoring-rules';
 import { ModelId } from '@/components/hud/ModelId';
+import type { VariantKind } from '@/contract';
+import { UNKNOWN_CLIENT } from '@/harness/server/recorder';
+
+/**
+ * What kind of run a row was (LAUNCH POLISH, Part 4): an attack, its benign
+ * control, or a run saved before the kind was recorded, which the leaderboard
+ * scores nowhere (owner ruling 2026-10-23).
+ */
+function kindLabel(kind: VariantKind | null): string {
+  if (kind === 'malicious') return 'attack';
+  if (kind === 'benign') return 'control';
+  return 'kind not recorded';
+}
+
+/**
+ * The agent a row names. The recorder writes a placeholder when no client ever
+ * identified itself, which in practice means no agent connected (MCP's
+ * `initialize` carries the client's name), so the row says that in words.
+ */
+function AgentName({ model }: { model: string }) {
+  if (model === UNKNOWN_CLIENT) return <span className="text-ink-muted">no agent connected</span>;
+  return <ModelId id={model} className="text-ink-muted" />;
+}
 
 export const metadata: Metadata = {
   title: 'Your account · MCProof',
@@ -87,15 +110,22 @@ export default async function AccountPage() {
             const { row } = entry;
             const item =
               'flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3';
-            // The day it ran, labelled, as a person reads it (2026-10-14), in
-            // the VIEWER'S time zone (owner ruling 2026-10-15): the server sends
-            // the UTC day and the browser draws the reader's own.
+            // When it ran, labelled, as a person reads it (2026-10-14), in the
+            // VIEWER'S time zone (owner ruling 2026-10-15), with the time and
+            // its zone (LAUNCH POLISH, Part 4): the server sends UTC and the
+            // browser draws the reader's own.
             const day = (
               <LocalDate
                 iso={row.createdAt}
                 prefix="run "
+                withTime
                 className="font-mono text-[13px] text-ink-faint"
               />
+            );
+            const kind = (
+              <span data-run-kind={row.kind ?? 'not-recorded'} className="text-ink-muted">
+                {kindLabel(row.kind)}
+              </span>
             );
             if (entry.kind === 'discarded') {
               const run = entry.row.discarded;
@@ -112,7 +142,8 @@ export default async function AccountPage() {
                       <InertMark />
                       <span>DISCARDED</span>
                     </span>
-                    <ModelId id={run.model} className="text-ink-muted" />
+                    {kind}
+                    <AgentName model={run.model} />
                   </span>
                   {/* The row keeps the height a linked row has, so the list
                       does not jump between the two kinds. */}
@@ -144,7 +175,8 @@ export default async function AccountPage() {
                   <span className={run.verdict.compromised ? 'text-breach-text' : 'text-nominal'}>
                     {run.verdict.compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
                   </span>
-                  <ModelId id={run.model} className="text-ink-muted" />
+                  {kind}
+                  <AgentName model={run.model} />
                 </span>
                 <span className="flex items-center gap-4">
                   {day}

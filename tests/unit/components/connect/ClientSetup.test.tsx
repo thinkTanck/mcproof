@@ -206,6 +206,32 @@ describe('ClientSetup · six tabs, in order, and none preselected', () => {
     expect(within(picker()).getAllByRole('button')).toHaveLength(6);
   });
 
+  /**
+   * AGENT TAB TEXT (owner ruling 2026-10-21, LAUNCH POLISH Part 6): the six
+   * labels are cyan, the existing nominal token. The selected tab keeps its
+   * fill, border and pressed state, so the state is never carried by colour
+   * alone: every tab, pressed or not, has the same cyan text.
+   */
+  it('writes every tab label in cyan, and shows the pressed one by border, fill and aria-pressed', async () => {
+    const user = await opened();
+    const buttons = within(picker()).getAllByRole('button');
+    for (const button of buttons) {
+      expect(button.className.split(/\s+/)).toContain('text-nominal');
+      expect(button.className).not.toMatch(/(^|\s)text-ink(\s|$)/);
+    }
+    await user.click(buttons[2]!);
+    const pressed = within(picker()).getAllByRole('button')[2]!;
+    expect(pressed).toHaveAttribute('aria-pressed', 'true');
+    expect(pressed.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['border-nominal', 'bg-nominal/10', 'text-nominal']),
+    );
+    const other = within(picker()).getAllByRole('button')[0]!;
+    expect(other).toHaveAttribute('aria-pressed', 'false');
+    expect(other.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['border-line', 'bg-transparent', 'text-nominal']),
+    );
+  });
+
   it('has no Claude Desktop chat tab and no "Any MCP client" tab', async () => {
     await opened();
     const text = picker().textContent ?? '';

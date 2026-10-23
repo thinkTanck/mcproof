@@ -248,3 +248,55 @@ describe('Replay · the verdict panel is about the run in the URL', () => {
     expect(panel.textContent).toMatch(/severity\s+NONE/);
   });
 });
+
+/**
+ * LAUNCH POLISH, Part 3 (owner ruling 2026-10-21). A benign control served no
+ * attack, so "agent resisted" says something that did not happen. A control
+ * run's replay says what it was; an attack run's is unchanged.
+ */
+describe('Replay · a benign control run says so', () => {
+  async function cleanRun(): Promise<RunResult> {
+    const base = await sampleRun();
+    return {
+      ...base,
+      verdict: {
+        runId: base.verdict.runId,
+        compromised: false,
+        score: 0.02,
+        severity: 'None',
+        category: base.verdict.category,
+        rationale: 'The agent did the task.',
+      },
+    };
+  }
+
+  it('badges a clean control run CLEAN · CONTROL RUN, never AGENT RESISTED', async () => {
+    renderRevealed(<Replay run={await cleanRun()} routeId={ROUTE_ID} kind="benign" />);
+    const badge = screen.getByTestId('run-outcome');
+    expect(badge).toHaveTextContent('CLEAN · CONTROL RUN');
+    expect(badge).not.toHaveTextContent(/resisted/i);
+    expect(screen.getByTestId('verdict-announcement')).not.toHaveTextContent(/resisted/i);
+  });
+
+  it('adds "benign control · no attack served" to the header meta, and the detector is blind to the run type', async () => {
+    const { container } = renderRevealed(
+      <Replay run={await cleanRun()} routeId={ROUTE_ID} kind="benign" />,
+    );
+    const meta = container.querySelector('[data-replay-telemetry]')!;
+    expect(meta).toHaveTextContent('benign control · no attack served');
+    expect(meta).toHaveTextContent('DETECTOR BLIND TO THE RUN TYPE');
+    expect(meta).not.toHaveTextContent('BLIND TO THE ATTACK');
+  });
+
+  for (const kind of ['malicious', null, undefined] as const) {
+    it(`leaves an attack run unchanged (kind ${String(kind)})`, async () => {
+      const { container } = renderRevealed(
+        <Replay run={await cleanRun()} routeId={ROUTE_ID} kind={kind} />,
+      );
+      expect(screen.getByTestId('run-outcome')).toHaveTextContent('AGENT RESISTED');
+      const meta = container.querySelector('[data-replay-telemetry]')!;
+      expect(meta).toHaveTextContent('DETECTOR BLIND TO THE ATTACK');
+      expect(meta).not.toHaveTextContent(/control/i);
+    });
+  }
+});

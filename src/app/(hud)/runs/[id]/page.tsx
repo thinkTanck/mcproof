@@ -78,6 +78,7 @@ export default async function RunReplay({ params }: Props) {
       provenance={view.displayProvenance}
       runAt={view.runAt}
       scoringExclusion={view.scoringExclusion}
+      kind={view.kind}
     />
   );
 }

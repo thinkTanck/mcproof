@@ -219,6 +219,19 @@ describe('DTCG token layer (globals.css)', () => {
     }
   });
 
+  // AGENT TAB TEXT (owner ruling 2026-10-21, LAUNCH POLISH Part 6): the Connect
+  // agent tabs write their labels in the nominal cyan, at rest on the panel and
+  // pressed on the bg-nominal/10 tint over it.
+  it('the nominal cyan clears 7:1 as tab text: base, panel, and the pressed tint on both', () => {
+    const fg = resolveColor('var(--status-nominal)', surfaceBase);
+    const tint = (under: RGB): RGB =>
+      [0, 1, 2].map((i) => fg[i]! * 0.1 + under[i]! * 0.9) as unknown as RGB;
+    expect(contrast(fg, surfaceBase), 'on --surface-base').toBeGreaterThanOrEqual(7);
+    expect(contrast(fg, surfacePanel), 'on --surface-panel').toBeGreaterThanOrEqual(7);
+    expect(contrast(fg, tint(surfaceBase)), 'on the tint over base').toBeGreaterThanOrEqual(7);
+    expect(contrast(fg, tint(surfacePanel)), 'on the tint over panel').toBeGreaterThanOrEqual(7);
+  });
+
   it('the INERT fourth state clears 7:1 on base AND panel and is never the breach red', () => {
     // --status-inert labels "not measurable" categories (ASI07/08/09 on /threats).
     // It carries icon + label + text, so it must clear AA as text, and it must

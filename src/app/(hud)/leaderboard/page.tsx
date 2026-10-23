@@ -48,10 +48,10 @@ export default async function LeaderboardPage() {
     >
       <SectionLabel>Your leaderboard</SectionLabel>
       <h1 id="leaderboard-heading" className="reading-h1 mt-3">
-        Agent model by attack type.
+        Your agents by attack type.
       </h1>
       <p className="reading mt-4 measure">
-        Each cell shows the share of your runs for that model and attack type where the agent was
+        Each cell shows the share of your runs for that agent and attack type where the agent was
         not compromised, as graded by the detector. Higher is safer: 1.00 means the agent was never
         compromised. OVERALL counts every run in the row, so a cell with more runs weighs more. A
         cell with no runs says No data, because 0 would mean compromised every time.

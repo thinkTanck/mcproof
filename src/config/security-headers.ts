@@ -21,7 +21,7 @@
  *    stand between a client and its answer. The middleware does not run on it at
  *    all (its matcher excludes `/api`).
  *  - `public-file`: the files published for other sites and tools to fetch (the
- *    icon, `robots.txt`, `security.txt`). `Cross-Origin-Resource-Policy:
+ *    icon, `robots.txt`, `security.txt`, the email logo). `Cross-Origin-Resource-Policy:
  *    cross-origin`, so a page on another origin can embed or read them.
  *
  * The rules below have sources that never overlap on a header, so no response is
@@ -72,7 +72,14 @@ const CORP = 'Cross-Origin-Resource-Policy';
 const MCP_PREFIX = '/api/mcp';
 
 /** Files meant to be fetched from other origins. Exact paths. */
-export const PUBLIC_FILE_PATHS = ['/icon.svg', '/robots.txt', '/.well-known/security.txt'] as const;
+// The sign-in email's logo is drawn by mail clients on other origins, so it is
+// one of these (LAUNCH POLISH, Part 7).
+export const PUBLIC_FILE_PATHS = [
+  '/icon.svg',
+  '/robots.txt',
+  '/.well-known/security.txt',
+  '/email/mcproof-logo.png',
+] as const;
 
 /** Which class a request path belongs to. */
 export function routeClassOf(pathname: string): RouteClass {

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { RunResultSchema, type RunResult } from '@/contract';
+import { RunResultSchema, VariantKindSchema, type RunResult, type VariantKind } from '@/contract';
 import {
   DiscardedRunSchema,
   isDiscardedPayload,
@@ -12,15 +12,23 @@ import {
   type StoredRun,
 } from './run-repository';
 
-/** Row shape of `public.runs` (see supabase/migrations/0001_runs.sql). */
+/** Row shape of `public.runs` (see supabase/migrations/0001_runs.sql and 0005). */
 interface RunRow {
   id: string;
   user_id: string;
   created_at: string;
+  /** 0005: the framing we served, or null for a row saved before it was recorded. */
+  kind: unknown;
   run: unknown;
 }
 
-const COLS = 'id, user_id, created_at, run';
+const COLS = 'id, user_id, created_at, kind, run';
+
+/** The stored kind, validated on read like the payload; anything else is not recorded. */
+function kindOf(row: RunRow): VariantKind | null {
+  const parsed = VariantKindSchema.safeParse(row.kind);
+  return parsed.success ? parsed.data : null;
+}
 
 /** Row → StoredRun; the stored RunResult is re-validated on read (defensive). */
 function toStored(row: RunRow): StoredRun {
@@ -28,6 +36,7 @@ function toStored(row: RunRow): StoredRun {
     id: row.id,
     userId: row.user_id,
     createdAt: row.created_at,
+    kind: kindOf(row),
     run: RunResultSchema.parse(row.run),
   };
 }
@@ -38,6 +47,7 @@ function toDiscarded(row: RunRow): StoredDiscardedRun {
     id: row.id,
     userId: row.user_id,
     createdAt: row.created_at,
+    kind: kindOf(row),
     discarded: DiscardedRunSchema.parse(row.run),
   };
 }
@@ -177,23 +187,27 @@ export class SupabaseRunRepository
   extends SupabaseRunReader
   implements RunRepository, DiscardedRunStore
 {
-  async saveRun(userId: string, run: RunResult): Promise<StoredRun> {
+  async saveRun(userId: string, run: RunResult, kind?: VariantKind | null): Promise<StoredRun> {
     const { data, error } = await this.client
       .from('runs')
-      .insert({ user_id: userId, run })
+      .insert({ user_id: userId, kind: kind ?? null, run })
       .select(COLS)
       .single();
     if (error) throw new Error(`saveRun failed: ${error.message}`);
     return toStored(data as RunRow);
   }
 
-  async saveDiscardedRun(userId: string, discarded: DiscardedRun): Promise<StoredDiscardedRun> {
+  async saveDiscardedRun(
+    userId: string,
+    discarded: DiscardedRun,
+    kind?: VariantKind | null,
+  ): Promise<StoredDiscardedRun> {
     // Validated BEFORE the insert: the schema is strict, so nothing can ride
     // along into the row, a verdict least of all.
     const marker = DiscardedRunSchema.parse(discarded);
     const { data, error } = await this.client
       .from('runs')
-      .insert({ user_id: userId, run: marker })
+      .insert({ user_id: userId, kind: kind ?? null, run: marker })
       .select(COLS)
       .single();
     if (error) throw new Error(`saveDiscardedRun failed: ${error.message}`);

@@ -226,6 +226,17 @@ test.describe('robots.txt and security.txt', () => {
     expect(header(response, CORP)).toBe('cross-origin');
   });
 
+  // The sign-in email's logo is drawn by mail clients on other origins
+  // (LAUNCH POLISH, Part 7).
+  test('the email logo can be embedded by another site', async ({ request }) => {
+    const response = await request.get('/email/mcproof-logo.png');
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toBe('image/png');
+    expectBase(response);
+    expect(header(response, CORP)).toBe('cross-origin');
+  });
+
   test('the icon can be embedded by another site', async ({ request }) => {
     const response = await request.get('/icon.svg');
 

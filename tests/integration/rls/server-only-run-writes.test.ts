@@ -267,4 +267,43 @@ describe.runIf(RLS_LOCAL_STACK)('the app writes runs with the service role (loca
       await removeUser(admin, fresh);
     }
   }, 60_000);
+
+  /**
+   * LAUNCH POLISH, Part 1 (owner ruling 2026-10-23). The kind is written onto
+   * the run row, the table nothing deletes from, so it survives the sweep that
+   * deletes the run's `live_runs` record.
+   */
+  it('the kind is saved on the run row and survives the sweep of its live_runs record', async () => {
+    const fresh = await signedInUser(admin, 'writer-kind');
+    signedInAs = fresh;
+    try {
+      const started = await host.start({ userId: fresh.id, category: 'ASI03', kind: 'benign' });
+      if (!started.ok) throw started.error;
+      await agentLists(started.value);
+      const finished = await host.finish({ runId: started.value.runId, userId: fresh.id });
+      if (!finished.ok) throw finished.error;
+
+      // The sweep the reaper runs, far enough ahead that this run's record is past it.
+      const sessions = new SupabaseLiveRunSessionStore(admin);
+      await sessions.sweepExpired(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000));
+      expect(await sessions.find(started.value.runId)).toBeNull();
+
+      const { data, error } = await admin
+        .from('runs')
+        .select('kind')
+        .eq('id', finished.value.stored.id)
+        .single();
+      if (error) throw new Error(error.message);
+      expect(data.kind).toBe('benign');
+      // And the owner reads it through their own session.
+      const mine = await new SupabaseRunReader(fresh.client).getRun(
+        fresh.id,
+        finished.value.stored.id,
+      );
+      expect(mine?.kind).toBe('benign');
+    } finally {
+      signedInAs = owner;
+      await removeUser(admin, fresh);
+    }
+  }, 60_000);
 });

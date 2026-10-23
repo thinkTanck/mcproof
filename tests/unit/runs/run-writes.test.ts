@@ -60,13 +60,15 @@ const marker = (runId: string): DiscardedRun => ({
 });
 
 /** A registry holding one run for OWNER, ended unless told otherwise. */
-async function registry(options: { ended?: boolean; owner?: string } = {}) {
+async function registry(
+  options: { ended?: boolean; owner?: string; kind?: 'malicious' | 'benign' } = {},
+) {
   const sessions = new InMemoryLiveRunSessionStore();
   await sessions.create({
     runId: RUN,
     userId: options.owner ?? OWNER,
     category: 'ASI01',
-    kind: 'malicious',
+    kind: options.kind ?? 'malicious',
     model: null,
     client: null,
     target: '/api/mcp',
@@ -432,7 +434,7 @@ describe('run writes: behind the gates, in the pipeline', () => {
     });
     saveRun.mockImplementation(async (userId, run) => {
       order.push('write');
-      return { id: 'row-1', userId, createdAt: '2026-10-13T10:00:00.000Z', run };
+      return { id: 'row-1', userId, createdAt: '2026-10-13T10:00:00.000Z', kind: null, run };
     });
     const started = await host.start({ userId: OWNER, category: 'ASI01' });
     if (!started.ok) throw started.error;
@@ -526,4 +528,36 @@ describe('run writes: behind the gates, in the pipeline', () => {
     expect(saveDiscardedRun).not.toHaveBeenCalled();
     expect(await store.countRunsSince(OWNER, new Date(0))).toBe(0);
   });
+});
+
+describe('run writes: the kind is the one the run record names (LAUNCH POLISH, Part 1)', () => {
+  for (const kind of ['malicious', 'benign'] as const) {
+    it(`writes a ${kind} run with its record's kind, whatever the caller says`, async () => {
+      const store = new InMemoryRunRepository();
+      const writer = createRunWriter({
+        store,
+        records: await registry({ kind }),
+        identity: session(OWNER),
+      });
+      const other = kind === 'malicious' ? 'benign' : 'malicious';
+
+      const stored = await writer.saveRun(OWNER, await resultFor(RUN), other);
+
+      expect(stored.kind).toBe(kind);
+      expect((await store.listRuns(OWNER))[0]!.kind).toBe(kind);
+    });
+
+    it(`writes a discarded ${kind} run with its kind too`, async () => {
+      const store = new InMemoryRunRepository();
+      const writer = createRunWriter({
+        store,
+        records: await registry({ kind }),
+        identity: session(OWNER),
+      });
+
+      const stored = await writer.saveDiscardedRun(OWNER, marker(RUN));
+
+      expect(stored.kind).toBe(kind);
+    });
+  }
 });

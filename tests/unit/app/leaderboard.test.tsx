@@ -74,7 +74,7 @@ function liveRun(model: string, category: Category, compromised: boolean): RunRe
 
 async function store(...runs: RunResult[]): Promise<StoredRun[]> {
   const repo = new InMemoryRunRepository();
-  for (const run of runs) await repo.saveRun('user-1', run);
+  for (const run of runs) await repo.saveRun('user-1', run, 'malicious');
   return repo.listRuns('user-1');
 }
 
@@ -144,6 +144,25 @@ describe('Robustness leaderboard screen', () => {
       ).toBeInTheDocument();
       // and the sample size travels with it
       expect(within(region).getByText('n=2')).toBeInTheDocument();
+    });
+
+    /**
+     * LAUNCH POLISH, Part 2 (owner ruling 2026-10-21). A row is an agent client
+     * (claude-code), not a model, so the screen says agent.
+     */
+    it('names its rows agents: the title, the column header and the intro', async () => {
+      await renderPage();
+      expect(
+        screen.getByRole('heading', { level: 1, name: 'Your agents by attack type.' }),
+      ).toBeInTheDocument();
+      const region = screen.getByRole('region', { name: /measured .*heatmap/i });
+      const first = within(region).getAllByRole('columnheader')[0]!;
+      expect(first).toHaveTextContent(/^Agent$/);
+      expect(within(region).queryByRole('columnheader', { name: /^model$/i })).toBeNull();
+      expect(
+        screen.getByText(/share of your runs for that agent and attack type/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/for that model and attack type/)).toBeNull();
     });
 
     it('leaves the untouched Core-7 pairs as NO DATA rather than scoring them zero', async () => {

@@ -341,6 +341,7 @@ describe('Findings / fix report screen', () => {
         id: '22222222-2222-4222-8222-222222224321',
         userId,
         createdAt: '2026-08-05T09:41:07.123456+00:00',
+        kind: 'malicious',
         run,
       };
     }

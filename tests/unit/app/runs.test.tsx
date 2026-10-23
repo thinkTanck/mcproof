@@ -64,6 +64,7 @@ function stored(run: RunResult, createdAt = '2026-08-05T09:41:07.123456+00:00'):
     id: '44444444-4444-4444-8444-444444449876',
     userId: 'user-1',
     createdAt,
+    kind: 'malicious',
     run,
   };
 }

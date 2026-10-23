@@ -144,12 +144,13 @@ describe('SupabaseRunRepository: discarded rows', () => {
     const stored = await new SupabaseRunRepository(client).saveDiscardedRun('u', DISCARDED);
 
     expect(calls.table).toBe('runs');
-    expect(calls.insert).toEqual({ user_id: 'u', run: DISCARDED });
+    expect(calls.insert).toEqual({ user_id: 'u', kind: null, run: DISCARDED });
     expect(JSON.stringify(calls.insert)).not.toContain('verdict');
     expect(stored).toEqual({
       id: 'row-d',
       userId: 'u',
       createdAt: '2026-10-09T10:00:00Z',
+      kind: null,
       discarded: DISCARDED,
     });
   });

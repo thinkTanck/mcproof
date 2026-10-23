@@ -57,7 +57,13 @@ function markupRun(): RunResult {
 }
 
 function signedInOwnerOf(run: RunResult) {
-  const row: StoredRun = { id: ROW_ID, userId: 'user-1', createdAt: '2026-10-15T00:00:00Z', run };
+  const row: StoredRun = {
+    id: ROW_ID,
+    userId: 'user-1',
+    createdAt: '2026-10-15T00:00:00Z',
+    kind: 'malicious',
+    run,
+  };
   asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
   asMock(getRunRepository).mockResolvedValue({
     saveRun: vi.fn(),

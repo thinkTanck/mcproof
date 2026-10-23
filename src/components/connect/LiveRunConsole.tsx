@@ -42,6 +42,7 @@ import {
 } from './live-run-port';
 import type { Category, VariantKind } from '@/contract';
 import { localDateTime } from '@/lib/display/dates';
+import { stepCountSentence } from '@/lib/display/step-count';
 import { asiLabel } from '@/lib/owasp/asi';
 import { FreeRunsNote } from '@/components/hud/FreeRunsNote';
 
@@ -1672,11 +1673,7 @@ function Connection({
           </p>
         )}
         {status !== null && (
-          <p className="reading measure text-ink-muted">
-            The run has {status.steps} steps in total. Two of them are ours: the task we sent, and a
-            last step we add to mark the end of the run. The rest are your agent{"'"}s tool calls
-            and our replies.
-          </p>
+          <p className="reading measure text-ink-muted">{stepCountSentence(status)}</p>
         )}
         {statusRefusal !== null && (
           <p className="reading measure text-ink-muted">{statusRefusal.message}</p>
