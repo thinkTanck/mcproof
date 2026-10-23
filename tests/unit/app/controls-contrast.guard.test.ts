@@ -12,7 +12,13 @@ import { join } from 'node:path';
  *    the 12px floor or below it.
  *
  * The 7:1 ratios themselves are asserted in tokens.test.tsx.
+ *
+ * ONE RULED EXCEPTION to rule 1 (AGENT TAB TEXT, owner ruling 2026-10-21): the
+ * six Connect agent tabs write their labels in the nominal cyan. Their pressed
+ * state still shows by border, fill and aria-pressed, never by colour alone. A
+ * tab claims the exception with `data-client-tab`, and only there.
  */
+const CYAN_LABEL_ALLOWED = new Map([['components/connect/ClientSetup.tsx', 'data-client-tab']]);
 
 const ROOT = join(process.cwd(), 'src');
 
@@ -70,7 +76,12 @@ describe('button-like controls', () => {
           else if (ch === '>' && depth === 0) break;
         }
         const tag = source.slice(match.index!, end);
-        if (/(?<![:\w-])text-(nominal|readout|ink-muted|ink-faint)\b/.test(tag)) {
+        const marker = CYAN_LABEL_ALLOWED.get(file);
+        const accent =
+          marker !== undefined && tag.includes(marker)
+            ? /(?<![:\w-])text-(readout|ink-muted|ink-faint)\b/
+            : /(?<![:\w-])text-(nominal|readout|ink-muted|ink-faint)\b/;
+        if (accent.test(tag)) {
           offenders.push(`${file}:${source.slice(0, match.index!).split('\n').length}`);
         }
       }
