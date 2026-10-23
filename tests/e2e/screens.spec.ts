@@ -134,7 +134,9 @@ const SCREENS: Screen[] = [
     path: '/leaderboard',
     shell: true,
     content: async (page) => {
-      await expect(page.getByRole('heading', { level: 1 })).toContainText('Agent model');
+      await expect(page.getByRole('heading', { level: 1 })).toContainText(
+        'Your agents by attack type.',
+      );
       // This account has no graded runs (plan.md B4), so the measured board is
       // EMPTY and says so in words. That empty state is the shipped state of
       // this screen, so it is asserted rather than worked around.
