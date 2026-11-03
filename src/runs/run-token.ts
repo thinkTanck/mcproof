@@ -176,6 +176,24 @@ export const RUN_TOKEN_REJECTION_MESSAGE =
   'This run endpoint refused the connection. Use the endpoint and token issued ' +
   'for this run, and start a new run if this one has finished.';
 
+/**
+ * The one exception to the single sentence: a request carrying a run's REAL
+ * token after that run is over (`RUN_ENDED`, or `EXPIRED`). Those codes are only
+ * reached once the digest and both bindings have matched, so the only caller who
+ * can ever read this already holds the credential and learns nothing about any
+ * other run. It exists for the agent still holding the last run's config on a
+ * second run (SECOND RUN, 2026-11-02), which otherwise got a refusal that did not
+ * say what was wrong. No internal detail, and nothing that names the product.
+ */
+export const RUN_ENDED_MESSAGE =
+  'This run has ended, so its token no longer works. Start a new run and use ' +
+  'its endpoint and token.';
+
+/** Whether a refusal may be answered with {@link RUN_ENDED_MESSAGE}. */
+export function isRunOverRejection(code: RunTokenRejectionCode): boolean {
+  return code === 'RUN_ENDED' || code === 'EXPIRED';
+}
+
 /** A refusal, typed. Never carries the presented token, in any field. */
 export class RunTokenError extends Error {
   /** Stable discriminator for server-side logging and metrics. */

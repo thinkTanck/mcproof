@@ -21,7 +21,11 @@ import {
   type LiveRunPreflight,
   type LiveRunTicket,
 } from '@/runs/live-run';
-import { InMemoryRunTokenStore, RUN_TOKEN_REJECTION_MESSAGE } from '@/runs/run-token';
+import {
+  InMemoryRunTokenStore,
+  RUN_ENDED_MESSAGE,
+  RUN_TOKEN_REJECTION_MESSAGE,
+} from '@/runs/run-token';
 import { DELETE, GET, MAX_MCP_BODY_BYTES, POST } from '@/app/api/mcp/[runId]/route';
 import { readAgentActivity, resetLiveRunRegistry } from '@/app/api/mcp/host';
 
@@ -245,17 +249,19 @@ describe('POST /api/mcp/[runId] — the refusals are one refusal', () => {
     expect(readAgentActivity(second.runId)).toBeNull();
   });
 
-  it('refuses an expired token', async () => {
+  // The one exception to "one refusal" (SECOND RUN, 2026-11-02): the holder of
+  // a run's REAL token is told the run is over. A forged token never is.
+  it('refuses an expired token, saying the run has ended', async () => {
     const ticket = await start();
     clock = new Date(new Date(ticket.expiresAt).getTime() + 1_000);
     const res = await POST(
       mcpRequest(ticket, ticket.token, { jsonrpc: '2.0', id: 1, method: 'tools/list' }),
     );
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: RUN_TOKEN_REJECTION_MESSAGE });
+    expect(await res.json()).toEqual({ error: RUN_ENDED_MESSAGE });
   });
 
-  it('refuses once the run has finished', async () => {
+  it('refuses once the run has finished, saying the run has ended', async () => {
     const ticket = await start();
     await openSession(ticket);
     const finished = await host.finish({ runId: ticket.runId, userId: USER });
@@ -265,7 +271,7 @@ describe('POST /api/mcp/[runId] — the refusals are one refusal', () => {
       mcpRequest(ticket, ticket.token, { jsonrpc: '2.0', id: 1, method: 'tools/list' }),
     );
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: RUN_TOKEN_REJECTION_MESSAGE });
+    expect(await res.json()).toEqual({ error: RUN_ENDED_MESSAGE });
   });
 
   it('refuses an unknown run with the same answer, so runs cannot be enumerated', async () => {

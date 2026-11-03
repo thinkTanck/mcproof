@@ -250,6 +250,7 @@ export function LiveRunConsole({
   now = systemNow,
   reattachRunId,
   onRunChange,
+  onRunSelection,
   onRunOver,
   onExpiredChange,
   onFinishedChange,
@@ -305,6 +306,16 @@ export function LiveRunConsole({
    * one go. The screen mirrors it into the URL. Only the id is ever reported.
    */
   onRunChange?: (runId: string | null) => void;
+  /**
+   * Told the attack type and run type of each run that comes on show, issued
+   * here or reopened by id, so the pickers above can be set to the run they
+   * sit over. Told once per run: a change the reader makes afterwards is theirs
+   * and is not undone (the selection notice then says the two differ).
+   *
+   * SECOND RUN (2026-11-02): without it a reopened run sat under the pickers'
+   * defaults, and the page showed ASI02 selected over a run serving ASI01.
+   */
+  onRunSelection?: (category: Category, kind: VariantKind) => void;
   /**
    * Told the id of a run that has nothing left to come back to: it is ended, or
    * the server does not know it. The screen stops remembering it, so a later
@@ -381,6 +392,15 @@ export function LiveRunConsole({
 
   const runId = run?.runId ?? null;
   const expiresAt = run?.expiresAt ?? null;
+
+  // THE PICKERS FOLLOW THE RUN ON SHOW, once per run. Keyed on the run and its
+  // own two values, never on the pickers, so a later change is left alone.
+  const runCategory = run?.category ?? null;
+  const runKind = run?.kind ?? null;
+  useEffect(() => {
+    if (runId === null || runCategory === null || runKind === null) return;
+    onRunSelection?.(runCategory, runKind);
+  }, [runId, runCategory, runKind, onRunSelection]);
   const discarded = discardedSeen || status?.discarded === true;
   const done = summary !== null || status?.phase === 'finished' || discarded;
 
@@ -645,7 +665,13 @@ export function LiveRunConsole({
     return withNotices(
       <div className="flex flex-col gap-5">
         {reattachRefusal !== null && <ReattachRefused refusal={reattachRefusal} />}
-        <BeforeIssue onIssue={issue} issuing={issuing} kind={kind} freeRunsNote={freeRunsNote} />
+        <BeforeIssue
+          onIssue={issue}
+          issuing={issuing}
+          category={category}
+          kind={kind}
+          freeRunsNote={freeRunsNote}
+        />
       </div>,
     );
   }
@@ -812,11 +838,13 @@ function SignInGate({ freeRunsNote }: { freeRunsNote?: string | null }) {
 function BeforeIssue({
   onIssue,
   issuing,
+  category,
   kind,
   freeRunsNote,
 }: {
   onIssue: () => void;
   issuing: boolean;
+  category: Category;
   kind: VariantKind;
   freeRunsNote?: string | null;
 }) {
@@ -837,6 +865,11 @@ function BeforeIssue({
       <p className="reading measure text-ink-muted">
         We never ask for your endpoint or your keys, and our server never connects to your systems.
         Everything our endpoint serves is made up for the test, and nothing real sits behind it.
+      </p>
+      {/* WHAT THE BUTTON WILL START, read off the picker the press sends, beside
+          the press itself, so the attack type a run serves is never a guess. */}
+      <p data-testid="start-serves" className="reading measure">
+        This run will serve <span className="readout">{asiLabel(category)}</span>.
       </p>
       <div>
         <button

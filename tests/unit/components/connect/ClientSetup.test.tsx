@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import {
   ISOLATED_CONFIG_FILE,
   ISOLATED_LAUNCH_COMMAND,
-  NEW_FOLDER_COMMAND,
+  NEW_FOLDER,
+  NEW_FOLDER_COMMANDS,
 } from '@/components/connect/ClientSetup';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
 import { findTells } from '@/harness/server/surface';
@@ -471,10 +472,10 @@ describe('ClientSetup · each config block is in the format its client reads', (
     });
     const step = steps()[0]!;
     expect(step.textContent).toContain(`SAVE AS ${ISOLATED_CONFIG_FILE}`);
-    const folder = within(step).getByRole('group', { name: /new folder command/i });
+    const folder = within(step).getByRole('group', { name: /^PowerShell folder command$/i });
     const block = within(step).getByTestId('config-block');
     const launch = within(step).getByRole('group', { name: /isolated launch command/i });
-    expect(folder).toHaveTextContent(NEW_FOLDER_COMMAND);
+    expect(folder).toHaveTextContent(NEW_FOLDER_COMMANDS.powershell);
     expect(launch).toHaveTextContent(`claude --strict-mcp-config --mcp-config run-mcp.json`);
     const following = Node.DOCUMENT_POSITION_FOLLOWING;
     expect(folder.compareDocumentPosition(block) & following).toBeTruthy();
@@ -512,7 +513,7 @@ describe('ClientSetup · each config block is in the format its client reads', (
     expect(steps()[0]!.textContent).toContain('.cursor/mcp.json');
   });
 
-  it('Codex: a table ADDED to ~/.codex/config.toml, and removed after the run', async () => {
+  it("Codex: one table in ~/.codex/config.toml, replacing the last run's", async () => {
     const user = await opened('codex');
 
     expect(await copiedConfig(user, 'codex')).toBe(
@@ -522,11 +523,16 @@ describe('ClientSetup · each config block is in the format its client reads', (
     );
     const text = steps()[0]!.textContent ?? '';
     expect(text).toContain('~/.codex/config.toml');
-    expect(text).toMatch(/add this block/i);
-    expect(text).toMatch(/remove (it|the block) after the run/i);
+    // SECOND RUN: a second [mcp_servers.mcp-run] table is a duplicate key, and
+    // Codex refuses the whole file, so the old table is replaced, not added to.
+    expect(text).toContain(`[mcp_servers.${MCP_SERVER_NAME}]`);
+    expect(text).toMatch(/replace that table with this block/i);
+    expect(text).toMatch(/instead of adding a second one/i);
     expect(text).toMatch(/plain text/i);
-    // A global file is added to. It is never replaced.
-    expect(text).not.toMatch(/save (this|the file) as|overwrite|replace the file/i);
+    // The file itself is the reader's own. It is never replaced as a whole.
+    expect(text).not.toMatch(
+      /save (this|the file) as|overwrite|replace the file|replacing the old one/i,
+    );
     expect(text).toContain('enabled = false');
   });
 
@@ -546,24 +552,65 @@ describe('ClientSetup · each config block is in the format its client reads', (
   });
 
   it.each(['code', 'vscode', 'cursor', 'gemini'] as const)(
-    '%s: a file that holds the token says so, and says to delete it',
-    async (id) => {
-      await opened(id);
-      const text = steps()[0]!.textContent ?? '';
-      expect(text).toMatch(/plain text/i);
-      expect(text).toMatch(/delete (it|the file|the folder) after the run/i);
-    },
-  );
-
-  it.each(['code', 'vscode', 'cursor', 'codex', 'gemini', 'other'] as const)(
-    '%s: a client that runs from a folder starts in a new, empty one first',
+    '%s: the config step says to save the file, replacing the old one, and that it holds the token',
     async (id) => {
       await opened(id);
       const step = steps()[0]!;
-      const folderText = step.textContent ?? '';
-      expect(folderText).toMatch(/new, empty folder/i);
-      const first = step.querySelector('ol > li');
-      expect(first?.textContent).toMatch(/new, empty folder/i);
+      const config = within(step).getByTestId('config-block').closest('li')!;
+      expect(config.textContent).toMatch(/save this file, replacing the old one/i);
+      expect(config.textContent).toMatch(/plain text/i);
+    },
+  );
+
+  it.each(TAB_IDS)('%s: ends the steps with the one line on deleting run-folder', async (id) => {
+    await opened(id);
+    const done = within(panel()).getByTestId('done-testing-line');
+    expect(done.textContent).toBe('Done testing? You can delete run-folder.');
+    const list = within(panel()).getByTestId('setup-steps');
+    expect(list.contains(done)).toBe(true);
+    const finish = within(panel()).getByTestId('finish-line');
+    expect(finish.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(TAB_IDS)('%s: carries the running-again note at step 1, word for word', async (id) => {
+    await opened(id);
+    const step = steps()[0]!;
+    const note = within(step).getByTestId('running-again-note');
+    expect(note.textContent).toBe(
+      'Running again? Use the same folder and replace the config file with this one. ' +
+        "Each run has its own token; the last run's token no longer works.",
+    );
+    // Near step 1: before its first action.
+    const first = step.querySelector('ol > li')!;
+    expect(note.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(TAB_IDS)('%s: the first action is the one reusable folder, run-folder', async (id) => {
+    await opened(id);
+    const first = steps()[0]!.querySelector('ol > li');
+    expect(first?.textContent).toContain(NEW_FOLDER);
+    expect(first?.textContent).toMatch(/empty the first time/i);
+  });
+
+  it.each(['code', 'codex', 'gemini', 'other'] as const)(
+    '%s: gives the folder command for each shell, exactly',
+    async (id) => {
+      await opened(id);
+      const first = steps()[0]!.querySelector<HTMLElement>('ol > li')!;
+      const ps = within(first).getByRole('group', { name: /^PowerShell folder command$/i });
+      const nix = within(first).getByRole('group', { name: /^macOS and Linux folder command$/i });
+      expect(ps.textContent).toBe(
+        'New-Item -ItemType Directory -Force run-folder | Out-Null; cd run-folder',
+      );
+      expect(nix.textContent).toBe('mkdir -p run-folder && cd run-folder');
+      expect(ps.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent).toBe(
+        'POWERSHELL',
+      );
+      expect(nix.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent).toBe(
+        'MACOS AND LINUX',
+      );
+      // The single both-shells folder command is gone.
+      expect(first.textContent).not.toContain('mkdir run-folder; cd run-folder');
     },
   );
 });
@@ -625,6 +672,27 @@ describe('ClientSetup · Claude Code keeps the Code panel route under it, not re
     // the reader to check or switch them with /mcp.
     expect(list.textContent).not.toMatch(/(type|run|use) \/mcp/i);
     expect(route().textContent).toMatch(/prints the token/i);
+  });
+
+  it('removes an earlier mcp-run first, then adds this run', async () => {
+    const user = await opened('code');
+    const writeText = stubClipboard();
+
+    // `claude mcp add` refuses a name that is already registered, so without
+    // this a second run kept the last run's endpoint and token.
+    const remove = within(route()).getByRole('group', { name: /^Claude Code remove command$/i });
+    const add = within(route()).getByRole('group', { name: /Claude Code transport command/i });
+    expect(remove.textContent).toBe(`claude mcp remove ${MCP_SERVER_NAME}`);
+    expect(remove.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(remove.closest('li')?.textContent).toMatch(/if it exists/i);
+    expect(remove.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent).toBe(
+      'BASH AND POWERSHELL',
+    );
+
+    await user.click(
+      within(route()).getByRole('button', { name: /copy Claude Code remove command/i }),
+    );
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(`claude mcp remove ${MCP_SERVER_NAME}`);
   });
 
   it('is on the Claude Code tab only', async () => {
@@ -776,7 +844,8 @@ describe('ClientSetup · one neutral server name, everywhere', () => {
       expect(findTells(ours)).toEqual([]);
       for (const file of files) expect(findTells(file)).toEqual([]);
     }
-    expect(findTells(NEW_FOLDER_COMMAND)).toEqual([]);
+    for (const command of Object.values(NEW_FOLDER_COMMANDS))
+      expect(findTells(command)).toEqual([]);
   });
 });
 
@@ -831,25 +900,39 @@ describe('ClientSetup · plain words, the right type roles, boxes that stay in t
       await pick(user, id);
       for (const group of within(panel()).queryAllByRole('group', { name: /command$/i })) {
         seen++;
-        expect(
-          group.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent ?? '',
-        ).toBe('BASH AND POWERSHELL');
+        const label =
+          group.closest('div.rounded-lg')?.querySelector('.micro-label')?.textContent ?? '';
+        const name = group.getAttribute('aria-label') ?? '';
+        if (/^PowerShell folder/i.test(name)) expect(label).toBe('POWERSHELL');
+        else if (/^macOS and Linux folder/i.test(name)) expect(label).toBe('MACOS AND LINUX');
+        else expect(label).toBe('BASH AND POWERSHELL');
       }
     }
     expect(seen).toBeGreaterThanOrEqual(6);
   });
 
-  it('is one command for the new folder, the same in bash and in PowerShell', async () => {
-    // No && (Windows PowerShell 5.1 has none) and no flag only one shell knows.
-    expect(NEW_FOLDER_COMMAND).toMatch(/^mkdir (\S+); cd \1$/);
-    expect(NEW_FOLDER_COMMAND).not.toContain('&&');
-    expect(NEW_FOLDER_COMMAND).not.toContain(' -p');
-    expect(NEW_FOLDER_COMMAND).not.toMatch(/attack|test/i);
+  it('gives one folder command per shell, each safe to run again on a later run', async () => {
+    // -Force and -p both succeed when the folder is already there, so a second
+    // run reuses it. No && in PowerShell (Windows PowerShell 5.1 has none).
+    expect(NEW_FOLDER_COMMANDS.powershell).toBe(
+      'New-Item -ItemType Directory -Force run-folder | Out-Null; cd run-folder',
+    );
+    expect(NEW_FOLDER_COMMANDS.powershell).not.toContain('&&');
+    expect(NEW_FOLDER_COMMANDS.posix).toBe('mkdir -p run-folder && cd run-folder');
+    for (const command of Object.values(NEW_FOLDER_COMMANDS)) {
+      expect(command).not.toMatch(/attack|test/i);
+    }
 
     const user = await opened('codex');
     const writeText = stubClipboard();
-    await user.click(within(panel()).getByRole('button', { name: /copy new folder command/i }));
-    expect(writeText.mock.calls.at(-1)?.[0]).toBe(NEW_FOLDER_COMMAND);
+    await user.click(
+      within(panel()).getByRole('button', { name: /copy PowerShell folder command/i }),
+    );
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(NEW_FOLDER_COMMANDS.powershell);
+    await user.click(
+      within(panel()).getByRole('button', { name: /copy macOS and Linux folder command/i }),
+    );
+    expect(writeText.mock.calls.at(-1)?.[0]).toBe(NEW_FOLDER_COMMANDS.posix);
   });
 
   it('offers only flags that were read off a client: nothing invented', async () => {
