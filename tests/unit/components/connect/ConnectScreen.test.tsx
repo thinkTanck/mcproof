@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
 import { ACTIVE_RUN_STORAGE_KEY } from '@/components/connect/active-run-store';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
+import { asiLabel } from '@/lib/owasp/asi';
+import type { Category } from '@/contract';
 
 // The screen reads the run id off the LIVE URL. Outside the app router the real
 // hook has no context to read, so this stands in for it with the one thing it
@@ -424,6 +426,81 @@ describe('ConnectScreen · the active run is addressed by the URL', () => {
     expect(screen.getByRole('button', { name: /end run and get result/i })).toBeVisible();
     expect(live.reattach).toHaveBeenCalledWith({ runId: 'run-1' });
     expect(live.start).not.toHaveBeenCalled();
+  });
+
+  // SECOND RUN bug (2026-11-02): the owner saw ASI02 selected over a run that
+  // served ASI01. The server issued exactly what it was asked for; the picker
+  // was reset to its default whenever the screen reopened a run, so after a
+  // reload or a trip back the page claimed a selection that run never had.
+  it('sets the attack type and run type to those of the run it reopens', async () => {
+    render(
+      <ConnectScreen
+        signedIn
+        liveActions={{
+          ...actions(),
+          reattach: vi.fn(async () => ({
+            ok: true as const,
+            value: { ...VIEW, category: 'ASI01' as const, kind: 'benign' as const },
+          })),
+        }}
+        initialRunId="run-1"
+      />,
+    );
+
+    await screen.findByText('AGENT CONNECTED');
+    const types = screen.getByRole('radiogroup', { name: /attack type/i });
+    await waitFor(() =>
+      expect(within(types).getByRole('radio', { checked: true })).toHaveTextContent('ASI01'),
+    );
+    expect(screen.getByRole('radio', { name: /control run/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.queryByTestId('run-selection-notice')).toBeNull();
+  });
+
+  it('starts the run for the attack type picked, and says which before it starts', async () => {
+    const user = userEvent.setup();
+    const live = {
+      ...actions(),
+      start: vi.fn(async (input: unknown) => ({
+        ok: true as const,
+        value: {
+          ...VIEW,
+          category: (input as { category: Category }).category,
+          token: 'rt_secret',
+        },
+      })),
+    };
+    render(<ConnectScreen signedIn liveActions={live} />);
+    await goLive(user);
+    await user.click(screen.getByRole('radio', { name: /ASI01/ }));
+
+    expect(screen.getByTestId('start-serves')).toHaveTextContent(
+      `This run will serve ${asiLabel('ASI01')}.`,
+    );
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
+
+    expect(live.start).toHaveBeenCalledWith({ category: 'ASI01', kind: 'malicious' });
+    expect(screen.queryByTestId('run-selection-notice')).toBeNull();
+  });
+
+  it('warns, naming both, when the attack type is changed after a run exists', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn liveActions={actions()} />);
+    await goLive(user);
+    await user.click(screen.getByRole('button', { name: /start a run/i }));
+    await screen.findByText('AGENT CONNECTED');
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /ASI06/ })).toHaveAttribute('aria-checked', 'true'),
+    );
+
+    await user.click(screen.getByRole('radio', { name: /ASI02/ }));
+
+    const notice = await screen.findByTestId('run-selection-notice');
+    expect(notice).toHaveTextContent(asiLabel('ASI06'));
+    expect(notice).toHaveTextContent(asiLabel('ASI02'));
+    expect(notice).toHaveTextContent(/end this run first, then start a new one/i);
   });
 
   it('puts the run id, and never the token, in the URL once a run is issued', async () => {

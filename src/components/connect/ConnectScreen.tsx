@@ -328,6 +328,12 @@ export function ConnectScreen({
   // The attack, unless the user says otherwise: the same default the pipeline
   // already applies, so the existing one-click path is unchanged.
   const [kind, setKind] = useState<VariantKind>('malicious');
+  // Set the pickers to the run on show (see `onRunSelection`). Stable, because
+  // the console keys an effect on it.
+  const followRun = useCallback((runCategory: Category, runKind: VariantKind) => {
+    setCategory(runCategory);
+    setKind(runKind);
+  }, []);
 
   // Memoized because the console polls on an effect keyed by the port: a fresh
   // object every render would tear the interval down and rebuild it every time.
@@ -581,6 +587,7 @@ export function ConnectScreen({
               signedIn={signedIn}
               reattachRunId={activeRunId ?? undefined}
               onRunChange={onRunChange}
+              onRunSelection={followRun}
               onRunOver={forgetRun}
               onExpiredChange={setRunExpired}
               onFinishedChange={setRunFinished}

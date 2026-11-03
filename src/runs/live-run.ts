@@ -121,6 +121,8 @@ import { logger as defaultLogger, type Logger } from '@/lib/logger';
 import {
   issueRunToken,
   verifyRunToken,
+  isRunOverRejection,
+  RUN_ENDED_MESSAGE,
   RUN_TOKEN_REJECTION_MESSAGE,
   type RunTokenStore,
 } from '@/runs/run-token';
@@ -496,9 +498,13 @@ const fail = (
   options?: { cause?: unknown },
 ): LiveRunDecision<never> => ({ ok: false, error: new LiveRunError(code, message, options) });
 
-/** The one 401 this endpoint gives, whatever was actually wrong with the request. */
-function unauthorized(): Response {
-  return new Response(JSON.stringify({ error: RUN_TOKEN_REJECTION_MESSAGE }), {
+/**
+ * The 401 this endpoint gives, whatever was actually wrong with the request,
+ * except to a caller presenting a run's real token after the run is over: that
+ * caller is told the run has ended (see {@link RUN_ENDED_MESSAGE}).
+ */
+function unauthorized(message: string = RUN_TOKEN_REJECTION_MESSAGE): Response {
+  return new Response(JSON.stringify({ error: message }), {
     status: 401,
     headers: { 'content-type': 'application/json', 'www-authenticate': 'Bearer' },
   });
@@ -887,7 +893,11 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
         now: now(),
         ...(logger ? { logger } : {}),
       });
-      if (!verified.valid) return unauthorized();
+      if (!verified.valid) {
+        return unauthorized(
+          isRunOverRejection(verified.error.code) ? RUN_ENDED_MESSAGE : RUN_TOKEN_REJECTION_MESSAGE,
+        );
+      }
 
       const response = await session.handler.handle(request);
       await flush(session);

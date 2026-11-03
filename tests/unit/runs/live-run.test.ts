@@ -23,6 +23,7 @@ import {
 } from '@/runs/live-run';
 import {
   InMemoryRunTokenStore,
+  RUN_ENDED_MESSAGE,
   RUN_TOKEN_PATTERN,
   RUN_TOKEN_REJECTION_MESSAGE,
 } from '@/runs/run-token';
@@ -523,6 +524,60 @@ describe('live run: finishing', () => {
     const after = await post(host, ticket.endpoint, initialize, { token: ticket.token });
 
     expect(after.status).toBe(401);
+  });
+
+  // SECOND RUN (2026-11-02): an agent still holding the last run's config is
+  // told plainly that the run is over, not handed the generic refusal.
+  it("tells the holder of an ended run's real token that the run has ended", async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+    await driveAgent(host, ticket, true);
+    await host.finish({ runId: ticket.runId, userId: USER });
+
+    const after = await post(host, ticket.endpoint, initialize, { token: ticket.token });
+
+    expect(after.status).toBe(401);
+    expect(after.headers.get('content-type')).toBe('application/json');
+    const body = await after.json();
+    expect(body).toEqual({ error: RUN_ENDED_MESSAGE });
+    expect(RUN_ENDED_MESSAGE).toMatch(/this run has ended/i);
+    expect(RUN_ENDED_MESSAGE).not.toBe(RUN_TOKEN_REJECTION_MESSAGE);
+    // No internal detail, nothing that names the product or the experiment.
+    expect(RUN_ENDED_MESSAGE).not.toMatch(/RUN_ENDED|endedAt|token store|registry|—/);
+    expect(findTells(RUN_ENDED_MESSAGE)).toEqual([]);
+    expect(findPayloadTells(RUN_ENDED_MESSAGE)).toEqual([]);
+  });
+
+  it('says the same for a discarded run, and for a token past its expiry', async () => {
+    const clock = { at: new Date('2026-11-02T23:00:00.000Z') };
+    const { host } = fixture({ now: () => clock.at });
+    const discarded = await startRun(host);
+    await host.discard({ runId: discarded.runId, userId: USER });
+    const lapsed = await startRun(host);
+    // Past the token's hour, inside the session's day of grace.
+    clock.at = new Date(clock.at.getTime() + 61 * 60_000);
+
+    for (const ticket of [discarded, lapsed]) {
+      const res = await post(host, ticket.endpoint, initialize, { token: ticket.token });
+      expect(res.status).toBe(401);
+      expect((await res.json()).error).toBe(RUN_ENDED_MESSAGE);
+    }
+  });
+
+  it('never tells a caller without the real token that a run has ended', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+    await host.finish({ runId: ticket.runId, userId: USER });
+
+    const forged = await post(host, ticket.endpoint, initialize, {
+      token: `rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
+    });
+    const missing = await post(host, ticket.endpoint, initialize);
+
+    for (const res of [forged, missing]) {
+      expect(res.status).toBe(401);
+      expect((await res.json()).error).toBe(RUN_TOKEN_REJECTION_MESSAGE);
+    }
   });
 
   it('refuses a second finish', async () => {

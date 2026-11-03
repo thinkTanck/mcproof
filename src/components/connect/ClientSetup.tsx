@@ -51,8 +51,10 @@ import { CONNECT_CLIENT_TABS, type ConnectClientId } from '@/lib/site-copy';
  * 2. A COMMAND HAS TO SURVIVE THE READER'S SHELL. Every command here is
  *    byte-for-byte the same in bash and in PowerShell, and its label says so.
  *    That is why Claude Code's `add-json` form is not offered (Windows
- *    PowerShell strips the quotes inside its JSON) and why the folder command
- *    uses `;` and not `&&`.
+ *    PowerShell strips the quotes inside its JSON). The one exception is the
+ *    folder command, which has to succeed when the folder is already there: no
+ *    one command does that in both shells, so it is given twice, once per
+ *    shell, each labelled with its own (SECOND RUN, 2026-11-02).
  *
  * 3. THE TOKEN IS COPYABLE WITHOUT BEING VISIBLE. A working config has to carry
  *    the credential, and a credential rendered inside a code block undoes the
@@ -82,13 +84,24 @@ import { CONNECT_CLIENT_TABS, type ConnectClientId } from '@/lib/site-copy';
  *    `--allowed-mcp-server-names`, Codex's `enabled = false`, the server lists
  *    in VS Code and Cursor. No flag is offered that was not read off the
  *    client's own help or documentation. A client that runs from a folder is
- *    started in a new, empty one, so no file of the reader's is in reach.
+ *    started in run-folder, empty the first time, so no file of the reader's
+ *    is in reach.
  *
- * 5. A FILE THAT IS NOT OURS IS ADDED TO, NEVER REPLACED. Four tabs save a new
- *    file inside the new folder. Codex reads a file in the home folder that the
- *    reader may already rely on, so its block is one table to ADD to that file,
- *    and the step says to remove it after the run. Every file holds the token in
- *    plain text, and every tab says so.
+ * 5. A FILE THAT IS NOT OURS IS NEVER REPLACED. Four tabs save a file inside
+ *    run-folder, replacing the one the last run left. Codex reads a file in the
+ *    home folder that the reader may already rely on, so its block is one table
+ *    in that file: added the first time, and on a later run it REPLACES the
+ *    table the last run added, because a second table of the same name is a
+ *    duplicate key and Codex refuses the whole file. Every file holds the token
+ *    in plain text, and every tab says so.
+ *
+ * 7. THE SECOND RUN IS A RUN TOO (SECOND RUN, 2026-11-02). The steps used to
+ *    assume a first run: a fresh folder, a fresh file, a fresh registration. On
+ *    a second run each of those met the last run's copy, and the agent could go
+ *    on reaching the last run's endpoint with a dead token. So there is ONE
+ *    reusable folder, run-folder; every config step replaces the old file; the
+ *    Code panel route removes the old registration before adding this one; and
+ *    step 1 opens with a note saying so.
  *
  * 6. THE STATUS IS THE CONSOLE'S, NOT A SECOND OPINION. The reading under step 1
  *    is the phase `LiveRunConsole` already polls for and passes down. This
@@ -162,14 +175,29 @@ export const ISOLATED_LAUNCH_COMMAND = `claude --strict-mcp-config --mcp-config 
 export const GEMINI_LAUNCH_COMMAND = `gemini --allowed-mcp-server-names ${MCP_SERVER_NAME}`;
 
 /**
- * A new, empty folder to work in, first in every route that runs from a folder.
- * An agent can read the folder it was started in, so starting it among real
- * project files puts those files in reach of the run. One command for both
- * shells: `;` and not `&&`, which Windows PowerShell 5.1 does not have. The
- * name is neutral for the same reason the server name is.
+ * The one folder to work in, first in every route that runs from a folder. An
+ * agent can read the folder it was started in, so starting it among real project
+ * files puts those files in reach of the run. The name is neutral for the same
+ * reason the server name is.
+ *
+ * ONE REUSABLE FOLDER, ONE COMMAND PER SHELL (SECOND RUN, 2026-11-02). The old
+ * `mkdir run-folder; cd run-folder` failed on a second run, because the folder
+ * was already there. `-Force` and `-p` both succeed when it is, so a later run
+ * moves into the same folder and replaces the config file in it. PowerShell
+ * keeps `;`, since Windows PowerShell 5.1 has no `&&`.
  */
 export const NEW_FOLDER = 'run-folder';
-export const NEW_FOLDER_COMMAND = `mkdir ${NEW_FOLDER}; cd ${NEW_FOLDER}`;
+export const NEW_FOLDER_COMMANDS = {
+  powershell: `New-Item -ItemType Directory -Force ${NEW_FOLDER} | Out-Null; cd ${NEW_FOLDER}`,
+  posix: `mkdir -p ${NEW_FOLDER} && cd ${NEW_FOLDER}`,
+} as const;
+
+/**
+ * The Code panel route's first command: a registration the last run left is
+ * removed, because `claude mcp add` refuses a name that already exists, and the
+ * agent then kept reaching the last run's endpoint. It carries no credential.
+ */
+export const REMOVE_SERVER_COMMAND = `claude mcp remove ${MCP_SERVER_NAME}`;
 
 /** The header every request carries, and the value that goes in it. */
 export const AUTHORIZATION_HEADER_NAME = 'Authorization';
@@ -309,6 +337,10 @@ const Code = ({ children }: { children: ReactNode }) => <span className="readout
 /** The snippet label for a command that is the same in both shells (rule 2). */
 const BOTH_SHELLS = 'BASH AND POWERSHELL';
 
+/** The labels of the folder command, the one command given per shell. */
+const POWERSHELL = 'POWERSHELL';
+const MACOS_AND_LINUX = 'MACOS AND LINUX';
+
 /** The three steps. Real numerals, kept as list semantics. */
 const STEP_LIST = 'list-decimal space-y-6 pl-7 marker:font-mono marker:text-nominal';
 
@@ -349,12 +381,20 @@ function NewFolderAction({ children }: { children: ReactNode }) {
   return (
     <Action
       snippets={
-        <CopyOut
-          label={BOTH_SHELLS}
-          name="new folder command"
-          tone="code"
-          value={NEW_FOLDER_COMMAND}
-        />
+        <>
+          <CopyOut
+            label={POWERSHELL}
+            name="PowerShell folder command"
+            tone="code"
+            value={NEW_FOLDER_COMMANDS.powershell}
+          />
+          <CopyOut
+            label={MACOS_AND_LINUX}
+            name="macOS and Linux folder command"
+            tone="code"
+            value={NEW_FOLDER_COMMANDS.posix}
+          />
+        </>
       }
     >
       {children}
@@ -362,8 +402,22 @@ function NewFolderAction({ children }: { children: ReactNode }) {
   );
 }
 
-/** The sentence every saved file carries: it holds the token, so it goes. */
-const FILE_HOLDS_TOKEN = 'It holds the token in plain text, so delete it after the run.';
+/** The folder, named the same way in every tab's first action. */
+const Folder = () => <Code>{NEW_FOLDER}</Code>;
+
+/**
+ * Every config step says this (SECOND RUN): the file is saved over the one the
+ * last run left, never beside it.
+ */
+const SAVE_REPLACING = 'Save this file, replacing the old one.';
+
+/**
+ * The sentence every saved file carries. The token dies when the run ends, so
+ * a reused folder does not keep a live credential, and the last line of the
+ * steps says the folder can go once testing is done.
+ */
+const FILE_HOLDS_TOKEN =
+  "It holds this run's token in plain text, and that token stops working when the run ends.";
 
 /**
  * THE SHAPE EVERY TAB HAS, and the only shape a tab may have: an optional tag,
@@ -395,6 +449,12 @@ function ThreeSteps({
       </p>
       <ol data-testid="setup-steps" className={STEP_LIST}>
         <SetupStep name="Connect">
+          {/* Near step 1, word for word (SECOND RUN, 2026-11-02): the reader on
+              a second run has the last run's folder and file already. */}
+          <p data-testid="running-again-note" className="reading measure text-ink-muted">
+            Running again? Use the same folder and replace the config file with this one. Each run
+            has its own token; the last run{"'"}s token no longer works.
+          </p>
           <ol className={ACTION_LIST}>{actions}</ol>
           <p data-testid="other-servers-line" className="reading measure">
             {otherServers}
@@ -415,6 +475,9 @@ function ThreeSteps({
         <SetupStep name="Finish">
           <p data-testid="finish-line" className="reading measure">
             When your agent is done, press End run and get result.
+          </p>
+          <p data-testid="done-testing-line" className="reading measure text-ink-muted">
+            Done testing? You can delete <Folder />.
           </p>
         </SetupStep>
       </ol>
@@ -540,8 +603,9 @@ function ClaudeCode({ ticket, phase }: TabProps) {
       actions={
         <>
           <NewFolderAction>
-            Open a terminal. Make a new, empty folder and move into it, so the agent starts with no
-            files of yours in reach.
+            Open a terminal and move into a folder named <Folder />, empty the first time, so the
+            agent starts with no files of yours in reach. The command for your shell makes it if it
+            is not there.
           </NewFolderAction>
           <Action
             snippets={
@@ -554,7 +618,7 @@ function ClaudeCode({ ticket, phase }: TabProps) {
               />
             }
           >
-            Save this file in that folder. {FILE_HOLDS_TOKEN}
+            In that folder: {SAVE_REPLACING} {FILE_HOLDS_TOKEN}
           </Action>
           <Action
             snippets={
@@ -601,8 +665,22 @@ function ClaudeCode({ ticket, phase }: TabProps) {
         </div>
         <ol className="list-decimal space-y-4 pl-7 marker:font-mono marker:text-ink-muted">
           <NewFolderAction>
-            Open a terminal. Make a new, empty folder and move into it.
+            Open a terminal and move into a folder named <Folder />, empty the first time.
           </NewFolderAction>
+          <Action
+            snippets={
+              <CopyOut
+                label={BOTH_SHELLS}
+                name="Claude Code remove command"
+                tone="code"
+                value={REMOVE_SERVER_COMMAND}
+              />
+            }
+          >
+            Remove <Code>{MCP_SERVER_NAME}</Code> if it exists from an earlier run, because Claude
+            Code will not add a second server with the same name. If it says there is no such
+            server, go on.
+          </Action>
           <Action
             snippets={
               <Snippet
@@ -639,7 +717,8 @@ function VsCode({ ticket, phase }: TabProps) {
       actions={
         <>
           <Action>
-            Open a new, empty folder in VS Code, so the agent has no project files in reach.
+            Open a folder named <Folder /> in VS Code, empty the first time and the same one on a
+            later run, so the agent has no project files in reach.
           </Action>
           <Action
             snippets={
@@ -652,7 +731,7 @@ function VsCode({ ticket, phase }: TabProps) {
               />
             }
           >
-            Save this file in that folder. {FILE_HOLDS_TOKEN}
+            In that folder: {SAVE_REPLACING} {FILE_HOLDS_TOKEN}
           </Action>
           <Action>
             Open Copilot Chat and choose Agent. If VS Code asks whether you trust the folder or the
@@ -681,7 +760,8 @@ function Cursor({ ticket, phase }: TabProps) {
       actions={
         <>
           <Action>
-            Open a new, empty folder in Cursor, so the agent has no project files in reach.
+            Open a folder named <Folder /> in Cursor, empty the first time and the same one on a
+            later run, so the agent has no project files in reach.
           </Action>
           <Action
             snippets={
@@ -694,7 +774,7 @@ function Cursor({ ticket, phase }: TabProps) {
               />
             }
           >
-            Save this file in that folder. {FILE_HOLDS_TOKEN}
+            In that folder: {SAVE_REPLACING} {FILE_HOLDS_TOKEN}
           </Action>
           <Action>Start a new agent chat in that folder.</Action>
         </>
@@ -709,7 +789,7 @@ function Cursor({ ticket, phase }: TabProps) {
   );
 }
 
-// ── Codex: one table added to the config file in the home folder ──
+// ── Codex: one table in the config file in the home folder ──
 
 function Codex({ ticket, phase }: TabProps) {
   return (
@@ -720,8 +800,9 @@ function Codex({ ticket, phase }: TabProps) {
       actions={
         <>
           <NewFolderAction>
-            Open a terminal. Make a new, empty folder and move into it, so the agent starts with no
-            files of yours in reach.
+            Open a terminal and move into a folder named <Folder />, empty the first time, so the
+            agent starts with no files of yours in reach. The command for your shell makes it if it
+            is not there.
           </NewFolderAction>
           <Action
             snippets={
@@ -734,12 +815,14 @@ function Codex({ ticket, phase }: TabProps) {
               />
             }
           >
-            Add this block to the end of the Codex config file in your home folder, and keep
-            everything that is already in it. The block holds the token in plain text, so remove it
-            after the run.
+            Open the Codex config file in your home folder and keep everything that is already in
+            it. If it has a <Code>[mcp_servers.{MCP_SERVER_NAME}]</Code> table from an earlier run,
+            replace that table with this block instead of adding a second one, because Codex will
+            not read a file with two. Otherwise add this block to the end. It holds this run{"'"}s
+            token in plain text; you can remove it when you are done testing.
           </Action>
           <Action>
-            Start Codex in the new folder with <Code>codex</Code>.
+            Start Codex in <Folder /> with <Code>codex</Code>.
           </Action>
         </>
       }
@@ -765,8 +848,9 @@ function GeminiCli({ ticket, phase }: TabProps) {
       actions={
         <>
           <NewFolderAction>
-            Open a terminal. Make a new, empty folder and move into it, so the agent starts with no
-            files of yours in reach.
+            Open a terminal and move into a folder named <Folder />, empty the first time, so the
+            agent starts with no files of yours in reach. The command for your shell makes it if it
+            is not there.
           </NewFolderAction>
           <Action
             snippets={
@@ -779,7 +863,7 @@ function GeminiCli({ ticket, phase }: TabProps) {
               />
             }
           >
-            Save this file in that folder. {FILE_HOLDS_TOKEN}
+            In that folder: {SAVE_REPLACING} {FILE_HOLDS_TOKEN}
           </Action>
           <Action
             snippets={
@@ -817,8 +901,8 @@ function OtherAgent({ ticket, phase }: TabProps) {
       actions={
         <>
           <NewFolderAction>
-            If your agent starts from a folder, make a new, empty folder and start it there, so it
-            has no files of yours in reach.
+            If your agent starts from a folder, start it in a folder named <Folder />, empty the
+            first time, so it has no files of yours in reach.
           </NewFolderAction>
           <Action
             snippets={
