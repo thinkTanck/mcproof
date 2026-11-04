@@ -40,7 +40,18 @@ const TAGS = [
 
 async function check(name: string, userAgent: string): Promise<boolean> {
   const problems: string[] = [];
-  const page = await fetch(`${origin}/`, { headers: { 'user-agent': userAgent } });
+  // A redirect is not followed: a crawler sent to a sign-in page on another
+  // origin (deployment protection, a bot challenge) has been refused, and a
+  // followed redirect would read that page's 200 as a pass.
+  const page = await fetch(`${origin}/`, {
+    headers: { 'user-agent': userAgent },
+    redirect: 'manual',
+  });
+  if (page.status >= 300 && page.status < 400) {
+    const to = page.headers.get('location') ?? '?';
+    console.log(`${name}: page ${page.status} redirected to ${new URL(to, origin).origin}: FAIL`);
+    return false;
+  }
   const html = await page.text();
   if (page.status !== 200) problems.push(`page ${page.status}`);
   for (const tag of TAGS) if (!meta(html, tag)) problems.push(`no ${tag}`);
