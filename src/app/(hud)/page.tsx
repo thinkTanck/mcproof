@@ -17,7 +17,11 @@ import {
 import { offendingStepLabel } from '@/lib/hud/trace-view';
 import { describeLiveRunAllowanceNote } from '@/runs/allowance';
 import type { RunResult, Step } from '@/contract';
-import { METRIC_HEADING_CLASSIFICATION, METRIC_HEADING_COMPROMISE } from '@/lib/site-copy';
+import {
+  HOME_HEADLINE,
+  METRIC_HEADING_CLASSIFICATION,
+  METRIC_HEADING_COMPROMISE,
+} from '@/lib/site-copy';
 import { ProvenanceLine } from '@/components/hud/ProvenanceLine';
 
 /**
@@ -145,7 +149,7 @@ export default async function Home() {
             </p>
 
             <h1 id="home-title" className="reading-h1 max-w-[22ch]">
-              Test your AI agent against known attacks.
+              {HOME_HEADLINE}
             </h1>
 
             {/* WHAT THE PRODUCT DOES, in plain words (owner rulings 2026-10-15

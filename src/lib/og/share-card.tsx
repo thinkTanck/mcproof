@@ -8,6 +8,7 @@ import { flags } from '@/lib/replay/command-line';
 import { LOGO_RING, LOGO_WORDMARK } from '@/components/shell/LogoRing';
 import type { Step } from '@/contract';
 import { logger } from '@/lib/logger';
+import { SHARE_CARD_SIZE } from './share-card-meta';
 
 /**
  * THE LINK PREVIEW CARD (2026-11-04).
@@ -43,13 +44,7 @@ import { logger } from '@/lib/logger';
  * copied there because the renderer cannot read the woff2 the site serves).
  */
 
-/** The card's size, the one Open Graph and Twitter both draw at 1.91:1. */
-export const SHARE_CARD_SIZE = { width: 1200, height: 630 } as const;
-
-/** og:image:alt and twitter:image:alt: what the card shows, in words. */
-export const SHARE_CARD_ALT =
-  'MCProof. A replay of an AI agent reading a file outside its task, marked compromised at step 6.';
-
+export { SHARE_CARD_ALT, SHARE_CARD_SIZE, SHARE_CARD_VERSION } from './share-card-meta';
 /**
  * Where everything sits, in pixels of the 1200 by 630 card. The renderer takes
  * these as its styles, and the unit test reads the same numbers, so the margin

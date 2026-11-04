@@ -13,6 +13,7 @@ import {
 import { describeLiveRunAllowance, describeLiveRunAllowanceNote } from '@/runs/allowance';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { sampleDisplayProvenance } from '@/lib/display/dates';
+import { HOME_HEADLINE } from '@/lib/site-copy';
 import {
   classificationDisplayProvenance,
   compromiseDisplayProvenance,
@@ -34,14 +35,19 @@ async function renderHome() {
 describe('Home — landmarks & pitch', () => {
   it('exposes the hero as a region named by the level-1 pitch headline', async () => {
     await renderHome();
-    const h1 = screen.getByRole('heading', {
-      level: 1,
-      name: 'Test your AI agent against known attacks.',
-    });
+    // Owner ruling 2026-11-04 17:32: one constant, word for word.
+    expect(HOME_HEADLINE).toBe('Can your AI agent be turned against you?');
+    const h1 = screen.getByRole('heading', { level: 1, name: HOME_HEADLINE });
     expect(h1).toBeInTheDocument();
-    expect(
-      screen.getByRole('region', { name: /test your ai agent against known attacks/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: HOME_HEADLINE })).toBeInTheDocument();
+  });
+
+  it('asks whether an agent can be turned, and never claims MCProof stops or blocks one', () => {
+    // MCProof tests whether an agent can be hijacked. It does not protect one.
+    expect(HOME_HEADLINE).not.toMatch(
+      /\b(stop|stops|block|blocks|protect|protects|prevent|prevents|secure|secures)\b/i,
+    );
+    expect(HOME_HEADLINE).not.toContain('—');
   });
 
   it('labels the headline with what the product is (owner ruling 2026-10-15)', async () => {
@@ -479,7 +485,7 @@ describe('Home — what the product is, in words', () => {
 
   it('carries the OWASP badge and its explanation in the headline block', async () => {
     await renderHome();
-    const hero = screen.getByRole('region', { name: /test your ai agent/i });
+    const hero = screen.getByRole('region', { name: HOME_HEADLINE });
     const badge = within(hero).getByRole('link', { name: 'Maps to OWASP Agentic Top 10' });
     expect(badge).toHaveAttribute('href', '/threats');
     expect(within(hero).getByTestId('owasp-explainer').tagName).toBe('DETAILS');

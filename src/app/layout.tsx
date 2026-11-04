@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { BootSplash } from '@/components/splash/BootSplash';
 import { getSiteOrigin } from '@/config/env';
+import { OG_IMAGE, TWITTER_IMAGE } from '@/lib/og/share-card-meta';
 
 /**
  * `display: 'optional'` with next/font's metric-matched fallback: text paints
@@ -51,15 +52,18 @@ export const metadata: Metadata = {
     siteName: 'MCProof',
     title: TITLE,
     description: DESCRIPTION,
+    images: [OG_IMAGE],
   },
-  // A large-image card, because the site ships its image: `opengraph-image` and
-  // `twitter-image` beside this layout (`src/lib/og/share-card.tsx`). Next adds
-  // og:image, its size, type and alt, and twitter:image from those files, with
-  // absolute URLs on `metadataBase`, to every route that does not set its own.
+  // A large-image card, because the site ships its image: the routes
+  // `/opengraph-image` and `/twitter-image` (`src/lib/og/share-card.tsx`).
+  // Both URLs carry `?v=` and `SHARE_CARD_VERSION`, so a crawler that cached an
+  // older card fetches the new one; Next makes them absolute on `metadataBase`
+  // for every route that does not set its own.
   twitter: {
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
+    images: [TWITTER_IMAGE],
   },
 };
 
