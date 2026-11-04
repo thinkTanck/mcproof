@@ -6,13 +6,17 @@ import * as twitterImage from '@/app/twitter-image';
 import {
   SHARE_CARD_ALT,
   SHARE_CARD_COLORS,
-  SHARE_CARD_HEADLINE,
+  SHARE_CARD_LAYOUT,
+  SHARE_CARD_SIZE,
   SHARE_CARD_TERMINAL_BG,
   SHARE_CARD_TOKENS,
   cut,
   mixHex,
+  shareCardElement,
   shareCardTranscript,
+  terminalRows,
 } from '@/lib/og/share-card';
+import { isValidElement, type CSSProperties, type ReactNode } from 'react';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { SAMPLE_VERDICTS } from '@/data/fixtures/sample-verdicts';
 
@@ -62,11 +66,93 @@ describe('the share card image', () => {
   }, 30_000);
 });
 
-describe('the share card words', () => {
-  it('carries the line, word for word', () => {
-    expect(SHARE_CARD_HEADLINE).toBe('Can your AI agent be tricked into misusing its tools?');
+/**
+ * The card's element tree, with every function component called, so a test can
+ * read what is drawn and how it is placed without decoding pixels.
+ */
+interface Drawn {
+  style: CSSProperties;
+  text: string[];
+  children: Drawn[];
+}
+
+function expand(node: ReactNode): Drawn[] {
+  if (node === null || node === undefined || typeof node === 'boolean') return [];
+  if (typeof node === 'string' || typeof node === 'number') {
+    return [{ style: {}, text: [String(node)], children: [] }];
+  }
+  if (Array.isArray(node)) return node.flatMap(expand);
+  if (!isValidElement(node)) return [];
+  const props = node.props as { style?: CSSProperties; children?: ReactNode };
+  if (typeof node.type === 'function') {
+    return expand((node.type as (p: unknown) => ReactNode)(props));
+  }
+  return [{ style: props.style ?? {}, text: [], children: expand(props.children) }];
+}
+
+function allText(d: Drawn[]): string {
+  return d.map((n) => [...n.text, allText(n.children)].join('')).join('\n');
+}
+
+function allStyles(d: Drawn[]): CSSProperties[] {
+  return d.flatMap((n) => [n.style, ...allStyles(n.children)]);
+}
+
+/**
+ * OPTION B (2026-11-04). The headline was far too large, and LinkedIn crops the
+ * card's sides, which cut it to "an your AI agent". The card is now the lockup
+ * and the replay terminal, and nothing is drawn in the outer tenth of its width.
+ */
+describe('the share card layout', () => {
+  const root = expand(shareCardElement(shareCardTranscript()))[0]!;
+  const L = SHARE_CARD_LAYOUT;
+  const contentWidth = SHARE_CARD_SIZE.width - 2 * L.marginX;
+
+  it('draws no headline: the lockup and the terminal only', () => {
+    const text = allText([root]);
+    expect(text).not.toMatch(/tricked|misusing/i);
+    expect(SHARE_CARD_ALT).not.toMatch(/tricked|misusing/i);
+    expect(root.children).toHaveLength(2);
   });
 
+  it('keeps every text and the logo out of the outer 10% on each side', () => {
+    expect(L.marginX).toBeGreaterThanOrEqual(SHARE_CARD_SIZE.width * 0.1);
+    // The one box everything is drawn in is padded by that margin.
+    expect(root.style.paddingLeft).toBe(L.marginX);
+    expect(root.style.paddingRight).toBe(L.marginX);
+    for (const style of allStyles([root])) {
+      // Nothing is lifted out of the flow, pulled outward, or wider than the box.
+      expect(style.position).not.toBe('absolute');
+      for (const key of ['marginLeft', 'marginRight', 'left', 'right'] as const) {
+        const v = style[key];
+        if (typeof v === 'number') expect(v).toBeGreaterThanOrEqual(0);
+      }
+      for (const key of ['width', 'maxWidth', 'minWidth'] as const) {
+        const v = style[key];
+        if (typeof v === 'number' && style !== root.style) {
+          expect(v).toBeLessThanOrEqual(contentWidth);
+        }
+      }
+    }
+  });
+
+  it('fits the whole terminal on the card, every line wrapped inside its box', () => {
+    const lines = shareCardTranscript();
+    const rows = lines.reduce((sum, line) => sum + terminalRows(line), 0);
+    const lineBox = L.terminalFont * L.terminalLineHeight;
+    const terminalHeight = rows * lineBox + L.verdictGap + 2 * L.terminalPadY + 2;
+    const available = SHARE_CARD_SIZE.height - 2 * L.marginY - L.ringSize - L.lockupGap;
+    expect(terminalHeight).toBeLessThanOrEqual(available);
+    // No line runs past three rows, so none is a wall of text.
+    for (const line of lines) expect(terminalRows(line)).toBeLessThanOrEqual(3);
+  });
+
+  it('sets the terminal larger than before, now that the headline is gone', () => {
+    expect(L.terminalFont).toBeGreaterThan(19);
+  });
+});
+
+describe('the share card words', () => {
   it('ends its terminal on the step the recorded verdict anchors, from the featured sample', () => {
     const lines = shareCardTranscript();
     const anchor = SAMPLE_VERDICTS[SAMPLE_CATEGORY].stepId;
@@ -89,9 +175,13 @@ describe('the share card words', () => {
     expect(cut('short', 14)).toBe('short');
   });
 
+  it('alt text says what the card shows', () => {
+    expect(SHARE_CARD_ALT).toMatch(/^MCProof\./);
+    expect(SHARE_CARD_ALT).toMatch(/compromised at step 6/);
+  });
+
   it('uses no em dash and names no person, anywhere on the card', () => {
     const text = [
-      SHARE_CARD_HEADLINE,
       SHARE_CARD_ALT,
       ...shareCardTranscript().flatMap((l) => [l.prompt ?? '', l.text]),
     ].join('\n');

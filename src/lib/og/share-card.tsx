@@ -17,11 +17,19 @@ import type { Step } from '@/contract';
  * `/twitter-image` (the two route files only re-export this).
  *
  * WHAT IS ON IT. The lockup (the ring and the MCProof wordmark, as `LogoLockup`
- * draws them), one line of copy, and an excerpt of a real replay: the featured
+ * draws them) and an excerpt of a real replay: the featured
  * sample's opening task, its first tool call, and the step its recorded
  * verdict anchors, in breach red, then COMPROMISED AT STEP n. The excerpt is
  * read off the sample trace and the recorded verdict, never typed, so the card
  * can only say what the replay says. Nothing on it names a person.
+ *
+ * NO HEADLINE, AND A WIDE MARGIN (option B, 2026-11-04). The card used to carry
+ * a 60px headline, which read far too large, and LinkedIn crops the card's
+ * sides, which cut it to "an your AI agent". The page's og:title and
+ * og:description carry the words; the card carries the lockup and the terminal,
+ * and nothing is drawn in the outer tenth of its width (`SHARE_CARD_LAYOUT`).
+ * The terminal wraps each line at its column, as a terminal does, so no line
+ * can run into that margin; a unit test counts the rows against the card.
  *
  * WHERE THE COLOURS COME FROM. next/og draws with its own renderer, which
  * reads no CSS variables, so each colour is the hex of a primitive token in
@@ -36,13 +44,34 @@ import type { Step } from '@/contract';
 /** The card's size, the one Open Graph and Twitter both draw at 1.91:1. */
 export const SHARE_CARD_SIZE = { width: 1200, height: 630 } as const;
 
-/** The line under the lockup, word for word. */
-export const SHARE_CARD_HEADLINE = 'Can your AI agent be tricked into misusing its tools?';
-
 /** og:image:alt and twitter:image:alt: what the card shows, in words. */
 export const SHARE_CARD_ALT =
-  'MCProof. Can your AI agent be tricked into misusing its tools? A replay of an AI agent ' +
-  'reading a file outside its task, marked compromised at step 6.';
+  'MCProof. A replay of an AI agent reading a file outside its task, marked compromised at step 6.';
+
+/**
+ * Where everything sits, in pixels of the 1200 by 630 card. The renderer takes
+ * these as its styles, and the unit test reads the same numbers, so the margin
+ * and the fit are checked without decoding the image.
+ */
+export const SHARE_CARD_LAYOUT = {
+  /** Left and right: 10% of the width, so a crop of the sides cuts nothing. */
+  marginX: 120,
+  marginY: 56,
+  ringSize: 52,
+  wordmarkSize: 40,
+  /** Between the lockup and the terminal. */
+  lockupGap: 40,
+  terminalFont: 26,
+  terminalLineHeight: 1.5,
+  terminalPadX: 32,
+  terminalPadY: 28,
+  /** Between a prompt and its text. */
+  promptGap: 12,
+  /** Above the verdict line. */
+  verdictGap: 12,
+  /** Geist Mono's advance width, in ems: 600 of 1000 units, every glyph. */
+  monoAdvance: 0.6,
+} as const;
 
 /** Which primitive token each colour on the card is. */
 export const SHARE_CARD_TOKENS = {
@@ -96,7 +125,7 @@ export interface ShareCardLine {
   readonly text: string;
 }
 
-/** The longest an operator line may run before it is cut, so it fits one row. */
+/** The longest an operator line may run before it is cut, so it fits two rows. */
 const INPUT_CHARS = 58;
 
 /** `text` cut to `max` characters at the last whole word, with an ellipsis. */
@@ -105,6 +134,21 @@ export function cut(text: string, max: number): string {
   const head = text.slice(0, max - 1);
   const space = head.lastIndexOf(' ');
   return `${(space > 0 ? head.slice(0, space) : head).replace(/[\s,.;:]+$/, '')}…`;
+}
+
+/**
+ * How many rows a line takes in the terminal. Each text is hard-wrapped at its
+ * column (`wordBreak: 'break-all'`, as a terminal wraps), and every glyph of
+ * Geist Mono has the same advance, so this is arithmetic, not a guess.
+ */
+export function terminalRows(line: ShareCardLine): number {
+  if (line.kind === 'verdict') return 1;
+  const L = SHARE_CARD_LAYOUT;
+  const glyph = L.terminalFont * L.monoAdvance;
+  const inner = SHARE_CARD_SIZE.width - 2 * L.marginX - 2 * L.terminalPadX - 2;
+  const column = inner - (line.prompt ?? '').length * glyph - L.promptGap;
+  const perRow = Math.floor(column / glyph);
+  return Math.max(1, Math.ceil(line.text.length / perRow));
 }
 
 function commandOf(step: Step): string {
@@ -189,11 +233,13 @@ function Diamond({ size }: { size: number }) {
   );
 }
 
+const L = SHARE_CARD_LAYOUT;
+
 function TerminalLine({ line }: { line: ShareCardLine }) {
   if (line.kind === 'verdict') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, gap: 12 }}>
-        <Diamond size={16} />
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: L.verdictGap, gap: 14 }}>
+        <Diamond size={20} />
         <span style={{ color: C.breach, fontWeight: 600, letterSpacing: '0.08em' }}>
           {line.text}
         </span>
@@ -202,42 +248,49 @@ function TerminalLine({ line }: { line: ShareCardLine }) {
   }
   const breach = line.kind === 'breach';
   return (
-    <div style={{ display: 'flex', whiteSpace: 'nowrap' }}>
-      <span style={{ color: C.prompt, marginRight: 12 }}>{line.prompt}</span>
-      <span style={{ color: breach ? C.breachText : C.readout }}>{line.text}</span>
+    <div style={{ display: 'flex' }}>
+      <span style={{ color: C.prompt, marginRight: L.promptGap, flexShrink: 0 }}>
+        {line.prompt}
+      </span>
+      <span
+        style={{
+          color: breach ? C.breachText : C.readout,
+          flexGrow: 1,
+          flexShrink: 1,
+          wordBreak: 'break-all',
+        }}
+      >
+        {line.text}
+      </span>
     </div>
   );
 }
 
-/** The card, as an image response. Both route files return exactly this. */
-export async function renderShareCard(): Promise<ImageResponse> {
-  const [mono, monoBold, sansBold] = await Promise.all([
-    font('GeistMono-Regular.ttf'),
-    font('GeistMono-SemiBold.ttf'),
-    font('Geist-SemiBold.ttf'),
-  ]);
-  const lines = shareCardTranscript();
-  return new ImageResponse(
+/** The card's element tree: the lockup over the terminal, inside the margins. */
+export function shareCardElement(lines: readonly ShareCardLine[]) {
+  return (
     <div
       style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '56px 64px',
+        paddingTop: L.marginY,
+        paddingBottom: L.marginY,
+        paddingLeft: L.marginX,
+        paddingRight: L.marginX,
         background: C.base,
         fontFamily: SANS,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Ring size={52} />
+        <Ring size={L.ringSize} />
         <div
           style={{
             display: 'flex',
             fontFamily: MONO,
             fontWeight: 600,
-            fontSize: 40,
+            fontSize: L.wordmarkSize,
             letterSpacing: '0.09em',
             color: C.ink,
           }}
@@ -249,27 +302,20 @@ export async function renderShareCard(): Promise<ImageResponse> {
       <div
         style={{
           display: 'flex',
-          fontSize: 60,
-          fontWeight: 600,
-          lineHeight: 1.15,
-          letterSpacing: '-0.01em',
-          color: C.ink,
-          maxWidth: 1000,
-        }}
-      >
-        {SHARE_CARD_HEADLINE}
-      </div>
-      <div
-        style={{
-          display: 'flex',
           flexDirection: 'column',
-          padding: '22px 28px',
+          justifyContent: 'center',
+          flexGrow: 1,
+          marginTop: L.lockupGap,
+          paddingTop: L.terminalPadY,
+          paddingBottom: L.terminalPadY,
+          paddingLeft: L.terminalPadX,
+          paddingRight: L.terminalPadX,
           borderRadius: 12,
           border: `1px solid ${C.line}`,
           background: SHARE_CARD_TERMINAL_BG,
           fontFamily: MONO,
-          fontSize: 19,
-          lineHeight: 1.6,
+          fontSize: L.terminalFont,
+          lineHeight: L.terminalLineHeight,
           overflow: 'hidden',
         }}
       >
@@ -277,14 +323,23 @@ export async function renderShareCard(): Promise<ImageResponse> {
           <TerminalLine key={line.kind} line={line} />
         ))}
       </div>
-    </div>,
-    {
-      ...SHARE_CARD_SIZE,
-      fonts: [
-        { name: MONO, data: mono, weight: 400, style: 'normal' },
-        { name: MONO, data: monoBold, weight: 600, style: 'normal' },
-        { name: SANS, data: sansBold, weight: 600, style: 'normal' },
-      ],
-    },
+    </div>
   );
+}
+
+/** The card, as an image response. Both route files return exactly this. */
+export async function renderShareCard(): Promise<ImageResponse> {
+  const [mono, monoBold, sansBold] = await Promise.all([
+    font('GeistMono-Regular.ttf'),
+    font('GeistMono-SemiBold.ttf'),
+    font('Geist-SemiBold.ttf'),
+  ]);
+  return new ImageResponse(shareCardElement(shareCardTranscript()), {
+    ...SHARE_CARD_SIZE,
+    fonts: [
+      { name: MONO, data: mono, weight: 400, style: 'normal' },
+      { name: MONO, data: monoBold, weight: 600, style: 'normal' },
+      { name: SANS, data: sansBold, weight: 600, style: 'normal' },
+    ],
+  });
 }
