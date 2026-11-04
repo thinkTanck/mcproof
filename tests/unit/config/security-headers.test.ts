@@ -67,6 +67,10 @@ describe('route classes', () => {
     ['/robots.txt', 'public-file'],
     ['/.well-known/security.txt', 'public-file'],
     ['/email/mcproof-logo.png', 'public-file'],
+    // The link preview card is fetched by other sites' crawlers and clients.
+    ['/opengraph-image', 'public-file'],
+    ['/twitter-image', 'public-file'],
+    ['/opengraph-imagex', 'default'],
     ['/email/mcproof-logo.pngx', 'default'],
     ['/email/other.png', 'default'],
   ] as const)('%s is %s', (pathname, expected) => {
@@ -144,6 +148,8 @@ describe('the rules next.config.ts hands to Next', () => {
     '/robots.txt',
     '/.well-known/security.txt',
     '/email/mcproof-logo.png',
+    '/opengraph-image',
+    '/twitter-image',
     '/email/mcproof-logo.pngx',
     '/email/other.png',
   ];

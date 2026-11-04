@@ -73,12 +73,15 @@ const MCP_PREFIX = '/api/mcp';
 
 /** Files meant to be fetched from other origins. Exact paths. */
 // The sign-in email's logo is drawn by mail clients on other origins, so it is
-// one of these (LAUNCH POLISH, Part 7).
+// one of these (LAUNCH POLISH, Part 7). So is the link preview card, which other
+// sites' crawlers and clients fetch (2026-11-04).
 export const PUBLIC_FILE_PATHS = [
   '/icon.svg',
   '/robots.txt',
   '/.well-known/security.txt',
   '/email/mcproof-logo.png',
+  '/opengraph-image',
+  '/twitter-image',
 ] as const;
 
 /** Which class a request path belongs to. */
