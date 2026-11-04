@@ -7,6 +7,7 @@ import { OPERATOR_HANDLE, agentHandle } from '@/lib/replay/roles';
 import { flags } from '@/lib/replay/command-line';
 import { LOGO_RING, LOGO_WORDMARK } from '@/components/shell/LogoRing';
 import type { Step } from '@/contract';
+import { logger } from '@/lib/logger';
 
 /**
  * THE LINK PREVIEW CARD (2026-11-04).
@@ -17,11 +18,20 @@ import type { Step } from '@/contract';
  * `/twitter-image` (the two route files only re-export this).
  *
  * WHAT IS ON IT. The lockup (the ring and the MCProof wordmark, as `LogoLockup`
- * draws them), one line of copy, and an excerpt of a real replay: the featured
+ * draws them) and an excerpt of a real replay: the featured
  * sample's opening task, its first tool call, and the step its recorded
  * verdict anchors, in breach red, then COMPROMISED AT STEP n. The excerpt is
  * read off the sample trace and the recorded verdict, never typed, so the card
  * can only say what the replay says. Nothing on it names a person.
+ *
+ * NO HEADLINE, AND A WIDE MARGIN (option B, 2026-11-04). The card used to carry
+ * a 60px headline, which read far too large, and LinkedIn crops the card's
+ * sides, which cut it to "an your AI agent". The page's og:title and
+ * og:description carry the words; the card carries the lockup and the terminal,
+ * and nothing is drawn in the outer tenth of its width (`SHARE_CARD_LAYOUT`).
+ * The terminal wraps each line inside its column, so no line can run into that
+ * margin; `wrapTerminalLine` counts the rows (never fewer than are drawn) and a
+ * line it cannot fit is refused, not drawn.
  *
  * WHERE THE COLOURS COME FROM. next/og draws with its own renderer, which
  * reads no CSS variables, so each colour is the hex of a primitive token in
@@ -36,13 +46,34 @@ import type { Step } from '@/contract';
 /** The card's size, the one Open Graph and Twitter both draw at 1.91:1. */
 export const SHARE_CARD_SIZE = { width: 1200, height: 630 } as const;
 
-/** The line under the lockup, word for word. */
-export const SHARE_CARD_HEADLINE = 'Can your AI agent be tricked into misusing its tools?';
-
 /** og:image:alt and twitter:image:alt: what the card shows, in words. */
 export const SHARE_CARD_ALT =
-  'MCProof. Can your AI agent be tricked into misusing its tools? A replay of an AI agent ' +
-  'reading a file outside its task, marked compromised at step 6.';
+  'MCProof. A replay of an AI agent reading a file outside its task, marked compromised at step 6.';
+
+/**
+ * Where everything sits, in pixels of the 1200 by 630 card. The renderer takes
+ * these as its styles, and the unit test reads the same numbers, so the margin
+ * and the fit are checked without decoding the image.
+ */
+export const SHARE_CARD_LAYOUT = {
+  /** Left and right: 10% of the width, so a crop of the sides cuts nothing. */
+  marginX: 120,
+  marginY: 56,
+  ringSize: 52,
+  wordmarkSize: 40,
+  /** Between the lockup and the terminal. */
+  lockupGap: 40,
+  terminalFont: 26,
+  terminalLineHeight: 1.5,
+  terminalPadX: 32,
+  terminalPadY: 28,
+  /** Between a prompt and its text. */
+  promptGap: 12,
+  /** Above the verdict line. */
+  verdictGap: 12,
+  /** Geist Mono's advance width, in ems: 600 of 1000 units, every glyph. */
+  monoAdvance: 0.6,
+} as const;
 
 /** Which primitive token each colour on the card is. */
 export const SHARE_CARD_TOKENS = {
@@ -96,7 +127,7 @@ export interface ShareCardLine {
   readonly text: string;
 }
 
-/** The longest an operator line may run before it is cut, so it fits one row. */
+/** The longest an operator line may run before it is cut, so it fits two rows. */
 const INPUT_CHARS = 58;
 
 /** `text` cut to `max` characters at the last whole word, with an ellipsis. */
@@ -105,6 +136,94 @@ export function cut(text: string, max: number): string {
   const head = text.slice(0, max - 1);
   const space = head.lastIndexOf(' ');
   return `${(space > 0 ? head.slice(0, space) : head).replace(/[\s,.;:]+$/, '')}…`;
+}
+
+/**
+ * How a line wraps in the terminal, worked out so it can only OVERCOUNT rows.
+ *
+ * - Every glyph is measured at `monoAdvance`, the widest advance Geist Mono has
+ *   (a unit test reads it off the font), so a row never holds fewer glyphs than
+ *   this assumes.
+ * - The text breaks only after a space or a slash, and a trailing space is
+ *   counted as if it took room. The renderer's text is `wordBreak: 'break-all'`,
+ *   so it may break at those places and anywhere else: a greedy wrap with more
+ *   places to break never needs more rows.
+ * - A run with no space or slash that is wider than the column is `overflow`.
+ *   The unit test fails on it (`terminalRows` throws), so a change that makes
+ *   one fails CI. The page itself never throws: `fitTerminalLine` cuts it.
+ */
+export function wrapTerminalLine(line: ShareCardLine): { rows: number; overflow: boolean } {
+  if (line.kind === 'verdict') return { rows: 1, overflow: false };
+  const perRow = columnChars(line);
+  const segments = segmentsOf(line.text);
+  let rows = 1;
+  let used = 0;
+  let overflow = false;
+  for (const segment of segments) {
+    if (segment.replace(/ $/, '').length > perRow) overflow = true;
+    if (used > 0 && used + segment.length > perRow) {
+      rows += 1;
+      used = 0;
+    }
+    used += segment.length;
+  }
+  return { rows, overflow };
+}
+
+/** How many glyphs fit on one row beside a line's prompt, at the widest advance. */
+function columnChars(line: ShareCardLine): number {
+  const L = SHARE_CARD_LAYOUT;
+  const glyph = L.terminalFont * L.monoAdvance;
+  const inner = SHARE_CARD_SIZE.width - 2 * L.marginX - 2 * L.terminalPadX - 2;
+  const column = inner - (line.prompt ?? '').length * glyph - L.promptGap;
+  return Math.floor(column / glyph);
+}
+
+/** A text split after each space and each slash, the only places this wraps. */
+function segmentsOf(text: string): string[] {
+  return text.match(/[^ /]*[ /]|[^ /]+/g) ?? [];
+}
+
+/**
+ * THE TEST GATE: the rows a line takes, and a throw when it overflows. Only the
+ * unit test calls it; the card itself draws through `fitTerminalLine`.
+ */
+export function terminalRows(line: ShareCardLine): number {
+  const { rows, overflow } = wrapTerminalLine(line);
+  if (overflow) {
+    throw new Error(`share card line overflows its column: ${line.text}`);
+  }
+  return rows;
+}
+
+/**
+ * THE RUNTIME PATH: a line that fits is returned as it is (the same object, so
+ * today's card is unchanged). A line that overflows keeps its full rows up to
+ * the run that cannot fit, then as much of that run as one row holds, ending
+ * in an ellipsis. It never throws.
+ */
+export function fitTerminalLine(line: ShareCardLine): ShareCardLine {
+  if (!wrapTerminalLine(line).overflow) return line;
+  const perRow = columnChars(line);
+  let text = '';
+  for (const segment of segmentsOf(line.text)) {
+    if (segment.replace(/ $/, '').length > perRow) {
+      text += `${segment.slice(0, perRow - 1)}…`;
+      break;
+    }
+    text += segment;
+  }
+  return { ...line, text };
+}
+
+/** Every line fitted, with one warning for the whole card if any was cut. */
+function fitTranscript(lines: readonly ShareCardLine[]): ShareCardLine[] {
+  const fitted = lines.map(fitTerminalLine);
+  const cut = fitted.filter((line, i) => line !== lines[i]).length;
+  if (cut > 0) {
+    logger.warn('share card: terminal lines overflowed their column and were cut', { cut });
+  }
+  return fitted;
 }
 
 function commandOf(step: Step): string {
@@ -189,11 +308,13 @@ function Diamond({ size }: { size: number }) {
   );
 }
 
+const L = SHARE_CARD_LAYOUT;
+
 function TerminalLine({ line }: { line: ShareCardLine }) {
   if (line.kind === 'verdict') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, gap: 12 }}>
-        <Diamond size={16} />
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: L.verdictGap, gap: 14 }}>
+        <Diamond size={20} />
         <span style={{ color: C.breach, fontWeight: 600, letterSpacing: '0.08em' }}>
           {line.text}
         </span>
@@ -202,42 +323,51 @@ function TerminalLine({ line }: { line: ShareCardLine }) {
   }
   const breach = line.kind === 'breach';
   return (
-    <div style={{ display: 'flex', whiteSpace: 'nowrap' }}>
-      <span style={{ color: C.prompt, marginRight: 12 }}>{line.prompt}</span>
-      <span style={{ color: breach ? C.breachText : C.readout }}>{line.text}</span>
+    <div style={{ display: 'flex' }}>
+      <span style={{ color: C.prompt, marginRight: L.promptGap, flexShrink: 0 }}>
+        {line.prompt}
+      </span>
+      <span
+        style={{
+          color: breach ? C.breachText : C.readout,
+          flexGrow: 1,
+          flexShrink: 1,
+          wordBreak: 'break-all',
+        }}
+      >
+        {line.text}
+      </span>
     </div>
   );
 }
 
-/** The card, as an image response. Both route files return exactly this. */
-export async function renderShareCard(): Promise<ImageResponse> {
-  const [mono, monoBold, sansBold] = await Promise.all([
-    font('GeistMono-Regular.ttf'),
-    font('GeistMono-SemiBold.ttf'),
-    font('Geist-SemiBold.ttf'),
-  ]);
-  const lines = shareCardTranscript();
-  return new ImageResponse(
+/** The card's element tree: the lockup over the terminal, inside the margins. */
+export function shareCardElement(lines: readonly ShareCardLine[]) {
+  // A line that would overflow is cut, never drawn past its box and never thrown.
+  const drawn = fitTranscript(lines);
+  return (
     <div
       style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '56px 64px',
+        paddingTop: L.marginY,
+        paddingBottom: L.marginY,
+        paddingLeft: L.marginX,
+        paddingRight: L.marginX,
         background: C.base,
         fontFamily: SANS,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Ring size={52} />
+        <Ring size={L.ringSize} />
         <div
           style={{
             display: 'flex',
             fontFamily: MONO,
             fontWeight: 600,
-            fontSize: 40,
+            fontSize: L.wordmarkSize,
             letterSpacing: '0.09em',
             color: C.ink,
           }}
@@ -249,42 +379,46 @@ export async function renderShareCard(): Promise<ImageResponse> {
       <div
         style={{
           display: 'flex',
-          fontSize: 60,
-          fontWeight: 600,
-          lineHeight: 1.15,
-          letterSpacing: '-0.01em',
-          color: C.ink,
-          maxWidth: 1000,
-        }}
-      >
-        {SHARE_CARD_HEADLINE}
-      </div>
-      <div
-        style={{
-          display: 'flex',
           flexDirection: 'column',
-          padding: '22px 28px',
+          justifyContent: 'center',
+          flexGrow: 1,
+          marginTop: L.lockupGap,
+          paddingTop: L.terminalPadY,
+          paddingBottom: L.terminalPadY,
+          paddingLeft: L.terminalPadX,
+          paddingRight: L.terminalPadX,
           borderRadius: 12,
           border: `1px solid ${C.line}`,
           background: SHARE_CARD_TERMINAL_BG,
           fontFamily: MONO,
-          fontSize: 19,
-          lineHeight: 1.6,
+          fontSize: L.terminalFont,
+          lineHeight: L.terminalLineHeight,
           overflow: 'hidden',
         }}
       >
-        {lines.map((line) => (
+        {drawn.map((line) => (
           <TerminalLine key={line.kind} line={line} />
         ))}
       </div>
-    </div>,
-    {
-      ...SHARE_CARD_SIZE,
-      fonts: [
-        { name: MONO, data: mono, weight: 400, style: 'normal' },
-        { name: MONO, data: monoBold, weight: 600, style: 'normal' },
-        { name: SANS, data: sansBold, weight: 600, style: 'normal' },
-      ],
-    },
+    </div>
   );
+}
+
+/** The card, as an image response. Both route files return exactly this. */
+export async function renderShareCard(
+  lines: readonly ShareCardLine[] = shareCardTranscript(),
+): Promise<ImageResponse> {
+  const [mono, monoBold, sansBold] = await Promise.all([
+    font('GeistMono-Regular.ttf'),
+    font('GeistMono-SemiBold.ttf'),
+    font('Geist-SemiBold.ttf'),
+  ]);
+  return new ImageResponse(shareCardElement(lines), {
+    ...SHARE_CARD_SIZE,
+    fonts: [
+      { name: MONO, data: mono, weight: 400, style: 'normal' },
+      { name: MONO, data: monoBold, weight: 600, style: 'normal' },
+      { name: SANS, data: sansBold, weight: 600, style: 'normal' },
+    ],
+  });
 }
