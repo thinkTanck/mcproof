@@ -184,11 +184,26 @@ describe('logo lockup · one definition', () => {
   });
 
   it('writes the wordmark out in exactly one file, the shared component', () => {
-    const writers = sourceFiles(SRC)
-      .filter((file) => /MC<span/.test(readFileSync(file, 'utf8')))
+    // The letters live in LOGO_WORDMARK, in LogoRing.tsx, and nowhere else.
+    const literals = sourceFiles(SRC)
+      .filter((file) => /MC<span|lead: 'MC'/.test(readFileSync(file, 'utf8')))
       .map(show);
 
-    expect(writers).toEqual(['src/components/shell/LogoRing.tsx']);
+    expect(literals).toEqual(['src/components/shell/LogoRing.tsx']);
+  });
+
+  it('draws the mark in two places, both from the one definition', () => {
+    // The lockup, and the link preview card, whose renderer reads no CSS and so
+    // cannot render the component itself (2026-11-04).
+    const drawers = sourceFiles(SRC)
+      .filter((file) => /LOGO_WORDMARK\.lead/.test(readFileSync(file, 'utf8')))
+      .map(show)
+      .sort();
+
+    expect(drawers).toEqual(['src/components/shell/LogoRing.tsx', 'src/lib/og/share-card.tsx']);
+    const card = readFileSync(join(root, 'src/lib/og/share-card.tsx'), 'utf8');
+    expect(card).toMatch(/strokeDasharray=\{LOGO_RING\.arcDash\}/);
+    expect(card).not.toMatch(/14 42\.55/);
   });
 
   it('leaves no 20px wordmark behind', () => {

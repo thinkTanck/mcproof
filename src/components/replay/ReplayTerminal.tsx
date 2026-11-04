@@ -18,6 +18,7 @@ import {
   type FollowState,
 } from './follow-step';
 import { useReplayLayout } from './phone-layout';
+import { compact, flags } from '@/lib/replay/command-line';
 import { PrintedHandle, SpeakerHandle } from './SpeakerHandle';
 import { OPERATOR_HANDLE, agentHandle, handleForStep } from '@/lib/replay/roles';
 import type { Step } from '@/contract';
@@ -76,29 +77,6 @@ import { SESSION_ENDED, isInferredSessionEnd } from '@/lib/replay/session-end';
  * its handle and Right moves back, and the same definitions are in the legend
  * above the terminal. A row the playhead has not reached draws no handle.
  */
-
-function compact(v: unknown): string {
-  let s: string;
-  if (typeof v === 'string') s = v;
-  else {
-    try {
-      s = JSON.stringify(v);
-    } catch {
-      s = String(v);
-    }
-  }
-  s = s.replace(/\s+/g, ' ').trim();
-  return s.length > 220 ? `${s.slice(0, 219)}…` : s;
-}
-
-function flags(args: unknown): string {
-  if (args && typeof args === 'object' && !Array.isArray(args)) {
-    return Object.entries(args as Record<string, unknown>)
-      .map(([k, v]) => `--${k}=${typeof v === 'string' ? `"${v}"` : compact(v)}`)
-      .join(' ');
-  }
-  return compact(args);
-}
 
 /**
  * One shell line per step, in one of three classes so input, action and output

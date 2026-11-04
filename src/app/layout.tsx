@@ -52,12 +52,12 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
-  // `summary`, not `summary_large_image`: the repo ships no `opengraph-image.*`
-  // and no static share asset, and a large-image card with no image behind it is
-  // a declaration we cannot honour. Promote it in the same change that adds the
-  // image, never before.
+  // A large-image card, because the site ships its image: `opengraph-image` and
+  // `twitter-image` beside this layout (`src/lib/og/share-card.tsx`). Next adds
+  // og:image, its size, type and alt, and twitter:image from those files, with
+  // absolute URLs on `metadataBase`, to every route that does not set its own.
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
   },

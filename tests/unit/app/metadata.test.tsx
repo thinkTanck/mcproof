@@ -97,6 +97,20 @@ describe('shipped page metadata', () => {
 });
 
 describe('root metadata URL contract', () => {
+  // LINK PREVIEWS (2026-11-04): the site now ships `opengraph-image` and
+  // `twitter-image`, so the card is promoted to the large-image type, and the
+  // existing title and description are kept as they were.
+  it('declares a large-image Twitter card and keeps the title and description', async () => {
+    const { metadata } = await import('@/app/layout');
+    const twitter = metadata.twitter as { card?: string; title?: string; description?: string };
+    expect(twitter.card).toBe('summary_large_image');
+    expect(twitter.title).toBe('MCProof · Red-team testing for AI agents that use MCP tools');
+    expect(twitter.description).toBe(metadata.description);
+    expect(metadata.openGraph?.title).toBe(metadata.title);
+    expect(metadata.openGraph?.description).toBe(metadata.description);
+    expect(String(metadata.description)).toMatch(/^MCProof tests whether your AI agent/);
+  });
+
   it('pins a metadataBase at the canonical origin so relative URLs resolve', async () => {
     const { metadata } = await import('@/app/layout');
     // Without metadataBase, Next resolves relative OG/canonical URLs against
