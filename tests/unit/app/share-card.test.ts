@@ -15,6 +15,8 @@ import {
   shareCardElement,
   shareCardTranscript,
   terminalRows,
+  wrapTerminalLine,
+  type ShareCardLine,
 } from '@/lib/og/share-card';
 import { isValidElement, type CSSProperties, type ReactNode } from 'react';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
@@ -145,6 +147,50 @@ describe('the share card layout', () => {
     expect(terminalHeight).toBeLessThanOrEqual(available);
     // No line runs past three rows, so none is a wall of text.
     for (const line of lines) expect(terminalRows(line)).toBeLessThanOrEqual(3);
+  });
+
+  it("wraps today's featured lines with no overflow, at the row counts drawn now", () => {
+    const wrapped = shareCardTranscript().map((line) => wrapTerminalLine(line));
+    expect(wrapped.map((w) => w.overflow)).toEqual([false, false, false, false]);
+    expect(wrapped.map((w) => w.rows)).toEqual([2, 2, 2, 1]);
+  });
+
+  it('breaks only at spaces and slashes, and calls an unbroken token wider than the line overflow', () => {
+    const agent = shareCardTranscript()[1]!.prompt;
+    // A path with slashes wraps at a slash.
+    expect(
+      wrapTerminalLine({
+        kind: 'cmd',
+        prompt: agent,
+        text: 'cat /srv/invoices/4821/2026-07/receipts/x.pdf',
+      }),
+    ).toEqual({ rows: 2, overflow: false });
+    // One token with no space and no slash, longer than the column: overflow,
+    // and the card refuses to be drawn with it.
+    const unbroken: ShareCardLine = {
+      kind: 'breach',
+      prompt: agent,
+      text: `curl --data=${'A'.repeat(48)}`,
+    };
+    expect(wrapTerminalLine(unbroken).overflow).toBe(true);
+    expect(() => terminalRows(unbroken)).toThrow(/overflow/);
+    expect(() => shareCardElement([...shareCardTranscript().slice(0, 3), unbroken])).toThrow(
+      /overflow/,
+    );
+  });
+
+  it('measures every glyph at the widest advance Geist Mono has, so it can only overcount', () => {
+    const ttf = readFileSync(join(process.cwd(), 'assets', 'og-fonts', 'GeistMono-Regular.ttf'));
+    const tables = new Map<string, number>();
+    for (let i = 0; i < ttf.readUInt16BE(4); i += 1) {
+      const at = 12 + i * 16;
+      tables.set(ttf.toString('latin1', at, at + 4), ttf.readUInt32BE(at + 8));
+    }
+    const head = tables.get('head')!;
+    const hhea = tables.get('hhea')!;
+    const unitsPerEm = ttf.readUInt16BE(head + 18);
+    const advanceWidthMax = ttf.readUInt16BE(hhea + 10);
+    expect(L.monoAdvance).toBeGreaterThanOrEqual(advanceWidthMax / unitsPerEm);
   });
 
   it('sets the terminal larger than before, now that the headline is gone', () => {

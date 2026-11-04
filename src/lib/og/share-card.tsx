@@ -28,8 +28,9 @@ import type { Step } from '@/contract';
  * sides, which cut it to "an your AI agent". The page's og:title and
  * og:description carry the words; the card carries the lockup and the terminal,
  * and nothing is drawn in the outer tenth of its width (`SHARE_CARD_LAYOUT`).
- * The terminal wraps each line at its column, as a terminal does, so no line
- * can run into that margin; a unit test counts the rows against the card.
+ * The terminal wraps each line inside its column, so no line can run into that
+ * margin; `wrapTerminalLine` counts the rows (never fewer than are drawn) and a
+ * line it cannot fit is refused, not drawn.
  *
  * WHERE THE COLOURS COME FROM. next/og draws with its own renderer, which
  * reads no CSS variables, so each colour is the hex of a primitive token in
@@ -137,18 +138,47 @@ export function cut(text: string, max: number): string {
 }
 
 /**
- * How many rows a line takes in the terminal. Each text is hard-wrapped at its
- * column (`wordBreak: 'break-all'`, as a terminal wraps), and every glyph of
- * Geist Mono has the same advance, so this is arithmetic, not a guess.
+ * How a line wraps in the terminal, worked out so it can only OVERCOUNT rows.
+ *
+ * - Every glyph is measured at `monoAdvance`, the widest advance Geist Mono has
+ *   (a unit test reads it off the font), so a row never holds fewer glyphs than
+ *   this assumes.
+ * - The text breaks only after a space or a slash, and a trailing space is
+ *   counted as if it took room. The renderer's text is `wordBreak: 'break-all'`,
+ *   so it may break at those places and anywhere else: a greedy wrap with more
+ *   places to break never needs more rows.
+ * - A run with no space or slash that is wider than the column is `overflow`:
+ *   this check will not vouch for it, and the card refuses to draw it.
  */
-export function terminalRows(line: ShareCardLine): number {
-  if (line.kind === 'verdict') return 1;
+export function wrapTerminalLine(line: ShareCardLine): { rows: number; overflow: boolean } {
+  if (line.kind === 'verdict') return { rows: 1, overflow: false };
   const L = SHARE_CARD_LAYOUT;
   const glyph = L.terminalFont * L.monoAdvance;
   const inner = SHARE_CARD_SIZE.width - 2 * L.marginX - 2 * L.terminalPadX - 2;
   const column = inner - (line.prompt ?? '').length * glyph - L.promptGap;
   const perRow = Math.floor(column / glyph);
-  return Math.max(1, Math.ceil(line.text.length / perRow));
+  const segments = line.text.match(/[^ /]*[ /]|[^ /]+/g) ?? [];
+  let rows = 1;
+  let used = 0;
+  let overflow = false;
+  for (const segment of segments) {
+    if (segment.replace(/ $/, '').length > perRow) overflow = true;
+    if (used > 0 && used + segment.length > perRow) {
+      rows += 1;
+      used = 0;
+    }
+    used += segment.length;
+  }
+  return { rows, overflow };
+}
+
+/** The rows a line takes; throws when a line overflows its column. */
+export function terminalRows(line: ShareCardLine): number {
+  const { rows, overflow } = wrapTerminalLine(line);
+  if (overflow) {
+    throw new Error(`share card line overflows its column: ${line.text}`);
+  }
+  return rows;
 }
 
 function commandOf(step: Step): string {
@@ -268,6 +298,8 @@ function TerminalLine({ line }: { line: ShareCardLine }) {
 
 /** The card's element tree: the lockup over the terminal, inside the margins. */
 export function shareCardElement(lines: readonly ShareCardLine[]) {
+  // A line this check cannot fit is refused, not drawn past its box.
+  for (const line of lines) terminalRows(line);
   return (
     <div
       style={{
