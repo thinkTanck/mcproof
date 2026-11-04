@@ -7,6 +7,7 @@ import { OPERATOR_HANDLE, agentHandle } from '@/lib/replay/roles';
 import { flags } from '@/lib/replay/command-line';
 import { LOGO_RING, LOGO_WORDMARK } from '@/components/shell/LogoRing';
 import type { Step } from '@/contract';
+import { logger } from '@/lib/logger';
 
 /**
  * THE LINK PREVIEW CARD (2026-11-04).
@@ -147,17 +148,14 @@ export function cut(text: string, max: number): string {
  *   counted as if it took room. The renderer's text is `wordBreak: 'break-all'`,
  *   so it may break at those places and anywhere else: a greedy wrap with more
  *   places to break never needs more rows.
- * - A run with no space or slash that is wider than the column is `overflow`:
- *   this check will not vouch for it, and the card refuses to draw it.
+ * - A run with no space or slash that is wider than the column is `overflow`.
+ *   The unit test fails on it (`terminalRows` throws), so a change that makes
+ *   one fails CI. The page itself never throws: `fitTerminalLine` cuts it.
  */
 export function wrapTerminalLine(line: ShareCardLine): { rows: number; overflow: boolean } {
   if (line.kind === 'verdict') return { rows: 1, overflow: false };
-  const L = SHARE_CARD_LAYOUT;
-  const glyph = L.terminalFont * L.monoAdvance;
-  const inner = SHARE_CARD_SIZE.width - 2 * L.marginX - 2 * L.terminalPadX - 2;
-  const column = inner - (line.prompt ?? '').length * glyph - L.promptGap;
-  const perRow = Math.floor(column / glyph);
-  const segments = line.text.match(/[^ /]*[ /]|[^ /]+/g) ?? [];
+  const perRow = columnChars(line);
+  const segments = segmentsOf(line.text);
   let rows = 1;
   let used = 0;
   let overflow = false;
@@ -172,13 +170,60 @@ export function wrapTerminalLine(line: ShareCardLine): { rows: number; overflow:
   return { rows, overflow };
 }
 
-/** The rows a line takes; throws when a line overflows its column. */
+/** How many glyphs fit on one row beside a line's prompt, at the widest advance. */
+function columnChars(line: ShareCardLine): number {
+  const L = SHARE_CARD_LAYOUT;
+  const glyph = L.terminalFont * L.monoAdvance;
+  const inner = SHARE_CARD_SIZE.width - 2 * L.marginX - 2 * L.terminalPadX - 2;
+  const column = inner - (line.prompt ?? '').length * glyph - L.promptGap;
+  return Math.floor(column / glyph);
+}
+
+/** A text split after each space and each slash, the only places this wraps. */
+function segmentsOf(text: string): string[] {
+  return text.match(/[^ /]*[ /]|[^ /]+/g) ?? [];
+}
+
+/**
+ * THE TEST GATE: the rows a line takes, and a throw when it overflows. Only the
+ * unit test calls it; the card itself draws through `fitTerminalLine`.
+ */
 export function terminalRows(line: ShareCardLine): number {
   const { rows, overflow } = wrapTerminalLine(line);
   if (overflow) {
     throw new Error(`share card line overflows its column: ${line.text}`);
   }
   return rows;
+}
+
+/**
+ * THE RUNTIME PATH: a line that fits is returned as it is (the same object, so
+ * today's card is unchanged). A line that overflows keeps its full rows up to
+ * the run that cannot fit, then as much of that run as one row holds, ending
+ * in an ellipsis. It never throws.
+ */
+export function fitTerminalLine(line: ShareCardLine): ShareCardLine {
+  if (!wrapTerminalLine(line).overflow) return line;
+  const perRow = columnChars(line);
+  let text = '';
+  for (const segment of segmentsOf(line.text)) {
+    if (segment.replace(/ $/, '').length > perRow) {
+      text += `${segment.slice(0, perRow - 1)}…`;
+      break;
+    }
+    text += segment;
+  }
+  return { ...line, text };
+}
+
+/** Every line fitted, with one warning for the whole card if any was cut. */
+function fitTranscript(lines: readonly ShareCardLine[]): ShareCardLine[] {
+  const fitted = lines.map(fitTerminalLine);
+  const cut = fitted.filter((line, i) => line !== lines[i]).length;
+  if (cut > 0) {
+    logger.warn('share card: terminal lines overflowed their column and were cut', { cut });
+  }
+  return fitted;
 }
 
 function commandOf(step: Step): string {
@@ -298,8 +343,8 @@ function TerminalLine({ line }: { line: ShareCardLine }) {
 
 /** The card's element tree: the lockup over the terminal, inside the margins. */
 export function shareCardElement(lines: readonly ShareCardLine[]) {
-  // A line this check cannot fit is refused, not drawn past its box.
-  for (const line of lines) terminalRows(line);
+  // A line that would overflow is cut, never drawn past its box and never thrown.
+  const drawn = fitTranscript(lines);
   return (
     <div
       style={{
@@ -351,7 +396,7 @@ export function shareCardElement(lines: readonly ShareCardLine[]) {
           overflow: 'hidden',
         }}
       >
-        {lines.map((line) => (
+        {drawn.map((line) => (
           <TerminalLine key={line.kind} line={line} />
         ))}
       </div>
@@ -360,13 +405,15 @@ export function shareCardElement(lines: readonly ShareCardLine[]) {
 }
 
 /** The card, as an image response. Both route files return exactly this. */
-export async function renderShareCard(): Promise<ImageResponse> {
+export async function renderShareCard(
+  lines: readonly ShareCardLine[] = shareCardTranscript(),
+): Promise<ImageResponse> {
   const [mono, monoBold, sansBold] = await Promise.all([
     font('GeistMono-Regular.ttf'),
     font('GeistMono-SemiBold.ttf'),
     font('Geist-SemiBold.ttf'),
   ]);
-  return new ImageResponse(shareCardElement(shareCardTranscript()), {
+  return new ImageResponse(shareCardElement(lines), {
     ...SHARE_CARD_SIZE,
     fonts: [
       { name: MONO, data: mono, weight: 400, style: 'normal' },

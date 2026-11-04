@@ -14,11 +14,14 @@ import {
   mixHex,
   shareCardElement,
   shareCardTranscript,
+  fitTerminalLine,
+  renderShareCard,
   terminalRows,
   wrapTerminalLine,
   type ShareCardLine,
 } from '@/lib/og/share-card';
 import { isValidElement, type CSSProperties, type ReactNode } from 'react';
+import { logger } from '@/lib/logger';
 import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { SAMPLE_VERDICTS } from '@/data/fixtures/sample-verdicts';
 
@@ -36,6 +39,19 @@ function pngSize(bytes: Uint8Array): { width: number; height: number } {
 }
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** A breach line with one 48-letter run and no space or slash in it. */
+const UNBROKEN: ShareCardLine = {
+  kind: 'breach',
+  prompt: 'target-agent@sentinel:~$',
+  text: `curl --data=${'A'.repeat(48)}`,
+};
+
+/** Today's transcript with its breach line swapped for `UNBROKEN`. */
+function withUnbroken(): ShareCardLine[] {
+  const lines = shareCardTranscript();
+  return [...lines.slice(0, 2), UNBROKEN, lines[3]!];
+}
 
 async function render(mod: typeof ogImage) {
   const response = await mod.default();
@@ -165,19 +181,43 @@ describe('the share card layout', () => {
         text: 'cat /srv/invoices/4821/2026-07/receipts/x.pdf',
       }),
     ).toEqual({ rows: 2, overflow: false });
-    // One token with no space and no slash, longer than the column: overflow,
-    // and the card refuses to be drawn with it.
-    const unbroken: ShareCardLine = {
-      kind: 'breach',
-      prompt: agent,
-      text: `curl --data=${'A'.repeat(48)}`,
-    };
-    expect(wrapTerminalLine(unbroken).overflow).toBe(true);
-    expect(() => terminalRows(unbroken)).toThrow(/overflow/);
-    expect(() => shareCardElement([...shareCardTranscript().slice(0, 3), unbroken])).toThrow(
-      /overflow/,
-    );
+    // One token with no space and no slash, longer than the column: overflow.
+    // This is the gate: it fails the test run, never the page.
+    expect(wrapTerminalLine(UNBROKEN).overflow).toBe(true);
+    expect(() => terminalRows(UNBROKEN)).toThrow(/overflow/);
   });
+
+  it('never throws at runtime: an overflowing line is cut at its last full row and ends in an ellipsis', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    try {
+      const fitted = fitTerminalLine(UNBROKEN);
+      expect(fitted.text.endsWith('…')).toBe(true);
+      expect(fitted.text.length).toBeLessThan(UNBROKEN.text.length);
+      expect(UNBROKEN.text.startsWith(fitted.text.slice(0, -1))).toBe(true);
+      expect(wrapTerminalLine(fitted).overflow).toBe(false);
+      expect(() => shareCardElement(withUnbroken())).not.toThrow();
+      // Today's lines are drawn exactly as they are.
+      for (const line of shareCardTranscript()) expect(fitTerminalLine(line)).toBe(line);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('still renders a 200 image/png at 1200 by 630 through the runtime path, with one warning', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    try {
+      const response = await renderShareCard(withUnbroken());
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe('image/png');
+      expect([...bytes.slice(0, 8)]).toEqual(PNG_SIGNATURE);
+      expect(pngSize(bytes)).toEqual({ width: 1200, height: 630 });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toMatch(/share card/);
+    } finally {
+      warn.mockRestore();
+    }
+  }, 30_000);
 
   it('measures every glyph at the widest advance Geist Mono has, so it can only overcount', () => {
     const ttf = readFileSync(join(process.cwd(), 'assets', 'og-fonts', 'GeistMono-Regular.ttf'));
