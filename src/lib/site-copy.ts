@@ -7,6 +7,12 @@
  * do through a client module.
  */
 
+/**
+ * Home's headline, the page's one h1 (owner ruling 2026-11-04 17:32). It asks
+ * whether an agent can be turned; MCProof tests that, it does not stop it.
+ */
+export const HOME_HEADLINE = 'Can your AI agent be turned against you?';
+
 /** Home's heading over the compromise figures. */
 export const METRIC_HEADING_COMPROMISE = 'Catching compromises';
 /** Home's heading over the attack-type figure. */

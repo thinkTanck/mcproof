@@ -111,6 +111,42 @@ describe('root metadata URL contract', () => {
     expect(String(metadata.description)).toMatch(/^MCProof tests whether your AI agent/);
   });
 
+  /**
+   * CACHE-BUST (owner ruling 2026-11-04 17:32). LinkedIn caches a card by its
+   * image URL, so the URL carries `?v=` and one constant. Bumping it is the
+   * only way to make a cached card be fetched again.
+   */
+  it('names the share images with ?v= and the one version constant', async () => {
+    const { metadata } = await import('@/app/layout');
+    const { SHARE_CARD_VERSION, SHARE_CARD_ALT, SHARE_CARD_SIZE } =
+      await import('@/lib/og/share-card');
+    expect(SHARE_CARD_VERSION).toMatch(/^\w+$/);
+    const og = (metadata.openGraph as { images?: unknown }).images as {
+      url: string;
+      width: number;
+      height: number;
+      type: string;
+      alt: string;
+    }[];
+    const tw = (metadata.twitter as { images?: unknown }).images as {
+      url: string;
+      alt: string;
+    }[];
+    expect(og).toHaveLength(1);
+    expect(tw).toHaveLength(1);
+    expect(og[0]).toEqual({
+      url: `/opengraph-image?v=${SHARE_CARD_VERSION}`,
+      ...SHARE_CARD_SIZE,
+      type: 'image/png',
+      alt: SHARE_CARD_ALT,
+    });
+    expect(tw[0]).toEqual({ url: `/twitter-image?v=${SHARE_CARD_VERSION}`, alt: SHARE_CARD_ALT });
+    // Absolute on the canonical origin.
+    expect(new URL(og[0]!.url, metadata.metadataBase as URL).href).toBe(
+      `https://mcproof.dev/opengraph-image?v=${SHARE_CARD_VERSION}`,
+    );
+  });
+
   it('pins a metadataBase at the canonical origin so relative URLs resolve', async () => {
     const { metadata } = await import('@/app/layout');
     // Without metadataBase, Next resolves relative OG/canonical URLs against

@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { LINK_PREVIEW_CRAWLERS } from '../../scripts/link-preview-crawlers';
+import { SHARE_CARD_VERSION } from '../../src/lib/og/share-card';
 
 /**
  * LINK PREVIEWS, ON THE REAL SERVER (2026-11-04).
@@ -42,6 +43,8 @@ test.describe('link previews', () => {
       const url = new URL(image!.replace(/&amp;/g, '&'));
       expect(url.protocol).toBe('https:');
       expect(url.pathname).toBe('/opengraph-image');
+      // The cache-busting version, so a crawler that cached the old card fetches this one.
+      expect(url.searchParams.get('v')).toBe(SHARE_CARD_VERSION);
       expect(meta(html, 'og:image:width')).toBe('1200');
       expect(meta(html, 'og:image:height')).toBe('630');
       expect(meta(html, 'og:image:type')).toBe('image/png');
@@ -49,9 +52,9 @@ test.describe('link previews', () => {
       expect(meta(html, 'og:title')).toBeTruthy();
       expect(meta(html, 'og:description')).toBeTruthy();
       expect(meta(html, 'twitter:card')).toBe('summary_large_image');
-      expect(new URL(meta(html, 'twitter:image')!.replace(/&amp;/g, '&')).pathname).toBe(
-        '/twitter-image',
-      );
+      const twitterImage = new URL(meta(html, 'twitter:image')!.replace(/&amp;/g, '&'));
+      expect(twitterImage.pathname).toBe('/twitter-image');
+      expect(twitterImage.searchParams.get('v')).toBe(SHARE_CARD_VERSION);
 
       // The image the tag names, fetched from THIS server: the absolute URL
       // points at the canonical host, which is not the build under test.

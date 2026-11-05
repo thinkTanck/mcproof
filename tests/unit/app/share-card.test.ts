@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import * as ogImage from '@/app/opengraph-image';
-import * as twitterImage from '@/app/twitter-image';
+import * as ogImage from '@/app/opengraph-image/route';
+import * as twitterImage from '@/app/twitter-image/route';
 import {
   SHARE_CARD_ALT,
   SHARE_CARD_COLORS,
@@ -10,6 +10,7 @@ import {
   SHARE_CARD_SIZE,
   SHARE_CARD_TERMINAL_BG,
   SHARE_CARD_TOKENS,
+  SHARE_CARD_VERSION,
   cut,
   mixHex,
   shareCardElement,
@@ -53,21 +54,28 @@ function withUnbroken(): ShareCardLine[] {
   return [...lines.slice(0, 2), UNBROKEN, lines[3]!];
 }
 
+/**
+ * Ask a route handler for the card. The handler reads no request, so the `?v=`
+ * query cannot change what it answers; `tests/e2e/link-preview.spec.ts` asks
+ * the built server for the exact URL the meta tags name, query included.
+ */
 async function render(mod: typeof ogImage) {
-  const response = await mod.default();
+  const response = await mod.GET();
   const bytes = new Uint8Array(await response.arrayBuffer());
   return { response, bytes };
 }
 
 describe('the share card image', () => {
-  it('declares 1200 by 630, PNG, with alt text', () => {
-    expect(ogImage.size).toEqual({ width: 1200, height: 630 });
-    expect(ogImage.contentType).toBe('image/png');
-    expect(ogImage.alt).toBe(SHARE_CARD_ALT);
+  it('is 1200 by 630, PNG, with alt text, at version SHARE_CARD_VERSION', () => {
+    expect(SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 });
     expect(SHARE_CARD_ALT.length).toBeGreaterThan(20);
+    expect(SHARE_CARD_VERSION).toBe('2');
+    // Both are prerendered once, at build: the query never reaches a handler.
+    expect(ogImage.dynamic).toBe('force-static');
+    expect(twitterImage.dynamic).toBe('force-static');
   });
 
-  it('renders a 200 image/png that is really 1200 by 630', async () => {
+  it('answers /opengraph-image with a 200 image/png that is really 1200 by 630', async () => {
     const { response, bytes } = await render(ogImage);
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('image/png');
@@ -75,11 +83,9 @@ describe('the share card image', () => {
     expect(pngSize(bytes)).toEqual({ width: 1200, height: 630 });
   }, 30_000);
 
-  it('is the same image as the Twitter image', async () => {
-    expect(twitterImage.size).toEqual(ogImage.size);
-    expect(twitterImage.contentType).toBe(ogImage.contentType);
-    expect(twitterImage.alt).toBe(ogImage.alt);
+  it('answers /twitter-image with the same image', async () => {
     const [a, b] = await Promise.all([render(ogImage), render(twitterImage)]);
+    expect(b.response.status).toBe(200);
     expect(Buffer.from(b.bytes).equals(Buffer.from(a.bytes))).toBe(true);
   }, 30_000);
 });
