@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as ogImage from '@/app/opengraph-image/route';
@@ -69,10 +70,23 @@ describe('the share card image', () => {
   it('is 1200 by 630, PNG, with alt text, at version SHARE_CARD_VERSION', () => {
     expect(SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 });
     expect(SHARE_CARD_ALT.length).toBeGreaterThan(20);
-    expect(SHARE_CARD_VERSION).toBe('3');
+    expect(SHARE_CARD_VERSION).toBe('4');
     // Both are prerendered once, at build: the query never reaches a handler.
     expect(ogImage.dynamic).toBe('force-static');
     expect(twitterImage.dynamic).toBe('force-static');
+  });
+
+  /**
+   * The picture is unchanged across version bumps (owner ruling 2026-11-05):
+   * only the URL's `?v=` moves. This is the SHA-256 of the card production
+   * served at ?v=2 and ?v=3. A change to the picture changes this hash, and
+   * then needs a ruling and a new version.
+   */
+  it('renders the same bytes production served at ?v=2 and ?v=3', async () => {
+    const { bytes } = await render(ogImage);
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(
+      'cc9f9687045c67d0cc6646de70b191c0faf1ddfa8e34b56d1f2f4a5ad019f59d',
+    );
   });
 
   it('answers /opengraph-image with a 200 image/png that is really 1200 by 630', async () => {

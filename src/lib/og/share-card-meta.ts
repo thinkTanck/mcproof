@@ -10,8 +10,9 @@ export const SHARE_CARD_SIZE = { width: 1200, height: 630 } as const;
  * The card's version, in the image URL as `?v=` (`src/app/layout.tsx`).
  * LinkedIn and others cache a card by its image URL, so change this whenever
  * the card's picture changes, or a link already shared keeps the old one.
+ * Owner ruling 2026-11-05: never bump it again without a ruling.
  */
-export const SHARE_CARD_VERSION = '3';
+export const SHARE_CARD_VERSION = '4';
 
 /**
  * og:title and twitter:title (owner ruling 2026-11-04 19:58): the card asks
