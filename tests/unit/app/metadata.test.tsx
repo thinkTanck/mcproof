@@ -96,6 +96,9 @@ describe('shipped page metadata', () => {
   });
 });
 
+/** The ruled og:title and twitter:title, word for word (2026-11-04 19:58). */
+const SHARE_TITLE_RULED = 'Can your AI agent be turned against you? · MCProof';
+
 describe('root metadata URL contract', () => {
   // LINK PREVIEWS (2026-11-04): the site now ships `opengraph-image` and
   // `twitter-image`, so the card is promoted to the large-image type, and the
@@ -104,9 +107,9 @@ describe('root metadata URL contract', () => {
     const { metadata } = await import('@/app/layout');
     const twitter = metadata.twitter as { card?: string; title?: string; description?: string };
     expect(twitter.card).toBe('summary_large_image');
-    expect(twitter.title).toBe('MCProof · Red-team testing for AI agents that use MCP tools');
+    expect(twitter.title).toBe(SHARE_TITLE_RULED);
     expect(twitter.description).toBe(metadata.description);
-    expect(metadata.openGraph?.title).toBe(metadata.title);
+    expect(metadata.openGraph?.title).toBe(SHARE_TITLE_RULED);
     expect(metadata.openGraph?.description).toBe(metadata.description);
     expect(String(metadata.description)).toMatch(/^MCProof tests whether your AI agent/);
   });
@@ -177,9 +180,26 @@ describe('root metadata URL contract', () => {
     expect(metadata.description).toMatch(/\bone staged attack\b/);
     expect(metadata.description).toMatch(/OWASP Top 10 for Agentic Applications/);
     expect(metadata.description).not.toMatch(/red-team your|trust the verdict/i);
-    expect(metadata.openGraph?.title).toBe(metadata.title);
     expect(metadata.openGraph?.description).toBe(metadata.description);
-    expect(metadata.twitter?.title).toBe(metadata.title);
+  });
+
+  /**
+   * SHARE TITLE (owner ruling 2026-11-04 19:58). og:title and twitter:title
+   * ask the headline's question; the <title> tag and the description stay.
+   */
+  it('gives the social cards the ruled title and leaves the <title> tag as it was', async () => {
+    const { metadata } = await import('@/app/layout');
+    expect(metadata.openGraph?.title).toBe(SHARE_TITLE_RULED);
+    expect(metadata.twitter?.title).toBe(SHARE_TITLE_RULED);
+    expect(metadata.title).toBe('MCProof · Red-team testing for AI agents that use MCP tools');
+    expect(metadata.openGraph?.description).toBe(metadata.description);
+    expect(metadata.twitter?.description).toBe(metadata.description);
+    expect(SHARE_TITLE_RULED).not.toMatch(/[–—]/);
+  });
+
+  it('bumps the share card version to 3 so a cached card is fetched again', async () => {
+    const { SHARE_CARD_VERSION } = await import('@/lib/og/share-card-meta');
+    expect(SHARE_CARD_VERSION).toBe('3');
   });
 
   /**

@@ -11,7 +11,13 @@ export const SHARE_CARD_SIZE = { width: 1200, height: 630 } as const;
  * LinkedIn and others cache a card by its image URL, so change this whenever
  * the card's picture changes, or a link already shared keeps the old one.
  */
-export const SHARE_CARD_VERSION = '2';
+export const SHARE_CARD_VERSION = '3';
+
+/**
+ * og:title and twitter:title (owner ruling 2026-11-04 19:58): the card asks
+ * Home's question. The page's <title> tag is not this; it stays as it was.
+ */
+export const SHARE_TITLE = 'Can your AI agent be turned against you? · MCProof';
 
 /** og:image:alt and twitter:image:alt: what the card shows, in words. */
 export const SHARE_CARD_ALT =
