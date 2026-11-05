@@ -96,6 +96,10 @@ describe('shipped page metadata', () => {
   });
 });
 
+/** The ruled meta, og and twitter description, word for word (2026-11-05). */
+const DESCRIPTION_RULED =
+  'Test whether AI agents can be tricked into misusing their MCP tools. Seven OWASP Agentic attack types, step-by-step replay, and engineer-ready fix reports.';
+
 /** The ruled og:title and twitter:title, word for word (2026-11-04 19:58). */
 const SHARE_TITLE_RULED = 'Can your AI agent be turned against you? · MCProof';
 
@@ -111,7 +115,7 @@ describe('root metadata URL contract', () => {
     expect(twitter.description).toBe(metadata.description);
     expect(metadata.openGraph?.title).toBe(SHARE_TITLE_RULED);
     expect(metadata.openGraph?.description).toBe(metadata.description);
-    expect(String(metadata.description)).toMatch(/^MCProof tests whether your AI agent/);
+    expect(metadata.description).toBe(DESCRIPTION_RULED);
   });
 
   /**
@@ -176,9 +180,19 @@ describe('root metadata URL contract', () => {
   it('carries a title and description into the social cards', async () => {
     const { metadata } = await import('@/app/layout');
     expect(metadata.title).toBe('MCProof · Red-team testing for AI agents that use MCP tools');
-    // Each run is one staged attack from the list (owner ruling 2026-10-15).
-    expect(metadata.description).toMatch(/\bone staged attack\b/);
-    expect(metadata.description).toMatch(/OWASP Top 10 for Agentic Applications/);
+    // The ruled description (owner ruling 2026-11-05), at most 160 characters
+    // in every place it is served.
+    expect(metadata.description).toBe(DESCRIPTION_RULED);
+    expect(metadata.openGraph?.description).toBe(DESCRIPTION_RULED);
+    expect(metadata.twitter?.description).toBe(DESCRIPTION_RULED);
+    for (const d of [
+      metadata.description,
+      metadata.openGraph?.description,
+      metadata.twitter?.description,
+    ]) {
+      expect(String(d).length).toBeLessThanOrEqual(160);
+      expect(String(d)).not.toMatch(/[–—]/);
+    }
     expect(metadata.description).not.toMatch(/red-team your|trust the verdict/i);
     expect(metadata.openGraph?.description).toBe(metadata.description);
   });
@@ -197,9 +211,10 @@ describe('root metadata URL contract', () => {
     expect(SHARE_TITLE_RULED).not.toMatch(/[–—]/);
   });
 
-  it('bumps the share card version to 3 so a cached card is fetched again', async () => {
+  it('bumps the share card version to 4 so a cached card is fetched again', async () => {
+    // Owner ruling 2026-11-05: never bump this again without a ruling.
     const { SHARE_CARD_VERSION } = await import('@/lib/og/share-card-meta');
-    expect(SHARE_CARD_VERSION).toBe('3');
+    expect(SHARE_CARD_VERSION).toBe('4');
   });
 
   /**

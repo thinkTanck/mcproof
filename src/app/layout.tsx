@@ -23,8 +23,9 @@ const geistMono = Geist_Mono({
 });
 
 const TITLE = 'MCProof · Red-team testing for AI agents that use MCP tools';
+/** Meta, og and twitter description (owner ruling 2026-11-05): 160 characters at most. */
 const DESCRIPTION =
-  'MCProof tests whether your AI agent can be tricked into misusing its MCP tools. Each run is one staged attack from the OWASP Top 10 for Agentic Applications (2026). Watch the run step by step and get a fix report when the agent is compromised.';
+  'Test whether AI agents can be tricked into misusing their MCP tools. Seven OWASP Agentic attack types, step-by-step replay, and engineer-ready fix reports.';
 
 /**
  * `metadataBase` is the origin every RELATIVE metadata URL resolves against.
