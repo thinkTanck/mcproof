@@ -49,7 +49,15 @@ test.describe('link previews', () => {
       expect(meta(html, 'og:image:height')).toBe('630');
       expect(meta(html, 'og:image:type')).toBe('image/png');
       expect(meta(html, 'og:image:alt')?.length ?? 0).toBeGreaterThan(20);
-      expect(meta(html, 'og:title')).toBeTruthy();
+      // Owner ruling 2026-11-04 19:58: the cards ask the headline's question,
+      // and the <title> tag is unchanged.
+      expect(meta(html, 'og:title')).toBe('Can your AI agent be turned against you? · MCProof');
+      expect(meta(html, 'twitter:title')).toBe(
+        'Can your AI agent be turned against you? · MCProof',
+      );
+      expect(/<title>([^<]*)<\/title>/.exec(html)?.[1]).toBe(
+        'MCProof · Red-team testing for AI agents that use MCP tools',
+      );
       expect(meta(html, 'og:description')).toBeTruthy();
       expect(meta(html, 'twitter:card')).toBe('summary_large_image');
       const twitterImage = new URL(meta(html, 'twitter:image')!.replace(/&amp;/g, '&'));

@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { BootSplash } from '@/components/splash/BootSplash';
 import { getSiteOrigin } from '@/config/env';
-import { OG_IMAGE, TWITTER_IMAGE } from '@/lib/og/share-card-meta';
+import { OG_IMAGE, SHARE_TITLE, TWITTER_IMAGE } from '@/lib/og/share-card-meta';
 
 /**
  * `display: 'optional'` with next/font's metric-matched fallback: text paints
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'MCProof',
-    title: TITLE,
+    title: SHARE_TITLE,
     description: DESCRIPTION,
     images: [OG_IMAGE],
   },
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   // for every route that does not set its own.
   twitter: {
     card: 'summary_large_image',
-    title: TITLE,
+    title: SHARE_TITLE,
     description: DESCRIPTION,
     images: [TWITTER_IMAGE],
   },

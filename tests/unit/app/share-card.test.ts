@@ -69,7 +69,7 @@ describe('the share card image', () => {
   it('is 1200 by 630, PNG, with alt text, at version SHARE_CARD_VERSION', () => {
     expect(SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 });
     expect(SHARE_CARD_ALT.length).toBeGreaterThan(20);
-    expect(SHARE_CARD_VERSION).toBe('2');
+    expect(SHARE_CARD_VERSION).toBe('3');
     // Both are prerendered once, at build: the query never reaches a handler.
     expect(ogImage.dynamic).toBe('force-static');
     expect(twitterImage.dynamic).toBe('force-static');
