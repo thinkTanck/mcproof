@@ -29,10 +29,10 @@
  * preflight rather than this directly — two gates a caller has to remember to
  * call in the right order is a gate that eventually gets called in the wrong one.
  *
- * Preflight itself is still ahead of the live-run entry point it guards (the
- * `/connect` server action that issues a per-run endpoint and token, and the
- * hosted MCP server behind it), which is being built separately. That is stated
- * rather than papered over: a gate whose caller is imagined is not enforced.
+ * Preflight has a real caller. `liveRunDeps()` (`src/app/api/mcp/host.ts`)
+ * wires `checkLiveRunPreflight` in as the live-run host's `preflight`, and the
+ * host (`./live-run.ts`) calls it twice: in `start()` before the per-run token
+ * is issued, and in `finish()` before the judge. Both calls fail closed.
  *
  * Auth and RLS are untouched — the count is read through the caller's own
  * RLS-scoped repository, so an account can only ever count its own runs.
