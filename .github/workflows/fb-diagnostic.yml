@@ -1,0 +1,42 @@
+# TEMPORARY DIAGNOSTIC (ruling WEBKIT FLAKES BEFORE M2, 2026-11-06). Reproduces
+# the flake on main as it is now: the one failing test, 20 repeats, no retries,
+# in the WebKit project, with per-test durations. Deleted before its PR merges.
+name: fb-diagnostic
+
+on:
+  push:
+    branches: ['fix/fb-legend-settle']
+
+permissions:
+  contents: read
+
+jobs:
+  repeat:
+    name: fb-diagnostic (webkit x20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with e2e fixture routes
+        run: npm run build
+        env:
+          E2E_FIXTURES: '1'
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps webkit
+
+      - name: The failing test, 20 repeats, no retries
+        run: npx playwright test tests/e2e/replay-legend-roles.spec.ts --project=webkit --grep "pressing the rest of a row still selects the step" --repeat-each=20 --retries=0 --reporter=list
+        env:
+          E2E_FIXTURES: '1'
