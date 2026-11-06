@@ -16,6 +16,7 @@ jobs:
   build-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -106,6 +107,7 @@ jobs:
   lighthouse:
     name: CWV · ${{ matrix.screen }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: build-test
     strategy:
       # One screen missing budget must not cancel the other six: the point of
@@ -176,6 +178,7 @@ jobs:
   authed-axe:
     name: Authenticated axe scan
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -268,6 +271,7 @@ jobs:
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [build-test, lighthouse, authed-axe]
     steps:
       - name: All gates passed
