@@ -61,3 +61,4 @@ site_revs/
 # Local working notes for the planning chat and Claude Code (license audit
 # 2026-10-16): never tracked.
 /claude/
+/playwright-report-diagnostics

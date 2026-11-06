@@ -36,7 +36,25 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps webkit
 
-      - name: The failing test, 20 repeats, no retries
+      # The CI failure was the FIRST WebKit page test of its run, in a freshly
+      # launched browser. So first: 20 separate invocations, each launching a new
+      # browser, then 20 repeats in one browser. Every run prints ABOUT-CLOCK.
+      - name: Instrumented, 20 fresh browser launches
+        run: |
+          for i in $(seq 1 20); do
+            npx playwright test -c playwright.diagnostics.config.ts --project=webkit --workers=1 --retries=0 --reporter=list || echo "RUN $i FAILED"
+          done
+        env:
+          E2E_FIXTURES: '1'
+
+      - name: Instrumented, 20 repeats in one browser
+        if: always()
+        run: npx playwright test -c playwright.diagnostics.config.ts --project=webkit --workers=1 --retries=0 --repeat-each=20 --reporter=list
+        env:
+          E2E_FIXTURES: '1'
+
+      - name: The real failing test, 20 repeats, no retries
+        if: always()
         run: npx playwright test tests/e2e/about.spec.ts --project=webkit --grep "plays to the exact final screen" --repeat-each=20 --retries=0 --reporter=list
         env:
           E2E_FIXTURES: '1'
