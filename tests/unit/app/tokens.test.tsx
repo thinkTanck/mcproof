@@ -1060,6 +1060,8 @@ describe('DTCG token layer (globals.css)', () => {
       it.each([
         'src/components/hud/Button.tsx',
         'src/components/hud/ConnectCta.tsx',
+        'src/components/hud/AssessmentCta.tsx',
+        'src/components/hud/BookingLink.tsx',
         'src/components/home/HomeCtas.tsx',
         'src/components/replay/Transport.tsx',
         'src/components/replay/ReplayEmpty.tsx',

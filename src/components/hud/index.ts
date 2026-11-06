@@ -5,4 +5,6 @@ export { StatusChip } from './StatusChip';
 export { Button, type ButtonProps } from './Button';
 export { SentinelCore } from './SentinelCore';
 export { ConnectCta, CONNECT_CTA_HREF, CONNECT_CTA_LABEL } from './ConnectCta';
+export { AssessmentCta, ASSESSMENT_CTA_HREF, ASSESSMENT_CTA_LABEL } from './AssessmentCta';
+export { BookingLink } from './BookingLink';
 export { AsiLabel, RUN_CATEGORY_NAME_ID } from './AsiLabel';

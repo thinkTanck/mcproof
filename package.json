@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:release": "vitest run --config vitest.release.config.ts",
     "test:e2e": "playwright test",
     "audit": "audit-ci --config ./audit-ci.json",
     "db:link": "supabase link --project-ref ovsznqyynlxhrdnfywjx",
