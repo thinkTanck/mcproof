@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { BiznomadReconBanner } from '@/components/banner/BiznomadReconBanner';
 import { BootSplash } from '@/components/splash/BootSplash';
 import { getSiteOrigin } from '@/config/env';
 import { OG_IMAGE, SHARE_TITLE, TWITTER_IMAGE } from '@/lib/og/share-card-meta';
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-dvh antialiased">
+        <BiznomadReconBanner />
         {children}
         {/* First-visit boot splash — a client fade-over that mounts after
             hydration, so it never blocks Home's SSR paint or LCP. */}
