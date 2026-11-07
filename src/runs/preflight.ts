@@ -2,11 +2,11 @@
  * PREFLIGHT — the one gate a live run passes before it costs anything.
  *
  * [ADR-0007](../../docs/adr/0007-access-and-cost-model.md) decided two cost
- * controls, and until now each existed on its own: the per-account lifetime
- * allowance was built but never called, and the global spend cap was designed
- * but never built. Two gates a caller has to remember to call in the right order
- * is a gate that eventually gets called in the wrong one, so they are composed
- * here and a live-run entry point calls exactly this.
+ * controls, and at first each existed on its own: the per-account lifetime
+ * allowance was built before anything called it, and the global spend cap was
+ * designed before it was built. Two gates a caller has to remember to call in
+ * the right order is a gate that eventually gets called in the wrong one, so
+ * they are composed here and a live-run entry point calls exactly this.
  *
  * ── ORDER, AND WHY A REFUSED RUN COSTS NOTHING ──
  *
@@ -38,17 +38,17 @@
  *
  * ── INTEGRATION POINT ──
  *
- * This composes the gates and exposes them. It does NOT invent a caller: the
- * live-run entry point (the `/connect` server action that issues a per-run
- * endpoint and token, and the hosted MCP server behind it) is being built
- * separately, and it calls this after authentication and before it spends:
+ * This composes the gates and exposes them. Its caller is the live-run host:
+ * `liveRunDeps()` (`src/app/api/mcp/host.ts`) passes it in as `preflight`, and
+ * `./live-run.ts` calls it after authentication and before anything is spent,
+ * once in `start()` before the per-run token is issued and again in `finish()`
+ * before the judge:
  *
- *   const user = await requireUser('/connect');
- *   const decision = await checkLiveRunPreflight({
- *     userId: user.id,
- *     accountCreatedAt: user.created_at,   // optional; see below
- *   });
- *   if (!decision.allowed) return { ok: false, ...decision.refusal };
+ *   preflight: async ({ userId, now }) =>
+ *     checkLiveRunPreflight({ userId, ...(now === undefined ? {} : { now }) }),
+ *
+ * A refusal, or a thrown error, stops the run there (`gate()` in
+ * `./live-run.ts` fails closed).
  *
  * `accountCreatedAt` is optional because a run cannot predate its owner's
  * account: omitting it counts from the epoch, which yields the same total and
