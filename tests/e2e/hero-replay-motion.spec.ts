@@ -26,7 +26,10 @@ async function home(page: Page) {
 }
 
 const measure = (page: Page) =>
-  page.evaluate(() => {
+  page.evaluate(async () => {
+    // The box's size depends on the font its text is set in, so no reading is
+    // taken while a web font is still on its way.
+    await document.fonts.ready;
     const r2 = (n: number) => Math.round(n * 100) / 100;
     const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="hero-step"]')];
     const box = rows[0]!.closest<HTMLElement>('[role="img"]')!;
@@ -200,12 +203,23 @@ for (const [width, height] of [
       expect(m.sweepOpacities.every((o) => o === 0)).toBe(true);
       expect(m.accentDisplay).toBe('none');
       expect(m.lightName).toBe('none');
-      // The box is the same size it is with motion on. Same page, no reload, so
-      // the font the visit got cannot change between the two readings.
+
+      // The box is the same size with motion on as with it off: same page, and
+      // both readings taken after a switch of the media setting. Not against
+      // `m`. The fonts are `display: optional`, so when Geist lands after its
+      // block window (a loaded runner) the page is laid out in the fallback, and
+      // Chromium applies the font that has since loaded at the next media query
+      // change and not before. `m` can then be in the fallback while a reading
+      // after a switch is in Geist, one line shorter. Every reading waits for
+      // the fonts (see `measure`), so by the first switch the font has loaded
+      // and both switches lay the box out in the same one.
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       const moving = await measure(page);
-      expect(moving.box).toEqual(m.box);
       expect(moving.accentDisplay).not.toBe('none');
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const still = await measure(page);
+      expect(still.accentDisplay).toBe('none');
+      expect(still.box).toEqual(moving.box);
     });
   });
 }
