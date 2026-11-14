@@ -1,0 +1,42 @@
+# TEMPORARY PROOF (owner ruling 2026-11-13, F-A). The changed spec only,
+# about.spec.ts, 20 repeats, no retries, in chromium, webkit and webkit-desktop.
+# It must be 100%. Deleted, with playwright.fa-proof.config.ts, before the PR merges.
+name: fa-proof
+
+on:
+  push:
+    branches: ['fix/fa-about-final-state']
+
+permissions:
+  contents: read
+
+jobs:
+  repeat:
+    name: fa-proof (${{ matrix.project }} x20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, webkit, webkit-desktop]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps ${{ matrix.project == 'chromium' && 'chromium' || 'webkit' }}
+
+      - name: about.spec.ts, 20 repeats, no retries
+        run: npx playwright test -c playwright.fa-proof.config.ts tests/e2e/about.spec.ts --project=${{ matrix.project }} --repeat-each=20 --retries=0 --reporter=list
