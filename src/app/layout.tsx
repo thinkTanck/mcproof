@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { BootSplash } from '@/components/splash/BootSplash';
-import { getSiteOrigin } from '@/config/env';
+import { getSiteOrigin, isVercelBuild } from '@/config/env';
 import { OG_IMAGE, SHARE_TITLE, TWITTER_IMAGE } from '@/lib/og/share-card-meta';
 
 /**
@@ -77,10 +77,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {/* First-visit boot splash — a client fade-over that mounts after
             hydration, so it never blocks Home's SSR paint or LCP. */}
         <BootSplash />
-        {/* Vercel Web Analytics: page views only, cookie-free, no personal
-            data. One deferred script from this origin (/_vercel/insights), so
-            the content security policy needs no change. */}
-        <Analytics />
+        {/* Vercel Web Analytics: page views only, no cookies, no visitor
+            identified. One deferred script from this origin (/_vercel/insights),
+            so the content security policy needs no change. Mounted only on a
+            Vercel build, the one place that script exists. */}
+        {isVercelBuild() ? <Analytics /> : null}
       </body>
     </html>
   );
