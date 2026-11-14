@@ -3,16 +3,25 @@ import { expectNoWcagViolations, suppressBootSplash } from './support/screen';
 
 /**
  * /about IN A REAL BROWSER (owner rulings 2026-10-18, ABOUT REVISION
- * 2026-10-19, ABOUT FINAL and ABOUT FINAL TITLES 2026-10-20). Motion is
- * checked by its END STATE only: the test waits for the `data-state` the page
- * sets, or for an element's own finite animations to finish, and then reads
- * what is drawn. The playback is read as what the typed layer held, in order,
- * never as a time. No timing is asserted and no timeout is raised. Per the
- * owner's rule, a flaky motion test is a stop, not a re-run.
+ * 2026-10-19, ABOUT FINAL and ABOUT FINAL TITLES 2026-10-20).
  *
- * ONE TERMINAL, PLAYED ON LOAD: `man sentinel`, then `whoami`, then a fresh
- * prompt with the caret.
+ * FINAL STATE ONLY, UNDER REDUCED MOTION (the ABOUT FLAKE 2 fallback, applied
+ * for F-A on 2026-11-13). Every test here runs with `reducedMotion: 'reduce'`
+ * (in `contextOptions`), so the terminal never plays: CSS shows the finished
+ * screen before any script runs, and the page reports `data-state="done"`
+ * once it hydrates. What is checked is what is drawn at the end: the terminal
+ * text, the roadmap cards and the final prompt with its caret. The playback itself (each key at its own
+ * offset, the paragraph rate, the total duration, catching up after a stall)
+ * is timing, and timing is asserted on a faked clock in
+ * `tests/unit/components/about/man-terminal-clock.test.tsx`, never in a
+ * browser. (Waiting in WebKit for a 14.3 s playback to finish was the F-A
+ * flake: on a loaded runner it was still typing at 25 s.)
+ *
+ * ONE TERMINAL: `man sentinel`, then `whoami`, then a fresh prompt with the
+ * caret.
  */
+
+test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
 const VIEWPORTS = [
   { width: 375, height: 667 },
@@ -42,26 +51,7 @@ const FINAL_SCREEN = [
   'visitor@mcproof:~$',
 ];
 
-/** Each line's kind, in order, as the script plays it. */
-const KINDS = [
-  'command',
-  'short',
-  'blank',
-  'short',
-  'short',
-  'blank',
-  'short',
-  'paragraph',
-  'blank',
-  'command',
-  'short',
-  'paragraph',
-  'blank',
-  'prompt',
-] as const;
-
 const terminal = (page: Page) => page.locator('[data-terminal="about"]');
-const DONE = { timeout: 25_000 };
 
 async function open(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize(viewport);
@@ -73,25 +63,13 @@ async function open(page: Page, viewport: { width: number; height: number }) {
 const sideways = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-/** Wait for an element's own finite animations, if any, to finish. No timeout. */
-async function ownAnimationsDone(page: Page, selector: string) {
-  await page.locator(selector).evaluate(async (root) => {
-    const targets = [root, ...root.querySelectorAll('[data-roadmap-card]')];
-    for (const el of targets) void getComputedStyle(el).opacity;
-    const own = targets
-      .flatMap((el) => el.getAnimations())
-      .filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)));
-    await Promise.all(own.map((a) => a.finished.catch(() => undefined)));
-  });
-}
-
-/** Play the page to its end: the terminal, then the roadmap scrolled to. */
-async function playAll(page: Page) {
-  await expect(terminal(page)).toHaveAttribute('data-state', 'done', DONE);
-  const roadmap = page.locator('[data-reveal="roadmap"]');
-  await roadmap.scrollIntoViewIfNeeded();
-  await expect(roadmap).toHaveAttribute('data-state', 'done', DONE);
-  await ownAnimationsDone(page, '[data-reveal="roadmap"]');
+/**
+ * The page has hydrated into its final state. Under reduced motion nothing
+ * plays, so this is the script mounting, not a playback finishing.
+ */
+async function hydratedDone(page: Page) {
+  await expect(terminal(page)).toHaveAttribute('data-state', 'done');
+  await expect(page.locator('[data-reveal="roadmap"]')).toHaveAttribute('data-state', 'done');
 }
 
 /**
@@ -162,71 +140,39 @@ test('the server sends every animated part pending, with every word of the final
 
 for (const viewport of VIEWPORTS) {
   test.describe(`/about at ${viewport.width}x${viewport.height}`, () => {
-    test('plays to the exact final screen: both commands, the man page, the name, the bio, the prompt', async ({
+    test('ends on the exact final screen: both commands, the man page, the name, the bio, the roadmap cards, the prompt', async ({
       page,
     }) => {
       await open(page, viewport);
-      await playAll(page);
+      await hydratedDone(page);
       expect(await readFinished(page)).toEqual(FINISHED);
+      // Every word is in the accessibility tree, from the final layer.
+      const tree = await terminal(page).ariaSnapshot();
+      expect(tree).toContain('MCProof Manual');
+      expect(tree).toContain('Dameion Ayers');
+      expect(tree).toContain('careful consideration.');
     });
 
-    test('prints short lines whole and builds up commands and paragraphs; the final text is always in the accessibility tree', async ({
+    test('the typed layer and the final layer share one box, so the playback cannot change the terminal’s height', async ({
       page,
     }) => {
-      // Record what each typed line held, every time it changed, from the first byte.
-      await page.addInitScript(() => {
-        const w = window as unknown as { __seen: Record<string, string[]> };
-        w.__seen = {};
-        const read = () => {
-          for (const el of document.querySelectorAll<HTMLElement>(
-            '[data-terminal-typed] [data-line-index]',
-          )) {
-            const text = (el.querySelector('[data-line-text]')?.textContent ?? '')
-              .replace(/\s+/g, ' ')
-              .trim();
-            const list = (w.__seen[el.dataset.lineIndex!] ??= []);
-            if (list[list.length - 1] !== text) list.push(text);
-          }
+      await open(page, viewport);
+      await hydratedDone(page);
+      const boxes = await terminal(page).evaluate((t) => {
+        const r = (sel: string) => {
+          const b = t.querySelector(sel)!.getBoundingClientRect();
+          return [b.left, b.top, b.width, b.height].map(Math.round);
         };
-        new MutationObserver(read).observe(document, {
-          subtree: true,
-          childList: true,
-          characterData: true,
-        });
+        return { final: r('[data-terminal-final]'), typed: r('[data-terminal-typed]') };
       });
-      await open(page, viewport);
-      await expect(terminal(page)).toHaveAttribute('data-state', 'typing');
-      // Mid-playback, a reader of the accessibility tree already has every word.
-      const midway = await terminal(page).ariaSnapshot();
-      expect(midway).toContain('Dameion Ayers');
-      expect(midway).toContain('careful consideration.');
-      expect(midway).toContain('MCProof Manual');
-      await expect(terminal(page)).toHaveAttribute('data-state', 'done', DONE);
-
-      const seen = await page.evaluate(
-        () => (window as unknown as { __seen: Record<string, string[]> }).__seen,
-      );
-      for (const [i, kind] of KINDS.entries()) {
-        const full = FINAL_SCREEN[i]!.replace(/^visitor@mcproof:~\$ ?/, '');
-        const history = seen[String(i)] ?? [];
-        expect(history.at(-1), `line ${i} ends whole`).toBe(full);
-        if (kind === 'short') expect(history, `short line ${i} printed whole`).toEqual([full]);
-        if (kind === 'command' || kind === 'paragraph') {
-          expect(history.length, `${kind} ${i} built up`).toBeGreaterThan(2);
-          for (const step of history) expect(full.startsWith(step), `${kind} ${i}`).toBe(true);
-        }
-      }
+      expect(boxes.typed).toEqual(boxes.final);
+      const height = (await terminal(page).boundingBox())!.height;
+      expect(height).toBeGreaterThanOrEqual(boxes.final[3]!);
     });
 
-    test('the playback never changes the terminal’s height', async ({ page }) => {
-      await open(page, viewport);
-      const before = (await terminal(page).boundingBox())!.height;
-      await playAll(page);
-      expect((await terminal(page).boundingBox())!.height).toBe(before);
-    });
-
-    test('reduced motion shows the finished screen at once', async ({ page }) => {
-      await page.emulateMedia({ reducedMotion: 'reduce' });
+    test('reduced motion shows the finished screen at once, before the script hydrates', async ({
+      page,
+    }) => {
       await open(page, viewport);
       expect(await readFinished(page)).toEqual(FINISHED);
     });
@@ -262,7 +208,6 @@ for (const viewport of VIEWPORTS) {
     });
 
     test('has no WCAG violation, finished and at rest', async ({ page }) => {
-      await page.emulateMedia({ reducedMotion: 'reduce' });
       await open(page, viewport);
       await expectNoWcagViolations(page);
     });
@@ -280,7 +225,6 @@ for (const viewport of VIEWPORTS) {
 
 test('the man page header closes up on a phone, with no sideways scroll', async ({ page }) => {
   for (const width of [320, 375]) {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page, { width, height: 700 });
     expect(await sideways(page), `at ${width}`).toBe(0);
     const inside = await page.evaluate(() => {
@@ -298,7 +242,6 @@ test('the man page header closes up on a phone, with no sideways scroll', async 
 
 for (const width of [1024, 1280]) {
   test(`every roadmap card title holds one line at ${width}`, async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page, { width, height: 900 });
     await page.evaluate(() => document.fonts.ready);
     const titles = await page.evaluate(() =>
