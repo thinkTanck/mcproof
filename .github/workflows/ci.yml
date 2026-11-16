@@ -15,7 +15,10 @@ permissions:
 jobs:
   build-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    # Every job names its runner image (T4, 2026-11-15): `ubuntu-latest` moves
+    # to Ubuntu 26 on GitHub's schedule, and the last green main run used
+    # ubuntu-24.04. Move it on purpose, in its own PR.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -106,7 +109,7 @@ jobs:
   # screen in the job title.
   lighthouse:
     name: CWV · ${{ matrix.screen }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: build-test
     strategy:
@@ -177,7 +180,7 @@ jobs:
   # is nothing here that could ship. See `tests/e2e/support/session.ts`.
   authed-axe:
     name: Authenticated axe scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -192,10 +195,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Pinned (T4, 2026-11-15): `latest` asks the GitHub API for the newest
+      # release on every run, and a rate-limited answer failed the job before
+      # any test ran. 3.1.0 is the CLI the last green main run installed (run
+      # 43794434553: its gotrue v2.197.0 and realtime v2.154.0 images are the
+      # ones v3.1.0 pins). Move it on purpose, in its own PR.
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.1.0
+
+      - name: Supabase CLI version
+        run: supabase --version
 
       # Excluded: the services this scan never touches. That is the CI-time bound
       # on this job, and it removes no coverage — the stack still runs Postgres
@@ -270,7 +281,7 @@ jobs:
 
   ci-gate:
     name: CI Gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [build-test, lighthouse, authed-axe]
     steps:
