@@ -216,6 +216,17 @@ export function isGithubOAuthEnabled(env: Env = process.env): boolean {
 }
 
 /**
+ * True when this build runs on Vercel, which sets `VERCEL=1` in every build and
+ * at run time. The root layout mounts Vercel Web Analytics only then: its
+ * script, `/_vercel/insights/script.js`, exists only on Vercel, so a build
+ * anywhere else (CI's e2e server, `next start` locally) requests nothing that
+ * would 404.
+ */
+export function isVercelBuild(env: Env = process.env): boolean {
+  return env.VERCEL === '1';
+}
+
+/**
  * SERVER-ONLY: the Supabase service-role key (bypasses RLS). `null` when auth is
  * not configured; throws when auth IS configured but the key is missing. NEVER
  * call this from browser/client code — it must never reach the bundle.
